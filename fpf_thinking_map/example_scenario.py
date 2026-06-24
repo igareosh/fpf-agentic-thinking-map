@@ -204,7 +204,7 @@ def run_scenario_missing_evidence():
     binding = RuntimeBinding(
         task="decide whether to deploy v2.1.0",
         goal="deploy if safe, escalate if not",
-        actor="Felix",
+        actor="dev_agent",
         actor_role_ids=["analyst"],
         audience="team lead",
         active_context_id="project_delivery",
@@ -290,7 +290,7 @@ def run_scenario_full_traversal():
     binding = RuntimeBinding(
         task="assess and deploy v2.1.0",
         goal="deploy if all evidence present",
-        actor="Felix",
+        actor="dev_agent",
         actor_role_ids=["analyst"],
         active_context_id="project_delivery",
         current_evidence=["test_results", "owner_approval", "rollback_plan"],

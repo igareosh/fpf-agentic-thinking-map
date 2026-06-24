@@ -9,7 +9,7 @@ Rule for this artifact:
 - "Address" means "relation should be represented more explicitly or enforced more directly".
 
 Sources audited in this pass:
-- `/data/workspaces/hesperia_mrt/fpf/input/FPF-Spec.md`
+- `FPF-Spec.md` (external; not included in this repository)
 - Current code in `fpf_thinking_map/`
 
 Legend:

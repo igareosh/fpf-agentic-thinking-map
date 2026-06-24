@@ -27,7 +27,7 @@ def run_logic_scenario():
     binding = RuntimeBinding(
         task="decide whether to deploy v2.1.0",
         goal="deploy if safe",
-        actor="Felix",
+        actor="dev_agent",
         actor_role_ids=["analyst"],
         active_context_id="project_delivery",
         current_evidence=["test_results"],

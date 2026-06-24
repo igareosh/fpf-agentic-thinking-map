@@ -22,14 +22,13 @@ Two sources, both real academic material:
 **Source 1: FPF (First Principles Framework)**
 - A large specification (~51,000 lines) written by university researchers
 - It defines how to structure reasoning about systems: what roles exist, what evidence is needed, what gates must pass, how to transition between states
-- We did NOT copy the whole spec. We extracted 8 specific objects from it and turned them into Python dataclasses
-- The full spec lives at `/data/hesperia/cursor-brain-mirror/FPrincipleF/FPF-Spec.md`
-- Ethan's assessment of it: `archive/governance-2026/FPF-AGENTS-AI-REPORT-ETHAN.md`
+- We did NOT copy the whole spec. We extracted 10 objects from it and turned them into Python dataclasses
+- The full spec is not included in this repository; it is available from the FPF authors
 
 **Source 2: Computational logic lectures (Mitev L.)**
 - 5 lecture PDFs on propositional logic from a university course
 - "Bazele programarii logice" (Fundamentals of Logic Programming)
-- Located at `user_documents/Bazele_progr_logice_Mitev_L/c1p.pdf` through `c5p.pdf`
+- 5 lecture PDFs (c1p through c5p) — not included in this repository
 - We took the 6 basic logic operators (NOT, AND, OR, XOR, IMPLIES, IFF) and built them as Python classes that evaluate against the current state
 - The key pattern we adopted is from lecture 5: the Wumpus World. An agent navigates a grid, uses propositional logic to determine which cells are safe. Same idea here — the model navigates semantic states, uses logic to determine which moves are safe
 
@@ -169,9 +168,9 @@ These constraints are checked at execution time, not just in the display layer:
 ## How to run
 
 ```bash
-# From the repo root (/data/altitudine/prichindel.com):
+# From the repo root:
 
-# Verify the package works (11 checks)
+# Verify the package works (12 checks)
 python -m fpf_thinking_map.verify
 
 # Run the deploy decision scenario
@@ -263,4 +262,4 @@ outcome = engine.step(state, transition_id="start_to_reviewed")
 - `demo_walk()` auto-fires the first available transition. It is for testing and examples only, not for operational use. In real use, the LLM calls `step()` and `attempt_transition()` with explicit choices.
 - Publications are registered on the map but stay out of the step/guard/logic path. They are for publish-type moves only.
 
-SIGNED: Developer (Felix) | Claude Code context | 2026-06-24 | fpf_thinking_map package
+prichindel.com | 2026-06-24 | v1.0.0
