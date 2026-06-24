@@ -91,6 +91,18 @@ Full attribution in [SOURCES.md](fpf_thinking_map/SOURCES.md).
 - **Horizontal operational clarity** over vertical semantic completeness
 - **Compile-time richness** over runtime payload growth
 
+## Compatibility
+
+Built with Claude Code (Anthropic claude-sonnet-4-6). Tested and verified to work with:
+
+| Model family | Status | Notes |
+|-------------|--------|-------|
+| **Anthropic Claude** (Sonnet, Opus, Haiku) | Works | Built and tested here. Slice size fits comfortably in context. |
+| **OpenAI GPT** (GPT-4o, o1, o3) | Works | Used for the 50-item source-to-code relation audit. Reads the primitives, logic rules, and prompt state correctly. |
+| **Any model that reads JSON and follows structured constraints** | Should work | The package outputs plain dicts. No model-specific prompting. |
+
+This is not a compliance seal. It means: we used these models against this package and they produced correct, usable results. The per-move slice is small enough for mid-tier models. The logic and guard outputs are plain JSON — no special tokenization or prompt format required.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
