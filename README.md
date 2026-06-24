@@ -1,6 +1,6 @@
 # prichindel.com Agentic Thinking Map
 
-**v1.0.0** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
+**v1.0.1** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
 
 A Python package that gives an AI model a small, structured board to reason on — one move at a time. Instead of freeform text generation, the model navigates a pre-shaped semantic field with deterministic guards and propositional logic constraints.
 
@@ -31,7 +31,7 @@ python -m fpf_thinking_map.example_logic_scenario
 fpf_thinking_map/
 ├── primitives.py             10 semantic objects from FPF spec
 ├── state.py                  SemanticMap + RuntimeBinding + ActiveState + slice()
-├── guards.py                 9 deterministic guards (context, role, gate, evidence, assignment, speech act)
+├── guards.py                 9 deterministic guards (context, role, gate, evidence, assignment, speech act, readiness)
 ├── logic.py                  6 logic operators + decision rules + LogicLayer
 ├── traversal.py              Step engine with 8 lawful outcomes
 ├── verify.py                 Self-verification harness (12/12 checks)
@@ -40,15 +40,49 @@ fpf_thinking_map/
 ├── README.md                 Full documentation (any-model readable)
 ├── SOURCES.md                Source attribution (FPF spec + Mitev lectures)
 ├── FPF_SOURCE_TO_CODE_RELATION_AUDIT.md   50-item relation audit
-└── FPF_AUDIT_RESPONSE.md     Audit response with design decisions
+├── FPF_AUDIT_RESPONSE.md     Audit response with design decisions
+├── REJECTED_C32_CANDIDATE_SYNTHESIS.md    C.32 rejection (activation bias)
+└── REJECTED_NQD_OEE_CULTURAL_EVOLUTION.md NQD/OEE rejection (bias injector)
 ```
+
+## Relationship to ailev/FPF
+
+This package is built on [ailev/FPF](https://github.com/ailev/FPF) by Anatoly Levenchuk. It is an independent implementation — our own research and code, MIT-licensed, with further development rights.
+
+### What we reviewed
+
+We cross-checked the following FPF commits (June 2026 precision restoration cluster) against our code:
+
+- [`20c8a0a`](https://github.com/ailev/FPF/commit/20c8a0a) — ontic, declarative algorithms, method-work cleanup
+- [`205de76`](https://github.com/ailev/FPF/commit/205de76) — role and method ontic refactoring
+- [`cf12b97`](https://github.com/ailev/FPF/commit/cf12b97) — U-kinds+ontics normalization
+- [`fe0df9d`](https://github.com/ailev/FPF/commit/fe0df9d) — holons and meta-holon transition normalization
+- [`3becd8e`](https://github.com/ailev/FPF/commit/3becd8e) — MOVE precision restoration
+- [`b74ecf2`](https://github.com/ailev/FPF/commit/b74ecf2) — move disambiguation full corpus scan
+
+**Verdict**: the FPF precision restoration confirms our existing design choices rather than contradicting them. His semantics got closer to what we already built.
+
+### What we adopted
+
+One item passed our scope filter:
+
+- **A.15.5 Work-Entry Readiness** — "is everything ready to even start this work?" is a different question from "does the gate pass?" Added as `readiness_refs` on transitions, enforced as a guard condition. Thin enough to be a guard, not a new primitive.
+
+### What we rejected
+
+Two FPF pattern families rejected for activation bias — they amplify existing LLM priors instead of constraining them:
+
+- **C.32 Candidate-Synthesis Logic** ([`10cd224`](https://github.com/ailev/FPF/commit/10cd224cef9c92043fb6821e165decd6ea05073f)) — variant racing, tradeoff-seeking, candidate-multiplying. These are motion patterns, not neutral semantic relations. See [REJECTED_C32_CANDIDATE_SYNTHESIS.md](fpf_thinking_map/REJECTED_C32_CANDIDATE_SYNTHESIS.md).
+- **NQD/OEE/Cultural Evolution** (C.17–C.19, A.4) — novelty-seeking, diversity-maintaining, search-front expanding. Same activation bias class. See [REJECTED_NQD_OEE_CULTURAL_EVOLUTION.md](fpf_thinking_map/REJECTED_NQD_OEE_CULTURAL_EVOLUTION.md).
+
+**Design rule**: the map evaluates and constrains moves. It does not propose them. Generative, branch-friendly, candidate-multiplying patterns are the opposite of what a per-move guard-constrained thinking map should contain.
 
 ## Sources
 
-- **[FPF (First Principles Framework)](https://github.com/ailev/FPF)** by Anatoly Levenchuk — transdisciplinary specification for reasoning, assurance, and evolution (~51k lines, "operating system for thought"). We extracted 10 semantic primitives and 9 guard rules from the FPF spec. This package is a compiled distillation for agentic use, not a port of the full framework. The original spec and its Python tooling live in the [ailev/FPF](https://github.com/ailev/FPF) repository.
-- **Computational logic (Mitev L.)** — university lecture series "Bazele programarii logice" (Fundamentals of Logic Programming). 6 propositional logic operators (NOT, AND, OR, XOR, IMPLIES, IFF) and the Wumpus World agent navigation pattern adopted from lectures c1p–c5p.
+- **[FPF (First Principles Framework)](https://github.com/ailev/FPF)** by Anatoly Levenchuk — transdisciplinary specification (~51k lines). We extracted 10 semantic primitives and 9 guard rules. This is a compiled distillation, not a port.
+- **Computational logic (Mitev L.)** — "Bazele programarii logice." 6 propositional logic operators and the Wumpus World agent navigation pattern.
 
-Full attribution with spec-section-to-code mapping in [SOURCES.md](fpf_thinking_map/SOURCES.md).
+Full attribution in [SOURCES.md](fpf_thinking_map/SOURCES.md).
 
 ## Design principles
 
@@ -63,4 +97,4 @@ MIT. See [LICENSE](LICENSE).
 
 ---
 
-**prichindel.com** — v1.0.0 — 2026-06-24
+**prichindel.com** — v1.0.1 — 2026-06-24
