@@ -211,11 +211,12 @@ class ActiveState:
         return self.semantic_map.gates.get(t.required_gate_id)
 
     def missing_evidence_for(self, transition_id: str) -> list[str]:
-        """#3/#7: per-transition evidence check, not context-wide."""
+        """#3/#7: per-transition evidence + readiness check."""
         t = self.semantic_map.transitions.get(transition_id)
         if not t:
             return []
         needed: set[str] = set(t.required_evidence)
+        needed.update(t.readiness_refs)
         if t.required_gate_id:
             gate = self.semantic_map.gates.get(t.required_gate_id)
             if gate:
@@ -244,6 +245,9 @@ class ActiveState:
             return False
         if t.required_evidence:
             if set(t.required_evidence) - self.available_evidence_ids:
+                return False
+        if t.readiness_refs:
+            if set(t.readiness_refs) - self.available_evidence_ids:
                 return False
         if t.required_gate_id:
             gate = self.semantic_map.gates.get(t.required_gate_id)

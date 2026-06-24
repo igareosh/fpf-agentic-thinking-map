@@ -361,6 +361,7 @@ class TransitionPrimitive:
     to_state: str
     required_gate_id: str | None = None
     required_evidence: list[str] = field(default_factory=list)
+    readiness_refs: list[str] = field(default_factory=list)
     guard_expression: str = ""
 
 
