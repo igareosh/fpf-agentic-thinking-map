@@ -1,0 +1,18 @@
+[project]
+name = "fpf-thinking-map"
+version = "1.0.0"
+description = "FPF compiled into an agentic thinking map with propositional logic glue"
+readme = "fpf_thinking_map/README.md"
+license = {text = "MIT"}
+requires-python = ">=3.12"
+authors = [
+    {name = "prichindel.com", email = "igareosh@igareosh.com"},
+]
+keywords = ["fpf", "agentic", "thinking-map", "propositional-logic", "llm"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["fpf_thinking_map*"]

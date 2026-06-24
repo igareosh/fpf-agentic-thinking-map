@@ -1,0 +1,266 @@
+# FPF Thinking Map
+
+This folder contains a Python package that helps an AI model make decisions step by step. It does this by combining two things: a structured framework for reasoning (called FPF) and basic logic operations (AND, OR, NOT, etc.) from computer science.
+
+No external dependencies. Pure Python 3.12+. No pip install needed.
+
+## What problem this solves
+
+When you give an AI model a question like "should we deploy this release?", the model can answer anything. It might forget to check if tests passed. It might skip asking for approval. It might say "deploy" and "collect more evidence" in the same breath.
+
+This package gives the model a small, structured board to reason on. The board has:
+- facts about the current situation (what evidence exists, what gates are open)
+- rules about what is allowed (you cannot deploy without approval)
+- logic checks that are deterministic (the model cannot override them)
+
+The model reads the board, then picks from a fixed set of moves: continue, ask, abstain, escalate, collect evidence, etc.
+
+## Where this comes from
+
+Two sources, both real academic material:
+
+**Source 1: FPF (First Principles Framework)**
+- A large specification (~51,000 lines) written by university researchers
+- It defines how to structure reasoning about systems: what roles exist, what evidence is needed, what gates must pass, how to transition between states
+- We did NOT copy the whole spec. We extracted 8 specific objects from it and turned them into Python dataclasses
+- The full spec lives at `/data/hesperia/cursor-brain-mirror/FPrincipleF/FPF-Spec.md`
+- Ethan's assessment of it: `archive/governance-2026/FPF-AGENTS-AI-REPORT-ETHAN.md`
+
+**Source 2: Computational logic lectures (Mitev L.)**
+- 5 lecture PDFs on propositional logic from a university course
+- "Bazele programarii logice" (Fundamentals of Logic Programming)
+- Located at `user_documents/Bazele_progr_logice_Mitev_L/c1p.pdf` through `c5p.pdf`
+- We took the 6 basic logic operators (NOT, AND, OR, XOR, IMPLIES, IFF) and built them as Python classes that evaluate against the current state
+- The key pattern we adopted is from lecture 5: the Wumpus World. An agent navigates a grid, uses propositional logic to determine which cells are safe. Same idea here — the model navigates semantic states, uses logic to determine which moves are safe
+
+## What is in each file
+
+```
+fpf_thinking_map/
+│
+├── primitives.py            The 8 objects extracted from FPF
+├── state.py                 How inputs get bound and state gets tracked
+├── guards.py                6 hard rules the model cannot break
+├── logic.py                 6 logic operators + decision rules
+├── traversal.py             The engine that runs one step at a time
+├── verify.py                Self-test: run it, if 11/11 pass, package works
+│
+├── example_scenario.py      Worked example: "should we deploy?"
+├── example_logic_scenario.py Worked example: all 6 logic operators in action
+│
+├── __init__.py              Package exports
+├── README.md                This file
+└── SOURCES.md               Detailed source attribution
+```
+
+## The 8 objects from FPF (primitives.py)
+
+These are Python dataclasses. Each one was extracted from a specific section of the FPF spec.
+
+| Object | What it is | Plain example |
+|--------|-----------|---------------|
+| `ContextPrimitive` | A bounded area where words have specific meanings | "Project Delivery" context where "deploy" means "push to production" |
+| `RolePrimitive` | A role someone plays in a context, with conflicts | "Analyst" role — cannot also be "Approver" (separation of duties) |
+| `WorkPrimitive` | A record of something planned or actually done | "Deployment plan" (plan) vs "Deployment executed at 3pm" (enactment) |
+| `CommitmentPrimitive` | A rule: MUST, SHOULD, or MAY do something | "MUST have test results before deploying" |
+| `GatePrimitive` | A checkpoint with pass/degrade/abstain outcome | "Deployment gate" — checks if tests passed AND approval obtained |
+| `EvidencePrimitive` | A piece of evidence with a trust score (F-G-R) | "Test results from CI pipeline" — formality: 0.8, reliability: 0.9 |
+| `TransitionPrimitive` | A move from one state to another, may require a gate | "ready_for_decision → deploying" requires deploy_gate to pass |
+| `PublicationPrimitive` | A way to show results to an audience | "Assurance view for stakeholders" — only available after gate passes |
+
+## The 6 logic operators (logic.py)
+
+These are the standard logic operators from computer science. They evaluate to true or false against the current state.
+
+| Operator | Symbol | What it checks | Example |
+|----------|--------|---------------|---------|
+| NOT | ¬ | The opposite | `NOT(evidence exists)` → true when evidence is missing |
+| AND | ∧ | Both must be true | `tests_pass AND approval_obtained` → true only when both exist |
+| OR | ∨ | At least one true | `rollback_plan OR not_at_deploy` → true if either holds |
+| XOR | ⊕ | Exactly one true | `analyst XOR approver` → true when exactly one role is active |
+| IMPLIES | → | If A then B | `gate_blocked IMPLIES gaps_exist` → false only when gate is blocked but no gaps |
+| IFF | ↔ | Both same value | `ready_state IFF gate_passes` → true when both true or both false |
+
+These get composed into `DecisionRule` objects. Each rule has:
+- a `name`
+- a `condition` (composed from the operators above)
+- an `action_if_true` and optional `action_if_false`
+- a `kind`: block, warn, route, or hint
+- `tags` for filtering (so you can evaluate only "deploy" rules, or only "roles" rules)
+- `exclusive_with` for contradiction detection
+
+Rules are collected in a `LogicLayer` and evaluated together. The layer checks for consistency (no contradictory actions firing at the same time).
+
+## The 6 guards (guards.py)
+
+These are hard constraints. The model cannot override them. If a guard says DENY, the action is blocked.
+
+| Guard | What it prevents |
+|-------|-----------------|
+| `commitment_evidence` | You cannot claim a MUST commitment is met without the evidence it requires |
+| `planning_not_enactment` | Having a plan does not mean the work is done — cannot transition to "done" without enactment records |
+| `role_conflict` | Two incompatible roles cannot be active at the same time (e.g., analyst and approver) |
+| `gate_pass` | If a transition requires a gate and the gate abstains (insufficient evidence), the transition is blocked |
+| `scope_check` | You cannot act in another context without an explicit bridge between contexts |
+| `evidence_freshness` | Stale or expired evidence triggers a warning |
+
+Each guard has a `GuardScope` (TRANSITION, ROLE, EVIDENCE, or GLOBAL). The engine can evaluate only guards relevant to a specific move.
+
+## How a step works (traversal.py)
+
+```
+Input: an ActiveState (context + role + evidence + current position)
+       optionally: a specific transition_id to focus on
+
+1. Check: is there an active context? If not → CHANGE_FRAME
+2. Evaluate logic rules (filtered by tags if given)
+   - If rules contradict each other → ABSTAIN
+3. Run guards (scoped to the transition if given)
+   - If any guard says DENY and evidence is missing → COLLECT_EVIDENCE
+   - If any guard says DENY and no evidence path → ABSTAIN
+4. Check for missing evidence on current transitions
+   - If gaps exist → COLLECT_EVIDENCE
+5. Check if transitions exist from current state
+   - If no transitions and no actions → ASK
+   - If transitions available → CONTINUE
+
+Output: an Outcome with:
+  - kind: continue / ask / abstain / escalate / publish / revise_plan / collect_evidence / change_frame
+  - reason: why this outcome
+  - missing_evidence: what is needed (if applicable)
+  - warnings: non-blocking issues
+  - llm_prompt_state: the JSON the model reads to decide its next move
+```
+
+When `transition_id` is given, the model gets a `slice()` — a tiny dict with just the move, its gate, its evidence, and whether it can fire. That is the per-move maneuver board.
+
+## How state works (state.py)
+
+Three objects:
+
+**SemanticMap** — the static board. You register all your primitives here once. It does not change during a run.
+
+**RuntimeBinding** — the input variables for one question/task. Includes:
+- `task`, `goal`, `actor`
+- `actor_role_ids` — which roles are active (must be explicitly listed, not inferred)
+- `active_context_id` — which context we are in
+- `current_evidence` — what evidence is available right now
+- `risk_level` — low / normal / high / critical
+- `candidate_actions`, `constraints`, `available_tools`, `audience`
+
+**ActiveState** — the live state. Combines the map + binding + current position. Properties:
+- `active_roles` — only roles that match both the binding AND the active context (no cross-context leakage)
+- `possible_transitions` — only transitions in the active context from the current state
+- `missing_evidence_for(transition_id)` — what this specific move needs that we don't have
+- `slice(transition_id)` — tiny dict for one move
+- `transition_to(transition_id)` — execute a transition (checks context, evidence, and gates)
+
+**MoveTrace** — compressed history. Only stores last move, not full history: previous_state, last_transition_id, blockers, evidence_delta.
+
+## Boundary rules (enforced, not advisory)
+
+These constraints are checked at execution time, not just in the display layer:
+
+1. **A transition from context B cannot execute when context A is active.** Both `attempt_transition()` and `transition_to()` check context match.
+2. **A transition with `required_evidence` cannot execute if that evidence is missing.** Both `attempt_transition()` and `transition_to()` enforce this.
+3. **Bound roles are validated against the active context.** A role from context B will not appear in `active_roles` when context A is active.
+4. **Risk-sensitive logic rules are skipped at normal/low risk.** Only evaluated when risk is high or critical.
+
+## How to run
+
+```bash
+# From the repo root (/data/altitudine/prichindel.com):
+
+# Verify the package works (11 checks)
+python -m fpf_thinking_map.verify
+
+# Run the deploy decision scenario
+python -m fpf_thinking_map.example_scenario
+
+# Run the logic operators scenario with truth table
+python -m fpf_thinking_map.example_logic_scenario
+```
+
+All three should run without errors. `verify` exits 0 on success, 1 on failure.
+
+## How to build a new domain
+
+Step 1: Create a `SemanticMap` and register your primitives.
+
+```python
+from fpf_thinking_map.state import SemanticMap, RuntimeBinding
+from fpf_thinking_map.primitives import (
+    ContextPrimitive, RolePrimitive, GatePrimitive, GateCheck,
+    EvidencePrimitive, TransitionPrimitive, Freshness, FGR,
+)
+
+sm = SemanticMap()
+sm.register_context(ContextPrimitive(
+    context_id="my_domain",
+    label="My Domain",
+    glossary={"review": "check code for correctness"},
+))
+sm.register_role(RolePrimitive("reviewer", "Reviewer", "my_domain"))
+sm.register_gate(GatePrimitive("review_gate", "Review Gate", "my_domain", checks=[
+    GateCheck("tests", "Tests must pass", required_evidence=["test_results"]),
+]))
+sm.register_transition(TransitionPrimitive(
+    "start_to_reviewed", "Start → Reviewed", "my_domain",
+    from_state="start", to_state="reviewed",
+    required_gate_id="review_gate",
+    required_evidence=["test_results"],
+))
+```
+
+Step 2: Optionally create logic rules.
+
+```python
+from fpf_thinking_map.logic import (
+    LogicLayer, DecisionRule, RuleKind,
+    EvidencePresent, GatePasses,
+)
+
+logic = LogicLayer()
+logic.add_rule(DecisionRule(
+    name="review_ready",
+    condition=EvidencePresent("test_results").AND(GatePasses("review_gate")),
+    action_if_true="proceed_to_review",
+    action_if_false="not_ready",
+    kind=RuleKind.ROUTE,
+    tags=["review"],
+))
+```
+
+Step 3: Create the engine and run a step.
+
+```python
+from fpf_thinking_map.traversal import ThinkingMapTraversal
+
+engine = ThinkingMapTraversal(sm, logic_layer=logic)
+binding = RuntimeBinding(
+    task="review PR #42",
+    actor_role_ids=["reviewer"],
+    active_context_id="my_domain",
+    current_evidence=["test_results"],
+)
+state = engine.build_active_state(binding, current_state="start")
+outcome = engine.step(state, transition_id="start_to_reviewed")
+# outcome.kind → OutcomeKind.CONTINUE (if evidence and gate pass)
+# outcome.llm_prompt_state → the JSON for the model to read
+```
+
+## What this is NOT
+
+- Not a prompt template or system prompt
+- Not a retrieval/RAG system for FPF text
+- Not a replacement for the full FPF spec (51k lines — we extracted 8 objects)
+- Not a symbolic AI / expert system (the LLM interprets; logic + guards constrain)
+- Not a framework to build on top of — it is a small self-contained package
+
+## Known design decisions
+
+- `satisfied: true` on a vacuously true implication (antecedent false → implication holds trivially) is mathematically correct. The action is suppressed on HINT/WARN rules, so the model sees no misleading instruction. The `satisfied` flag itself stays honest.
+- `demo_walk()` auto-fires the first available transition. It is for testing and examples only, not for operational use. In real use, the LLM calls `step()` and `attempt_transition()` with explicit choices.
+- Publications are registered on the map but stay out of the step/guard/logic path. They are for publish-type moves only.
+
+SIGNED: Developer (Felix) | Claude Code context | 2026-06-24 | fpf_thinking_map package
