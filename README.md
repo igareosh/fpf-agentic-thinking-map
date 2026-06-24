@@ -1,6 +1,6 @@
 # prichindel.com Agentic Thinking Map
 
-**v1.0.0** — FPF (First Principles Framework) compiled into a semi-formal thinking map for agentic AI guidance.
+**v1.0.0** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
 
 A Python package that gives an AI model a small, structured board to reason on — one move at a time. Instead of freeform text generation, the model navigates a pre-shaped semantic field with deterministic guards and propositional logic constraints.
 
@@ -45,10 +45,10 @@ fpf_thinking_map/
 
 ## Sources
 
-- **FPF (First Principles Framework)** — university-authored transdisciplinary specification (~51k lines). 10 objects and 9 guard rules extracted.
-- **Computational logic (Mitev L.)** — university lecture series. 6 propositional logic operators and the Wumpus World agent navigation pattern adopted.
+- **[FPF (First Principles Framework)](https://github.com/ailev/FPF)** by Anatoly Levenchuk — transdisciplinary specification for reasoning, assurance, and evolution (~51k lines, "operating system for thought"). We extracted 10 semantic primitives and 9 guard rules from the FPF spec. This package is a compiled distillation for agentic use, not a port of the full framework. The original spec and its Python tooling live in the [ailev/FPF](https://github.com/ailev/FPF) repository.
+- **Computational logic (Mitev L.)** — university lecture series "Bazele programarii logice" (Fundamentals of Logic Programming). 6 propositional logic operators (NOT, AND, OR, XOR, IMPLIES, IFF) and the Wumpus World agent navigation pattern adopted from lectures c1p–c5p.
 
-Full attribution in [SOURCES.md](fpf_thinking_map/SOURCES.md).
+Full attribution with spec-section-to-code mapping in [SOURCES.md](fpf_thinking_map/SOURCES.md).
 
 ## Design principles
 

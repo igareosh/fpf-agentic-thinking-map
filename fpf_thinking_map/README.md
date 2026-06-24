@@ -19,11 +19,11 @@ The model reads the board, then picks from a fixed set of moves: continue, ask, 
 
 Two sources, both real academic material:
 
-**Source 1: FPF (First Principles Framework)**
-- A large specification (~51,000 lines) written by university researchers
+**Source 1: [FPF (First Principles Framework)](https://github.com/ailev/FPF)**
+- A transdisciplinary specification (~51,000 lines) by Anatoly Levenchuk — "operating system for thought"
 - It defines how to structure reasoning about systems: what roles exist, what evidence is needed, what gates must pass, how to transition between states
 - We did NOT copy the whole spec. We extracted 10 objects from it and turned them into Python dataclasses
-- The full spec is not included in this repository; it is available from the FPF authors
+- The full spec lives in the [ailev/FPF](https://github.com/ailev/FPF) repository
 
 **Source 2: Computational logic lectures (Mitev L.)**
 - 5 lecture PDFs on propositional logic from a university course

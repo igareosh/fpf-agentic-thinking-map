@@ -4,10 +4,13 @@ This package was built from two academic sources. Nothing was invented. Everythi
 
 ## Source 1: FPF (First Principles Framework)
 
-A large specification written by university researchers. It defines how to structure reasoning about systems, roles, evidence, and decisions.
+A transdisciplinary specification for reasoning, assurance, and evolution — an "operating system for thought."
 
-- **Full spec**: `FPF-Spec.md` (~51,000 lines) — not included in this repository; available from the FPF authors
-- **Prior Python model**: `py-fpf` (basic graph model with CSV artifacts — not used directly, but informed the design)
+- **Author**: Anatoly Levenchuk (with LLM assistance)
+- **Repository**: [github.com/ailev/FPF](https://github.com/ailev/FPF)
+- **Spec**: `FPF-Spec.md` (~51,000 lines) — not included in this repository; see the original repo
+- **Status**: Normative kernel, "eternal alpha" — used in working projects
+- **Prior Python model**: `py-fpf` in the original repo (basic graph model with CSV artifacts — not used directly, but informed the design)
 
 ### What we took from FPF and where it is in the spec
 
