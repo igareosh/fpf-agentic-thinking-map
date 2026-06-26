@@ -11,7 +11,7 @@ Horizontal design (#1-#7, #14-#15, #22-#24):
 - Slice method returns tiny per-move submap
 - Trace keeps only last move, not full history
 
-v1.1 additions:
+v1.1.1 additions:
 - TTL evidence decay via step counter
 - Bridge precomputation for cross-context escape
 - Slice blockers for HITL visibility

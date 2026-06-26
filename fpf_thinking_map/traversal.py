@@ -9,7 +9,7 @@ Horizontal design (#6, #25):
 - step() takes optional transition_id — evaluates one move, not the whole board
 - demo_walk() replaces full_run() — explicitly a demo, not operational
 
-v1.1 additions:
+v1.1.1 additions:
 - IDLE outcome for clean terminal states (no transitions, no actions, at rest)
 - BRIDGE outcome for cross-context escape via precomputed bridges
 - Step counter increments per step() call (drives TTL evidence decay)

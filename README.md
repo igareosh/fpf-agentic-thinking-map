@@ -1,6 +1,6 @@
 # prichindel.com Agentic Thinking Map
 
-**v1.1.0** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
+**v1.1.1** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
 
 A Python package that gives an AI model a small, structured board to reason on — one move at a time. Instead of freeform text generation, the model navigates a pre-shaped semantic field with deterministic guards and propositional logic constraints.
 
@@ -15,7 +15,7 @@ The model's job is not "what does FPF mean?" — it is: **given this semantic ma
 ```bash
 # No dependencies. Python 3.12+.
 
-# Verify the package (12 checks)
+# Verify the package (16 checks)
 python -m fpf_thinking_map.verify
 
 # Run the deploy decision scenario
@@ -84,7 +84,7 @@ Two FPF pattern families rejected for activation bias — they amplify existing 
 
 Full attribution in [SOURCES.md](fpf_thinking_map/SOURCES.md).
 
-## v1.1.0 changes
+## v1.1.1 changes
 
 - **TTL evidence decay** — `EvidencePrimitive.ttl_steps` + step counter on `ActiveState`. Evidence that was fresh at bind time degrades to STALE/EXPIRED as traversal steps accumulate. The freshness guard catches it. No more static evidence that stays green forever across a 10-step traversal.
 - **IDLE outcome** — `OutcomeKind.IDLE` distinguishes "at rest, nothing actionable" from "stuck, need input" (ASK). When no transitions, no actions, no bridges exist — the map is done, not broken.
@@ -116,4 +116,4 @@ MIT. See [LICENSE](LICENSE).
 
 ---
 
-**prichindel.com** — v1.1.0 — 2026-06-26
+**prichindel.com** — v1.1.1 — 2026-06-26
