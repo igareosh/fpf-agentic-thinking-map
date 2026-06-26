@@ -10,6 +10,11 @@ Horizontal design (#1-#7, #14-#15, #22-#24):
 - Evidence gaps computed per-transition, not context-wide
 - Slice method returns tiny per-move submap
 - Trace keeps only last move, not full history
+
+v1.1 additions:
+- TTL evidence decay via step counter
+- Bridge precomputation for cross-context escape
+- Slice blockers for HITL visibility
 """
 
 from __future__ import annotations
@@ -74,6 +79,17 @@ class SemanticMap:
     evidence: dict[str, EvidencePrimitive] = field(default_factory=dict)
     transitions: dict[str, TransitionPrimitive] = field(default_factory=dict)
     publications: dict[str, PublicationPrimitive] = field(default_factory=dict)
+    _ctx_transition_idx: dict[str, dict[str, list[TransitionPrimitive]]] | None = field(
+        default=None, init=False, repr=False,
+    )
+
+    def _ensure_indexes(self) -> None:
+        if self._ctx_transition_idx is None:
+            idx: dict[str, dict[str, list[TransitionPrimitive]]] = {}
+            for t in self.transitions.values():
+                ctx = idx.setdefault(t.context_id, {})
+                ctx.setdefault(t.from_state, []).append(t)
+            self._ctx_transition_idx = idx
 
     def register_context(self, ctx: ContextPrimitive) -> None:
         self.contexts[ctx.context_id] = ctx
@@ -104,6 +120,7 @@ class SemanticMap:
 
     def register_transition(self, t: TransitionPrimitive) -> None:
         self.transitions[t.transition_id] = t
+        self._ctx_transition_idx = None
 
     def register_publication(self, p: PublicationPrimitive) -> None:
         self.publications[p.publication_id] = p
@@ -113,10 +130,9 @@ class SemanticMap:
 
     def transitions_for(self, context_id: str, from_state: str) -> list[TransitionPrimitive]:
         """#1: transitions scoped to context AND state — no cross-context leakage."""
-        return [
-            t for t in self.transitions.values()
-            if t.context_id == context_id and t.from_state == from_state
-        ]
+        self._ensure_indexes()
+        assert self._ctx_transition_idx is not None
+        return list(self._ctx_transition_idx.get(context_id, {}).get(from_state, []))
 
     def gates_for_transitions(
         self, transitions: list[TransitionPrimitive],
@@ -124,6 +140,31 @@ class SemanticMap:
         """#2: only gates referenced by these transitions — no ambient scanning."""
         gate_ids = {t.required_gate_id for t in transitions if t.required_gate_id}
         return [self.gates[gid] for gid in gate_ids if gid in self.gates]
+
+    def bridge_options(self, context_id: str) -> list[dict[str, Any]]:
+        """Precomputed bridge targets with available entry states.
+
+        For each bridge from context_id, checks whether the target context
+        has any transitions. Returns target info + entry states for the agent.
+        """
+        self._ensure_indexes()
+        assert self._ctx_transition_idx is not None
+        ctx = self.contexts.get(context_id)
+        if not ctx:
+            return []
+        options: list[dict[str, Any]] = []
+        for bridge in ctx.bridges_to:
+            target_id = bridge.target_context_id
+            target_states = self._ctx_transition_idx.get(target_id, {})
+            if target_states:
+                options.append({
+                    "target_context": target_id,
+                    "translation_loss": bridge.translation_loss,
+                    "mapping": bridge.mapping,
+                    "substitution_license": bridge.substitution_license,
+                    "entry_states": sorted(target_states.keys()),
+                })
+        return options
 
 
 @dataclass
@@ -146,6 +187,13 @@ class ActiveState:
     binding: RuntimeBinding
     current_state: str = "initial"
     trace: MoveTrace = field(default_factory=MoveTrace)
+    step_count: int = 0
+    _evidence_added_at: dict[str, int] = field(default_factory=dict, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        for eid in self.binding.current_evidence:
+            if eid not in self._evidence_added_at:
+                self._evidence_added_at[eid] = 0
 
     @property
     def active_context(self) -> ContextPrimitive | None:
@@ -196,6 +244,25 @@ class ActiveState:
     @property
     def available_evidence_ids(self) -> set[str]:
         return set(self.binding.current_evidence)
+
+    def effective_freshness(self, evidence_id: str) -> Freshness:
+        """Compute freshness factoring in TTL decay over traversal steps.
+
+        Static freshness is the floor. TTL can only degrade, never improve.
+        age >= ttl_steps → STALE, age >= 2×ttl_steps → EXPIRED.
+        """
+        ev = self.semantic_map.evidence.get(evidence_id)
+        if not ev:
+            return Freshness.UNKNOWN
+        if ev.ttl_steps is not None and evidence_id in self._evidence_added_at:
+            age = self.step_count - self._evidence_added_at[evidence_id]
+            if age >= ev.ttl_steps * 2:
+                return Freshness.EXPIRED
+            if age >= ev.ttl_steps:
+                if ev.freshness == Freshness.EXPIRED:
+                    return Freshness.EXPIRED
+                return Freshness.STALE
+        return ev.freshness
 
     @property
     def possible_transitions(self) -> list[TransitionPrimitive]:
@@ -265,11 +332,18 @@ class ActiveState:
         if evidence_id not in self.binding.current_evidence:
             self.binding.current_evidence.append(evidence_id)
             self.trace.evidence_delta.append(evidence_id)
+        if evidence_id not in self._evidence_added_at:
+            self._evidence_added_at[evidence_id] = self.step_count
 
-    def slice(self, transition_id: str) -> dict:
+    def slice(
+        self,
+        transition_id: str,
+        guard_blockers: list[str] | None = None,
+    ) -> dict:
         """#5/#22: tiny operational submap for one move.
 
         This is what the LLM should chew — not the whole board.
+        Includes blockers for HITL visibility when can_fire is False.
         """
         t = self.semantic_map.transitions.get(transition_id)
         if not t:
@@ -278,6 +352,24 @@ class ActiveState:
         gate = self.gate_for_transition(transition_id)
         gate_decision = gate.evaluate(self.available_evidence_ids) if gate else None
         missing = self.missing_evidence_for(transition_id)
+
+        blockers: list[str] = []
+        if missing:
+            blockers.append(f"missing evidence: {missing}")
+        if gate and gate_decision == GateDecision.ABSTAIN:
+            blockers.append(
+                f"gate '{gate.gate_id}' abstains — insufficient evidence: "
+                f"{gate.missing_evidence(self.available_evidence_ids)}"
+            )
+        if gate and gate_decision == GateDecision.BLOCK:
+            blockers.append(f"gate '{gate.gate_id}' blocks — hard denial")
+        if guard_blockers:
+            blockers.extend(guard_blockers)
+
+        can_fire = len(missing) == 0 and (
+            gate_decision not in (GateDecision.ABSTAIN, GateDecision.BLOCK)
+            if gate_decision else True
+        )
 
         return {
             "move": {
@@ -305,9 +397,8 @@ class ActiveState:
                 {"id": r.role_id, "label": r.label}
                 for r in self.active_roles
             ],
-            "can_fire": len(missing) == 0 and (
-                gate_decision != GateDecision.ABSTAIN if gate_decision else True
-            ),
+            "can_fire": can_fire,
+            "blockers": blockers,
         }
 
     def to_llm_prompt_state(self) -> dict:
@@ -352,6 +443,7 @@ class ActiveState:
             "risk_level": self.binding.risk_level,
             "available_tools": self.binding.available_tools,
             "audience": self.binding.audience,
+            "step_count": self.step_count,
             "trace": {
                 "previous_state": self.trace.previous_state,
                 "last_transition": self.trace.last_transition_id,

@@ -1,6 +1,6 @@
 # prichindel.com Agentic Thinking Map
 
-**v1.0.1** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
+**v1.1.0** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
 
 A Python package that gives an AI model a small, structured board to reason on — one move at a time. Instead of freeform text generation, the model navigates a pre-shaped semantic field with deterministic guards and propositional logic constraints.
 
@@ -33,8 +33,8 @@ fpf_thinking_map/
 ├── state.py                  SemanticMap + RuntimeBinding + ActiveState + slice()
 ├── guards.py                 9 deterministic guards (context, role, gate, evidence, assignment, speech act, readiness)
 ├── logic.py                  6 logic operators + decision rules + LogicLayer
-├── traversal.py              Step engine with 8 lawful outcomes
-├── verify.py                 Self-verification harness (12/12 checks)
+├── traversal.py              Step engine with 10 lawful outcomes (incl. IDLE, BRIDGE)
+├── verify.py                 Self-verification harness (16/16 checks)
 ├── example_scenario.py       Deploy decision walkthrough
 ├── example_logic_scenario.py Logic operators in action + truth table
 ├── README.md                 Full documentation (any-model readable)
@@ -84,6 +84,13 @@ Two FPF pattern families rejected for activation bias — they amplify existing 
 
 Full attribution in [SOURCES.md](fpf_thinking_map/SOURCES.md).
 
+## v1.1.0 changes
+
+- **TTL evidence decay** — `EvidencePrimitive.ttl_steps` + step counter on `ActiveState`. Evidence that was fresh at bind time degrades to STALE/EXPIRED as traversal steps accumulate. The freshness guard catches it. No more static evidence that stays green forever across a 10-step traversal.
+- **IDLE outcome** — `OutcomeKind.IDLE` distinguishes "at rest, nothing actionable" from "stuck, need input" (ASK). When no transitions, no actions, no bridges exist — the map is done, not broken.
+- **Bridge traversal** — `OutcomeKind.BRIDGE` + `SemanticMap.bridge_options()`. When dead-ended in a context, the engine checks precomputed bridge targets. If a bridge leads to a context with transitions, the agent gets a `BRIDGE` outcome with target info, entry states, and translation loss. Precomputed via indexed `_ctx_transition_idx`.
+- **Slice blockers** — `slice()` now returns a `blockers: list[str]` field explaining *why* `can_fire` is False. Gate decisions, missing evidence, and guard denials (passed through from traversal). HITL visibility — the operator sees the fuckup, not just a boolean.
+
 ## Design principles
 
 - **Only add structure when it changes agentic behavior** — not for source fidelity alone
@@ -109,4 +116,4 @@ MIT. See [LICENSE](LICENSE).
 
 ---
 
-**prichindel.com** — v1.0.1 — 2026-06-24
+**prichindel.com** — v1.1.0 — 2026-06-26

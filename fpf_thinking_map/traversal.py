@@ -8,6 +8,12 @@ Step 4-6 of the agentic run:
 Horizontal design (#6, #25):
 - step() takes optional transition_id — evaluates one move, not the whole board
 - demo_walk() replaces full_run() — explicitly a demo, not operational
+
+v1.1 additions:
+- IDLE outcome for clean terminal states (no transitions, no actions, at rest)
+- BRIDGE outcome for cross-context escape via precomputed bridges
+- Step counter increments per step() call (drives TTL evidence decay)
+- Guard blockers passed through to slice for HITL visibility
 """
 
 from __future__ import annotations
@@ -32,6 +38,8 @@ class OutcomeKind(Enum):
     REVISE_PLAN = "revise_plan"
     COLLECT_EVIDENCE = "collect_evidence"
     CHANGE_FRAME = "change_frame"
+    IDLE = "idle"
+    BRIDGE = "bridge"
 
 
 @dataclass
@@ -94,9 +102,15 @@ class ThinkingMapTraversal:
             current_state=current_state,
         )
 
-    def _build_prompt(self, state: ActiveState, logic_ctx: dict, transition_id: str | None = None) -> dict:
+    def _build_prompt(
+        self,
+        state: ActiveState,
+        logic_ctx: dict,
+        transition_id: str | None = None,
+        guard_blockers: list[str] | None = None,
+    ) -> dict:
         if transition_id:
-            prompt = state.slice(transition_id)
+            prompt = state.slice(transition_id, guard_blockers=guard_blockers)
             prompt["full_state"] = state.to_llm_prompt_state()
         else:
             prompt = state.to_llm_prompt_state()
@@ -119,7 +133,11 @@ class ThinkingMapTraversal:
 
         With transition_id: evaluates only that move's gate, evidence, guards.
         Without: scans possible transitions from current state.
+
+        Increments step_count each call — drives TTL evidence decay.
         """
+        state.step_count += 1
+
         if not state.active_context:
             return Outcome(
                 kind=OutcomeKind.CHANGE_FRAME,
@@ -127,9 +145,10 @@ class ThinkingMapTraversal:
                 llm_prompt_state=state.to_llm_prompt_state(),
             )
 
+        ctx_id = state.binding.active_context_id or ""
+
         if transition_id:
             t = self.semantic_map.transitions.get(transition_id)
-            ctx_id = state.binding.active_context_id
             if t and ctx_id and t.context_id != ctx_id:
                 return Outcome(
                     kind=OutcomeKind.ABSTAIN,
@@ -163,13 +182,17 @@ class ThinkingMapTraversal:
                     reason=f"Guards deny: {'; '.join(denials)}",
                     missing_evidence=missing,
                     warnings=warnings,
-                    llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id),
+                    llm_prompt_state=self._build_prompt(
+                        state, logic_ctx, transition_id, guard_blockers=denials,
+                    ),
                 )
             return Outcome(
                 kind=OutcomeKind.ABSTAIN,
                 reason=f"Guards deny, no evidence path: {'; '.join(denials)}",
                 warnings=warnings,
-                llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id),
+                llm_prompt_state=self._build_prompt(
+                    state, logic_ctx, transition_id, guard_blockers=denials,
+                ),
             )
 
         if transition_id:
@@ -194,9 +217,25 @@ class ThinkingMapTraversal:
                     warnings=warnings,
                     llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id),
                 )
+
+            bridge_opts = self.semantic_map.bridge_options(ctx_id)
+            if bridge_opts:
+                prompt = state.to_llm_prompt_state()
+                prompt["bridge_options"] = bridge_opts
+                if logic_ctx:
+                    prompt["logic"] = logic_ctx
+                return Outcome(
+                    kind=OutcomeKind.BRIDGE,
+                    reason=f"No transitions in '{ctx_id}' from '{state.current_state}', "
+                           f"bridges available to: "
+                           f"{', '.join(opt['target_context'] for opt in bridge_opts)}",
+                    warnings=warnings,
+                    llm_prompt_state=prompt,
+                )
+
             return Outcome(
-                kind=OutcomeKind.ASK,
-                reason="No transitions, no actions — need input",
+                kind=OutcomeKind.IDLE,
+                reason="At rest — no transitions, no actions, no bridges",
                 warnings=warnings,
                 llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id),
             )
@@ -301,7 +340,7 @@ class ThinkingMapTraversal:
             if outcome.kind in (
                 OutcomeKind.ABSTAIN, OutcomeKind.ASK, OutcomeKind.ESCALATE,
                 OutcomeKind.PUBLISH, OutcomeKind.COLLECT_EVIDENCE,
-                OutcomeKind.CHANGE_FRAME,
+                OutcomeKind.CHANGE_FRAME, OutcomeKind.IDLE, OutcomeKind.BRIDGE,
             ):
                 break
 

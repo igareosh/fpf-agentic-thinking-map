@@ -174,7 +174,10 @@ def _guard_scope_check(state: ActiveState, _transition_id: str | None) -> GuardR
 
 
 def _guard_evidence_freshness(state: ActiveState, transition_id: str | None) -> GuardResult:
-    """FPF B.3.4: stale evidence triggers warning. #20: uses Freshness enum."""
+    """FPF B.3.4: stale evidence triggers warning. #20: uses Freshness enum.
+
+    Uses effective_freshness() which factors in TTL decay over traversal steps.
+    """
     if transition_id:
         t = state.semantic_map.transitions.get(transition_id)
         check_ids = set(t.required_evidence) if t else set()
@@ -182,12 +185,14 @@ def _guard_evidence_freshness(state: ActiveState, transition_id: str | None) -> 
         check_ids = state.available_evidence_ids
 
     for eid in check_ids & state.available_evidence_ids:
-        ev = state.semantic_map.evidence.get(eid)
-        if ev and ev.freshness in (Freshness.STALE, Freshness.EXPIRED):
+        freshness = state.effective_freshness(eid)
+        if freshness in (Freshness.STALE, Freshness.EXPIRED):
+            ev = state.semantic_map.evidence.get(eid)
+            label = ev.label if ev else eid
             return GuardResult(
                 "evidence_freshness",
                 GuardVerdict.WARN,
-                f"Evidence '{ev.label}' is {ev.freshness.value}",
+                f"Evidence '{label}' is {freshness.value}",
             )
     return GuardResult("evidence_freshness", GuardVerdict.ALLOW)
 

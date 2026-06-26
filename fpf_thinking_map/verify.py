@@ -577,6 +577,230 @@ def check_horizontal_properties():
     assert hasattr(mt, "evidence_delta")
 
 
+def check_ttl_decay():
+    """Verify TTL evidence decay over traversal steps."""
+    from fpf_thinking_map.primitives import (
+        ContextPrimitive, EvidencePrimitive, FGR, Freshness,
+        TransitionPrimitive,
+    )
+    from fpf_thinking_map.state import SemanticMap, RuntimeBinding, ActiveState
+    from fpf_thinking_map.guards import GuardEngine, GuardVerdict
+
+    sm = SemanticMap()
+    sm.register_context(ContextPrimitive("ctx", "Test"))
+    sm.register_evidence(EvidencePrimitive(
+        evidence_id="fast_ev", label="Fast Evidence", context_id="ctx",
+        freshness=Freshness.CURRENT, ttl_steps=2,
+        fgr=FGR(0.8, 0.6, 0.9),
+    ))
+    sm.register_evidence(EvidencePrimitive(
+        evidence_id="stable_ev", label="Stable Evidence", context_id="ctx",
+        freshness=Freshness.CURRENT, ttl_steps=None,
+    ))
+    sm.register_transition(TransitionPrimitive(
+        "t1", "Go", "ctx", "s1", "s2", required_evidence=["fast_ev"],
+    ))
+
+    b = RuntimeBinding(
+        active_context_id="ctx", current_evidence=["fast_ev", "stable_ev"],
+    )
+    s = ActiveState(sm, b, current_state="s1")
+
+    # Step 0: both CURRENT
+    assert s.effective_freshness("fast_ev") == Freshness.CURRENT
+    assert s.effective_freshness("stable_ev") == Freshness.CURRENT
+
+    # Step 2: fast_ev decays to STALE (age == ttl_steps)
+    s.step_count = 2
+    assert s.effective_freshness("fast_ev") == Freshness.STALE
+    assert s.effective_freshness("stable_ev") == Freshness.CURRENT
+
+    # Step 4: fast_ev decays to EXPIRED (age == 2 * ttl_steps)
+    s.step_count = 4
+    assert s.effective_freshness("fast_ev") == Freshness.EXPIRED
+
+    # Unknown evidence returns UNKNOWN
+    assert s.effective_freshness("nonexistent") == Freshness.UNKNOWN
+
+    # Guard catches TTL-decayed evidence
+    engine = GuardEngine()
+    s2 = ActiveState(sm, RuntimeBinding(
+        active_context_id="ctx", current_evidence=["fast_ev"],
+    ), current_state="s1")
+    s2.step_count = 3
+    results = engine.evaluate(s2, transition_id="t1")
+    freshness_warnings = [
+        r for r in results
+        if r.guard_name == "evidence_freshness" and r.verdict == GuardVerdict.WARN
+    ]
+    assert len(freshness_warnings) == 1, f"Expected TTL decay warning, got {freshness_warnings}"
+
+    # Evidence added mid-traversal starts aging from that step
+    s3 = ActiveState(sm, RuntimeBinding(active_context_id="ctx"), current_state="s1")
+    s3.step_count = 10
+    s3.add_evidence("fast_ev")
+    assert s3._evidence_added_at["fast_ev"] == 10
+    assert s3.effective_freshness("fast_ev") == Freshness.CURRENT
+    s3.step_count = 12
+    assert s3.effective_freshness("fast_ev") == Freshness.STALE
+
+
+def check_idle_outcome():
+    """Verify IDLE outcome for clean terminal states."""
+    from fpf_thinking_map.primitives import ContextPrimitive, TransitionPrimitive
+    from fpf_thinking_map.state import SemanticMap, RuntimeBinding
+    from fpf_thinking_map.traversal import ThinkingMapTraversal, OutcomeKind
+
+    sm = SemanticMap()
+    sm.register_context(ContextPrimitive("ctx", "Test"))
+    sm.register_transition(TransitionPrimitive(
+        "t1", "Start to Done", "ctx", "start", "done",
+    ))
+
+    engine = ThinkingMapTraversal(sm)
+
+    # At "done" state with no transitions, no actions → IDLE
+    b = RuntimeBinding(active_context_id="ctx")
+    s = engine.build_active_state(b, current_state="done")
+    o = engine.step(s)
+    assert o.kind == OutcomeKind.IDLE, f"Expected IDLE, got {o.kind}"
+
+    # At "done" with candidate_actions → CONTINUE (model can still work)
+    b2 = RuntimeBinding(
+        active_context_id="ctx", candidate_actions=["report"],
+    )
+    s2 = engine.build_active_state(b2, current_state="done")
+    o2 = engine.step(s2)
+    assert o2.kind == OutcomeKind.CONTINUE, f"Expected CONTINUE, got {o2.kind}"
+
+    # At "start" with transitions → CONTINUE (normal flow)
+    b3 = RuntimeBinding(active_context_id="ctx")
+    s3 = engine.build_active_state(b3, current_state="start")
+    o3 = engine.step(s3)
+    assert o3.kind == OutcomeKind.CONTINUE
+
+    # demo_walk stops on IDLE
+    b4 = RuntimeBinding(
+        active_context_id="ctx",
+        current_evidence=[],
+    )
+    outcomes = engine.demo_walk(b4, max_steps=10)
+    final = outcomes[-1]
+    assert final.kind in (OutcomeKind.IDLE, OutcomeKind.CONTINUE), \
+        f"Demo walk should reach IDLE or stop, got {final.kind}"
+
+
+def check_bridge_outcome():
+    """Verify BRIDGE outcome for cross-context escape."""
+    from fpf_thinking_map.primitives import (
+        ContextPrimitive, ContextBridge, TransitionPrimitive,
+    )
+    from fpf_thinking_map.state import SemanticMap, RuntimeBinding
+    from fpf_thinking_map.traversal import ThinkingMapTraversal, OutcomeKind
+
+    sm = SemanticMap()
+    sm.register_context(ContextPrimitive(
+        context_id="ctx_a", label="Context A",
+        bridges_to=[ContextBridge(
+            target_context_id="ctx_b",
+            mapping={"deploy": "release"},
+            translation_loss="ops uses 'release' where dev uses 'deploy'",
+        )],
+    ))
+    sm.register_context(ContextPrimitive(context_id="ctx_b", label="Context B"))
+    sm.register_transition(TransitionPrimitive(
+        "t_a", "A start", "ctx_a", "start", "done",
+    ))
+    sm.register_transition(TransitionPrimitive(
+        "t_b1", "B entry", "ctx_b", "ready", "active",
+    ))
+    sm.register_transition(TransitionPrimitive(
+        "t_b2", "B work", "ctx_b", "active", "complete",
+    ))
+
+    engine = ThinkingMapTraversal(sm)
+
+    # In ctx_a at "done" — no transitions, but bridge to ctx_b exists
+    b = RuntimeBinding(active_context_id="ctx_a")
+    s = engine.build_active_state(b, current_state="done")
+    o = engine.step(s)
+    assert o.kind == OutcomeKind.BRIDGE, f"Expected BRIDGE, got {o.kind}"
+    assert "ctx_b" in o.reason
+    assert "bridge_options" in o.llm_prompt_state
+    opts = o.llm_prompt_state["bridge_options"]
+    assert len(opts) == 1
+    assert opts[0]["target_context"] == "ctx_b"
+    assert "ready" in opts[0]["entry_states"]
+    assert "active" in opts[0]["entry_states"]
+
+    # Bridge precomputation: SemanticMap.bridge_options
+    bridge_opts = sm.bridge_options("ctx_a")
+    assert len(bridge_opts) == 1
+    assert bridge_opts[0]["target_context"] == "ctx_b"
+
+    # No bridges from ctx_b
+    assert sm.bridge_options("ctx_b") == []
+
+    # Context without bridges at dead end → IDLE, not BRIDGE
+    sm2 = SemanticMap()
+    sm2.register_context(ContextPrimitive("iso", "Isolated"))
+    engine2 = ThinkingMapTraversal(sm2)
+    b2 = RuntimeBinding(active_context_id="iso")
+    s2 = engine2.build_active_state(b2, current_state="stuck")
+    o2 = engine2.step(s2)
+    assert o2.kind == OutcomeKind.IDLE
+
+
+def check_slice_blockers():
+    """Verify slice includes blockers for HITL visibility."""
+    from fpf_thinking_map.primitives import (
+        ContextPrimitive, RolePrimitive, GatePrimitive, GateCheck,
+        TransitionPrimitive,
+    )
+    from fpf_thinking_map.state import SemanticMap, RuntimeBinding, ActiveState
+
+    sm = SemanticMap()
+    sm.register_context(ContextPrimitive("ctx", "Test"))
+    sm.register_role(RolePrimitive("r1", "Role", "ctx"))
+    sm.register_gate(GatePrimitive("g1", "Gate", "ctx", checks=[
+        GateCheck("gc1", "Check A", required_evidence=["ev_a"]),
+        GateCheck("gc2", "Check B", required_evidence=["ev_b"]),
+    ]))
+    sm.register_transition(TransitionPrimitive(
+        "t1", "Guarded Move", "ctx", "s1", "s2",
+        required_gate_id="g1", required_evidence=["ev_a", "ev_b"],
+    ))
+
+    # Missing evidence → blockers explain why
+    b1 = RuntimeBinding(
+        active_context_id="ctx", actor_role_ids=["r1"],
+        current_evidence=["ev_a"],
+    )
+    s1 = ActiveState(sm, b1, current_state="s1")
+    sl1 = s1.slice("t1")
+    assert sl1["can_fire"] is False
+    assert len(sl1["blockers"]) > 0
+    assert any("ev_b" in b for b in sl1["blockers"])
+
+    # Full evidence → no blockers
+    b2 = RuntimeBinding(
+        active_context_id="ctx", actor_role_ids=["r1"],
+        current_evidence=["ev_a", "ev_b"],
+    )
+    s2 = ActiveState(sm, b2, current_state="s1")
+    sl2 = s2.slice("t1")
+    assert sl2["can_fire"] is True
+    assert sl2["blockers"] == []
+
+    # Guard blockers passed through
+    sl3 = s1.slice("t1", guard_blockers=["role conflict: analyst ⊥ approver"])
+    assert "role conflict: analyst ⊥ approver" in sl3["blockers"]
+
+    # Nonexistent transition → error, no blockers
+    sl_err = s1.slice("nonexistent")
+    assert "error" in sl_err
+
+
 def main():
     print("FPF Thinking Map — Self-verification (horizontal)")
     print("=" * 55)
@@ -594,6 +818,10 @@ def main():
         ("end-to-end scenario", check_end_to_end),
         ("end-to-end logic scenario", check_logic_end_to_end),
         ("horizontal properties (25 items)", check_horizontal_properties),
+        ("TTL evidence decay", check_ttl_decay),
+        ("IDLE outcome", check_idle_outcome),
+        ("BRIDGE outcome (cross-context)", check_bridge_outcome),
+        ("slice blockers (HITL)", check_slice_blockers),
     ]
 
     passed = sum(check(name, fn) for name, fn in checks)

@@ -335,6 +335,7 @@ class EvidencePrimitive:
     source: str = ""
     fgr: FGR = field(default_factory=FGR)
     freshness: Freshness = Freshness.UNKNOWN
+    ttl_steps: int | None = None
     supports: list[str] = field(default_factory=list)
     contradicts: list[str] = field(default_factory=list)
 
