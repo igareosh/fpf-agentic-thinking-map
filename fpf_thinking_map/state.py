@@ -1,20 +1,17 @@
-"""Runtime variable binding and active state construction.
+"""Runtime state — binding, active state, TTL tracking, and per-move slices.
 
-Step 2-3 of the agentic run:
-- Bind inputs to variables (task, actor, goal, evidence, constraints...)
-- Construct active state (which context, which roles, what's live, what's possible)
+Three layers:
+  RuntimeBinding — input variables for one task (actor, evidence, context)
+  SemanticMap    — the static board (all registered primitives, indexed)
+  ActiveState    — the live state (map + binding + position + step counter)
 
-Horizontal design (#1-#7, #14-#15, #22-#24):
-- Roles default to bound-only, not all-in-context
-- Transitions scoped to context + state
-- Evidence gaps computed per-transition, not context-wide
-- Slice method returns tiny per-move submap
-- Trace keeps only last move, not full history
+The slice() method returns a tiny per-move submap: one transition, its gate,
+its evidence with freshness/TTL, whether it can fire, and why not if it can't.
+The model chews one slice at a time — never the whole board.
 
-v1.1.1 additions:
-- TTL evidence decay via step counter
-- Bridge precomputation for cross-context escape
-- Slice blockers for HITL visibility
+Evidence decays: each step() increments the hop counter, and effective_freshness()
+computes whether evidence has gone STALE or EXPIRED based on its semantic floor
+and FGR trust factors. The model sees TTL countdowns, not static booleans.
 """
 
 from __future__ import annotations

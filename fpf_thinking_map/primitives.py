@@ -329,7 +329,7 @@ FLOOR_BASE_TTL: dict[SemanticFloor, int | None] = {
 # ---------------------------------------------------------------------------
 
 class Freshness(Enum):
-    """Evidence freshness — normalized from free text. #20."""
+    """Evidence freshness — CURRENT decays to STALE then EXPIRED via TTL."""
     CURRENT = "current"
     STALE = "stale"
     EXPIRED = "expired"

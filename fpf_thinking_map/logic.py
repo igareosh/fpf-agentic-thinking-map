@@ -1,16 +1,13 @@
-"""Propositional logic glue layer for agentic small-step decisions.
+"""Propositional logic glue — deterministic decision rules between primitives.
 
-The 6 fundamental logic functions from informatics/computational logic
-(Mitev L., Bazele programării logice) integrated as deterministic
-decision glue in the thinking map.
+6 operators (NOT, AND, OR, XOR, IMPLIES, IFF) compose atomic facts about the
+current state into decision rules. Each rule has a kind (block/warn/route/hint),
+tags for scoped evaluation, and exclusive_with for contradiction detection.
 
-Horizontal design (#8-#13, #21):
-- Rules have kinds: block, warn, route, hint
-- Rules have tags for bundle-based evaluation
-- Rules declare exclusive_with for tag-based contradiction detection
-- LogicLayer evaluates only rules matching requested tags
-- Implication rules only emit actions when antecedent is true (no vacuous emission)
-- Risk-sensitive flag controls risk_level visibility per rule
+EvidenceFresh vs EvidencePresent: EvidencePresent checks if an evidence ID exists
+in the available set (structural). EvidenceFresh checks if it exists AND has not
+TTL-decayed to STALE/EXPIRED (temporal). Deploy rules use EvidenceFresh — the
+logic layer uses arithmetic, not re-reasoning, to decide if evidence is valid.
 """
 
 from __future__ import annotations

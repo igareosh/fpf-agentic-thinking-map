@@ -44,8 +44,7 @@ fpf_thinking_map/
 ├── traversal.py             Step engine with 10 lawful outcomes (incl. IDLE, BRIDGE)
 ├── verify.py                Self-test: run it, if 18/18 pass, package works
 │
-├── example_scenario.py      Worked example: "should we deploy?"
-├── example_logic_scenario.py Worked example: all 6 logic operators in action
+├── examples.py              5 deploy decision scenarios (all features in action)
 │
 ├── __init__.py              Package exports
 ├── README.md                This file
@@ -179,10 +178,7 @@ These constraints are checked at execution time, not just in the display layer:
 python -m fpf_thinking_map.verify
 
 # Run the deploy decision scenario
-python -m fpf_thinking_map.example_scenario
-
-# Run the logic operators scenario with truth table
-python -m fpf_thinking_map.example_logic_scenario
+python -m fpf_thinking_map.examples
 ```
 
 All three should run without errors. `verify` exits 0 on success, 1 on failure.

@@ -130,7 +130,7 @@ def check_state():
 
 
 def check_guards():
-    from fpf_thinking_map.example_scenario import build_deploy_decision_map
+    from fpf_thinking_map.examples import build_deploy_decision_map
     from fpf_thinking_map.state import RuntimeBinding, ActiveState
     from fpf_thinking_map.guards import GuardEngine, GuardVerdict, GuardScope
 
@@ -212,7 +212,7 @@ def check_logic_operators():
 
 
 def check_logic_layer():
-    from fpf_thinking_map.example_scenario import build_deploy_decision_map
+    from fpf_thinking_map.examples import build_deploy_decision_map
     from fpf_thinking_map.logic import build_deploy_rules, RuleKind
     from fpf_thinking_map.state import RuntimeBinding, ActiveState
 
@@ -245,7 +245,7 @@ def check_logic_layer():
 
 
 def check_traversal():
-    from fpf_thinking_map.example_scenario import build_deploy_decision_map
+    from fpf_thinking_map.examples import build_deploy_decision_map
     from fpf_thinking_map.logic import build_deploy_rules
     from fpf_thinking_map.state import RuntimeBinding
     from fpf_thinking_map.traversal import ThinkingMapTraversal, OutcomeKind
@@ -491,7 +491,7 @@ def check_audit_fixes():
 
 
 def check_end_to_end():
-    from fpf_thinking_map.example_scenario import (
+    from fpf_thinking_map.examples import (
         run_scenario_missing_evidence, run_scenario_role_conflict,
         run_scenario_full_traversal,
     )
@@ -505,7 +505,7 @@ def check_end_to_end():
 
 
 def check_logic_end_to_end():
-    from fpf_thinking_map.example_logic_scenario import (
+    from fpf_thinking_map.examples import (
         run_logic_scenario, run_truth_table_demo,
     )
     buf = io.StringIO()
@@ -902,7 +902,7 @@ def check_evidence_fresh_prop():
     assert fresh.evaluate(s2) is False
 
     # deploy_readiness rule uses EvidenceFresh — verify it fires correctly
-    from fpf_thinking_map.example_scenario import build_deploy_decision_map
+    from fpf_thinking_map.examples import build_deploy_decision_map
     deploy_sm = build_deploy_decision_map()
     logic = build_deploy_rules()
 

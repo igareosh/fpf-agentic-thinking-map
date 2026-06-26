@@ -1,15 +1,10 @@
-"""Deterministic guard engine — the constraint layer.
+"""Deterministic guard engine — hard constraints the model cannot override.
 
-Step 5 of the agentic run: before action or publication,
-deterministic checks validate the move is lawful.
+9 guards check structural and temporal validity before a move fires.
+If any guard says DENY, the action is blocked — no LLM reasoning can undo it.
 
-These are NOT LLM judgments. These are hard checks that
-the LLM cannot override. The semantic circuit breakers.
-
-Horizontal design (#19):
-- Guards declare what they apply to (transition, role, gate, global)
-- Engine evaluates only guards relevant to the current move
-- No ambient totality — nothing inspects everything unless asked
+Guards are scoped (TRANSITION, ROLE, EVIDENCE, GLOBAL) so the engine evaluates
+only guards relevant to the current move. No ambient scanning.
 """
 
 from __future__ import annotations

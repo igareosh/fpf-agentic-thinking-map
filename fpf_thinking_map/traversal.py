@@ -1,19 +1,22 @@
-"""Agentic traversal engine — the LLM's guided reasoning loop.
+"""Traversal engine — the LLM's guided reasoning loop.
 
-Step 4-6 of the agentic run:
-4. LLM reasons over the active map (not inventing semantics — navigating)
-5. Deterministic checks validate (guards + logic)
-6. Agent chooses outcome
+step() evaluates one move: checks context, logic, guards, evidence, transitions.
+Returns one of 10 outcomes:
 
-Horizontal design (#6, #25):
-- step() takes optional transition_id — evaluates one move, not the whole board
-- demo_walk() replaces full_run() — explicitly a demo, not operational
+  CONTINUE         — transitions available, guards pass, proceed
+  COLLECT_EVIDENCE — evidence gaps block the move, here's what's missing
+  IDLE             — at rest, nothing actionable (not stuck — done)
+  BRIDGE           — dead-ended in context, bridge to another context available
+  ASK              — stuck, need external input
+  ABSTAIN          — guards deny with no evidence path, or logic contradiction
+  ESCALATE         — risk threshold exceeded
+  CHANGE_FRAME     — no active context bound
+  PUBLISH          — publication move
+  REVISE_PLAN      — plan needs revision
 
-v1.1.1 additions:
-- IDLE outcome for clean terminal states (no transitions, no actions, at rest)
-- BRIDGE outcome for cross-context escape via precomputed bridges
-- Step counter increments per step() call (drives TTL evidence decay)
-- Guard blockers passed through to slice for HITL visibility
+Each step() increments the hop counter, driving TTL evidence decay.
+The model reads the outcome JSON and picks the next move — no re-reasoning
+about epistemic state the code already computed.
 """
 
 from __future__ import annotations

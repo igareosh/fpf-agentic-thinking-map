@@ -19,10 +19,7 @@ The model's job is not "what does FPF mean?" — it is: **given this semantic ma
 python -m fpf_thinking_map.verify
 
 # Run the deploy decision scenario
-python -m fpf_thinking_map.example_scenario
-
-# Run the logic operators scenario
-python -m fpf_thinking_map.example_logic_scenario
+python -m fpf_thinking_map.examples
 ```
 
 ## Package contents
@@ -35,8 +32,7 @@ fpf_thinking_map/
 ├── logic.py                  6 logic operators + decision rules + LogicLayer
 ├── traversal.py              Step engine with 10 lawful outcomes (incl. IDLE, BRIDGE)
 ├── verify.py                 Self-verification harness (18/18 checks)
-├── example_scenario.py       Deploy decision walkthrough
-├── example_logic_scenario.py Logic operators in action + truth table
+├── examples.py               5 deploy decision scenarios (missing evidence, role conflict, logic glue, truth table)
 ├── README.md                 Full documentation (any-model readable)
 ├── SOURCES.md                Source attribution (FPF spec + Mitev lectures)
 ├── FPF_SOURCE_TO_CODE_RELATION_AUDIT.md   50-item relation audit
