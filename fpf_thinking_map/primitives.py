@@ -293,6 +293,38 @@ class GatePrimitive:
 
 
 # ---------------------------------------------------------------------------
+# Semantic Floor — vertical amplification levels from FPF spec layering
+# ---------------------------------------------------------------------------
+
+class SemanticFloor(Enum):
+    """Vertical amplification levels — where the hop counter stops.
+
+    Derived from FPF spec section layering. Each floor has a base TTL.
+    Lower floors = foundational/stable. Higher floors = operational/ephemeral.
+
+    Floor 0 STRUCTURAL: A.1.1, A.2, A.3.3, A.6.9, A.21 defs — the building itself
+    Floor 1 BINDING:    A.2.1, A.2.8, A.15.2 — session-stable, can expire
+    Floor 2 EVIDENTIARY: A.10, B.3, B.3.4 — decays with FGR: max(1, round(F*R*8))
+    Floor 3 OPERATIONAL: A.2.9, A.15.1, A.21 eval — per-step ephemeral
+    Floor 4 PUBLICATION: E.17 — inherited from source freshness
+    """
+    STRUCTURAL = 0
+    BINDING = 1
+    EVIDENTIARY = 2
+    OPERATIONAL = 3
+    PUBLICATION = 4
+
+
+FLOOR_BASE_TTL: dict[SemanticFloor, int | None] = {
+    SemanticFloor.STRUCTURAL: None,
+    SemanticFloor.BINDING: 10,
+    SemanticFloor.EVIDENTIARY: 8,
+    SemanticFloor.OPERATIONAL: 2,
+    SemanticFloor.PUBLICATION: None,
+}
+
+
+# ---------------------------------------------------------------------------
 # A.10 — Evidence Graph + A.2.4 EvidenceRole + B.3 F-G-R
 # ---------------------------------------------------------------------------
 
@@ -327,6 +359,11 @@ class EvidencePrimitive:
     FPF A.10: claims must be supported by evidence with traceability.
     FPF B.3: trust is computed as F-G-R tuple, not a feeling.
     FPF B.3.4: evidence decays — freshness matters.
+
+    TTL resolution order:
+    1. Explicit ttl_steps (if set) — always wins
+    2. semantic_floor + FGR → computed_ttl (auto-derived)
+    3. None — no decay
     """
     evidence_id: str
     label: str
@@ -336,8 +373,30 @@ class EvidencePrimitive:
     fgr: FGR = field(default_factory=FGR)
     freshness: Freshness = Freshness.UNKNOWN
     ttl_steps: int | None = None
+    semantic_floor: SemanticFloor | None = None
     supports: list[str] = field(default_factory=list)
     contradicts: list[str] = field(default_factory=list)
+
+    @property
+    def computed_ttl(self) -> int | None:
+        """Auto-derive TTL from semantic floor + FGR trust factors.
+
+        Explicit ttl_steps always wins. Otherwise:
+        EVIDENTIARY floor: max(1, round(F × R × 8))
+        Other floors: base TTL from FLOOR_BASE_TTL
+        None floor: no decay
+        """
+        if self.ttl_steps is not None:
+            return self.ttl_steps
+        if self.semantic_floor is None:
+            return None
+        base = FLOOR_BASE_TTL.get(self.semantic_floor)
+        if base is None:
+            return None
+        if self.semantic_floor == SemanticFloor.EVIDENTIARY:
+            trust_factor = self.fgr.formality * self.fgr.reliability
+            return max(1, round(trust_factor * base))
+        return base
 
 
 # ---------------------------------------------------------------------------

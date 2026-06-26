@@ -15,7 +15,7 @@ The model's job is not "what does FPF mean?" — it is: **given this semantic ma
 ```bash
 # No dependencies. Python 3.12+.
 
-# Verify the package (16 checks)
+# Verify the package (17 checks)
 python -m fpf_thinking_map.verify
 
 # Run the deploy decision scenario
@@ -34,13 +34,14 @@ fpf_thinking_map/
 ├── guards.py                 9 deterministic guards (context, role, gate, evidence, assignment, speech act, readiness)
 ├── logic.py                  6 logic operators + decision rules + LogicLayer
 ├── traversal.py              Step engine with 10 lawful outcomes (incl. IDLE, BRIDGE)
-├── verify.py                 Self-verification harness (16/16 checks)
+├── verify.py                 Self-verification harness (17/17 checks)
 ├── example_scenario.py       Deploy decision walkthrough
 ├── example_logic_scenario.py Logic operators in action + truth table
 ├── README.md                 Full documentation (any-model readable)
 ├── SOURCES.md                Source attribution (FPF spec + Mitev lectures)
 ├── FPF_SOURCE_TO_CODE_RELATION_AUDIT.md   50-item relation audit
 ├── FPF_AUDIT_RESPONSE.md     Audit response with design decisions
+├── FPF_FLOOR_MAP.md              Semantic floor map (5 floors, TTL derivation)
 ├── REJECTED_C32_CANDIDATE_SYNTHESIS.md    C.32 rejection (activation bias)
 └── REJECTED_NQD_OEE_CULTURAL_EVOLUTION.md NQD/OEE rejection (bias injector)
 ```

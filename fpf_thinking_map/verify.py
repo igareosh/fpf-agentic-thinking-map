@@ -751,6 +751,117 @@ def check_bridge_outcome():
     assert o2.kind == OutcomeKind.IDLE
 
 
+def check_semantic_floors():
+    """Verify semantic floor TTL computation from FGR trust factors."""
+    from fpf_thinking_map.primitives import (
+        ContextPrimitive, EvidencePrimitive, FGR, Freshness,
+        SemanticFloor, FLOOR_BASE_TTL, TransitionPrimitive,
+    )
+    from fpf_thinking_map.state import SemanticMap, RuntimeBinding, ActiveState
+
+    # Floor constants exist and are correct
+    assert FLOOR_BASE_TTL[SemanticFloor.STRUCTURAL] is None
+    assert FLOOR_BASE_TTL[SemanticFloor.BINDING] == 10
+    assert FLOOR_BASE_TTL[SemanticFloor.EVIDENTIARY] == 8
+    assert FLOOR_BASE_TTL[SemanticFloor.OPERATIONAL] == 2
+    assert FLOOR_BASE_TTL[SemanticFloor.PUBLICATION] is None
+
+    # --- computed_ttl from explicit ttl_steps (always wins) ---
+    ev_explicit = EvidencePrimitive(
+        "e1", "Explicit", "ctx", ttl_steps=5,
+        semantic_floor=SemanticFloor.EVIDENTIARY,
+        fgr=FGR(1.0, 0.5, 1.0),
+    )
+    assert ev_explicit.computed_ttl == 5, "Explicit ttl_steps must win"
+
+    # --- computed_ttl from EVIDENTIARY floor + FGR ---
+    ev_high = EvidencePrimitive(
+        "e2", "Formal proof", "ctx",
+        freshness=Freshness.CURRENT,
+        semantic_floor=SemanticFloor.EVIDENTIARY,
+        fgr=FGR(formality=1.0, scope=0.5, reliability=1.0),
+    )
+    assert ev_high.computed_ttl == 8, f"F=1.0 R=1.0 → 8, got {ev_high.computed_ttl}"
+
+    ev_mid = EvidencePrimitive(
+        "e3", "CI results", "ctx",
+        semantic_floor=SemanticFloor.EVIDENTIARY,
+        fgr=FGR(formality=0.8, scope=0.6, reliability=0.9),
+    )
+    assert ev_mid.computed_ttl == 6, f"F=0.8 R=0.9 → round(0.72*8)=6, got {ev_mid.computed_ttl}"
+
+    ev_weak = EvidencePrimitive(
+        "e4", "Anecdotal", "ctx",
+        semantic_floor=SemanticFloor.EVIDENTIARY,
+        fgr=FGR(formality=0.2, scope=0.3, reliability=0.3),
+    )
+    assert ev_weak.computed_ttl == 1, f"F=0.2 R=0.3 → max(1, round(0.06*8))=1, got {ev_weak.computed_ttl}"
+
+    # --- BINDING floor: fixed TTL ---
+    ev_binding = EvidencePrimitive(
+        "e5", "Assignment record", "ctx",
+        semantic_floor=SemanticFloor.BINDING,
+    )
+    assert ev_binding.computed_ttl == 10
+
+    # --- OPERATIONAL floor: fixed TTL ---
+    ev_ops = EvidencePrimitive(
+        "e6", "Gate eval result", "ctx",
+        freshness=Freshness.CURRENT,
+        semantic_floor=SemanticFloor.OPERATIONAL,
+    )
+    assert ev_ops.computed_ttl == 2
+
+    # --- STRUCTURAL floor: no decay ---
+    ev_struct = EvidencePrimitive(
+        "e7", "Context definition", "ctx",
+        semantic_floor=SemanticFloor.STRUCTURAL,
+    )
+    assert ev_struct.computed_ttl is None
+
+    # --- No floor: no decay ---
+    ev_none = EvidencePrimitive("e8", "Plain", "ctx")
+    assert ev_none.computed_ttl is None
+
+    # --- Integration: floor-computed TTL drives effective_freshness ---
+    sm = SemanticMap()
+    sm.register_context(ContextPrimitive("ctx", "Test"))
+    sm.register_evidence(ev_ops)  # OPERATIONAL, TTL=2
+    sm.register_evidence(ev_high)  # EVIDENTIARY F=1.0 R=1.0, TTL=8
+    sm.register_transition(TransitionPrimitive(
+        "t1", "Go", "ctx", "s1", "s2",
+        required_evidence=["e6"],
+    ))
+
+    b = RuntimeBinding(
+        active_context_id="ctx",
+        current_evidence=["e6", "e2"],
+    )
+    s = ActiveState(sm, b, current_state="s1")
+
+    # At step 0 both CURRENT
+    assert s.effective_freshness("e6") == Freshness.CURRENT
+    assert s.effective_freshness("e2") == Freshness.CURRENT
+
+    # At step 2: ops evidence (TTL=2) goes STALE, evidentiary (TTL=8) still CURRENT
+    s.step_count = 2
+    assert s.effective_freshness("e6") == Freshness.STALE
+    assert s.effective_freshness("e2") == Freshness.CURRENT
+
+    # At step 4: ops evidence EXPIRED, evidentiary still CURRENT
+    s.step_count = 4
+    assert s.effective_freshness("e6") == Freshness.EXPIRED
+    assert s.effective_freshness("e2") == Freshness.CURRENT
+
+    # At step 8: evidentiary goes STALE
+    s.step_count = 8
+    assert s.effective_freshness("e2") == Freshness.STALE
+
+    # At step 16: evidentiary EXPIRED
+    s.step_count = 16
+    assert s.effective_freshness("e2") == Freshness.EXPIRED
+
+
 def check_slice_blockers():
     """Verify slice includes blockers for HITL visibility."""
     from fpf_thinking_map.primitives import (
@@ -822,6 +933,7 @@ def main():
         ("IDLE outcome", check_idle_outcome),
         ("BRIDGE outcome (cross-context)", check_bridge_outcome),
         ("slice blockers (HITL)", check_slice_blockers),
+        ("semantic floors (FPF vertical)", check_semantic_floors),
     ]
 
     passed = sum(check(name, fn) for name, fn in checks)

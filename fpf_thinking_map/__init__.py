@@ -23,6 +23,8 @@ from fpf_thinking_map.primitives import (
     GatePrimitive,
     GateCheck,
     GateDecision,
+    SemanticFloor,
+    FLOOR_BASE_TTL,
     EvidencePrimitive,
     FGR,
     Freshness,

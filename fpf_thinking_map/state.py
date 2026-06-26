@@ -248,17 +248,19 @@ class ActiveState:
     def effective_freshness(self, evidence_id: str) -> Freshness:
         """Compute freshness factoring in TTL decay over traversal steps.
 
+        Uses computed_ttl which resolves: explicit ttl_steps > floor+FGR > None.
         Static freshness is the floor. TTL can only degrade, never improve.
-        age >= ttl_steps → STALE, age >= 2×ttl_steps → EXPIRED.
+        age >= ttl → STALE, age >= 2×ttl → EXPIRED.
         """
         ev = self.semantic_map.evidence.get(evidence_id)
         if not ev:
             return Freshness.UNKNOWN
-        if ev.ttl_steps is not None and evidence_id in self._evidence_added_at:
+        ttl = ev.computed_ttl
+        if ttl is not None and evidence_id in self._evidence_added_at:
             age = self.step_count - self._evidence_added_at[evidence_id]
-            if age >= ev.ttl_steps * 2:
+            if age >= ttl * 2:
                 return Freshness.EXPIRED
-            if age >= ev.ttl_steps:
+            if age >= ttl:
                 if ev.freshness == Freshness.EXPIRED:
                     return Freshness.EXPIRED
                 return Freshness.STALE
