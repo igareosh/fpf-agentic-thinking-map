@@ -142,6 +142,7 @@ class IffProp(Prop):
 
 @dataclass
 class EvidencePresent(Prop):
+    """True when evidence ID exists in available set (structural check)."""
     evidence_id: str
 
     def evaluate(self, state: ActiveState) -> bool:
@@ -149,6 +150,26 @@ class EvidencePresent(Prop):
 
     def __repr__(self) -> str:
         return f"evidence({self.evidence_id})"
+
+
+@dataclass
+class EvidenceFresh(Prop):
+    """True when evidence exists AND has not TTL-decayed (temporal check).
+
+    CURRENT/UNKNOWN = fresh. STALE/EXPIRED = not fresh.
+    This is the floor-levelled version of EvidencePresent — uses math
+    (TTL hop counter + FGR) instead of re-reasoning about validity.
+    """
+    evidence_id: str
+
+    def evaluate(self, state: ActiveState) -> bool:
+        if self.evidence_id not in state.available_evidence_ids:
+            return False
+        freshness = state.effective_freshness(self.evidence_id)
+        return freshness not in (Freshness.STALE, Freshness.EXPIRED)
+
+    def __repr__(self) -> str:
+        return f"evidence_fresh({self.evidence_id})"
 
 
 @dataclass
@@ -430,12 +451,19 @@ class LogicLayer:
 # ---------------------------------------------------------------------------
 
 def build_deploy_rules() -> LogicLayer:
-    """Concrete deploy-decision rules demonstrating all 6 operators."""
+    """Concrete deploy-decision rules demonstrating all 6 operators.
+
+    v1.1.2: deploy_readiness uses EvidenceFresh (temporal) instead of
+    EvidencePresent (structural). The model no longer re-reasons about
+    "is this evidence still good?" — the TTL hop counter decides.
+    """
     logic = LogicLayer()
 
     ev_tests = EvidencePresent("test_results")
     ev_approval = EvidencePresent("owner_approval")
     ev_rollback = EvidencePresent("rollback_plan")
+    ev_tests_fresh = EvidenceFresh("test_results")
+    ev_approval_fresh = EvidenceFresh("owner_approval")
     gate_deploy = GatePasses("deploy_gate")
     gate_blocked = GateBlocked("deploy_gate")
     role_analyst = RoleActive("analyst")
@@ -447,7 +475,7 @@ def build_deploy_rules() -> LogicLayer:
 
     logic.add_rule(DecisionRule(
         name="deploy_readiness",
-        condition=ev_tests.AND(ev_approval).AND(gate_deploy),
+        condition=ev_tests_fresh.AND(ev_approval_fresh).AND(gate_deploy),
         action_if_true="proceed_to_deploy",
         action_if_false="not_ready",
         kind=RuleKind.ROUTE,
@@ -469,6 +497,14 @@ def build_deploy_rules() -> LogicLayer:
         action_if_true="request_approval",
         kind=RuleKind.WARN,
         tags=["deploy", "evidence"],
+    ))
+
+    logic.add_rule(DecisionRule(
+        name="evidence_decay_warning",
+        condition=ev_tests.AND(ev_tests_fresh.NOT()),
+        action_if_true="evidence_stale_refresh_needed",
+        kind=RuleKind.WARN,
+        tags=["deploy", "evidence", "decay"],
     ))
 
     logic.add_rule(DecisionRule(

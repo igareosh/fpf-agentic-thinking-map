@@ -862,6 +862,92 @@ def check_semantic_floors():
     assert s.effective_freshness("e2") == Freshness.EXPIRED
 
 
+def check_evidence_fresh_prop():
+    """Verify EvidenceFresh proposition — temporal check vs structural EvidencePresent."""
+    from fpf_thinking_map.primitives import (
+        ContextPrimitive, EvidencePrimitive, FGR, Freshness,
+        SemanticFloor, TransitionPrimitive,
+    )
+    from fpf_thinking_map.logic import (
+        EvidencePresent, EvidenceFresh, LogicLayer, DecisionRule, RuleKind,
+        build_deploy_rules,
+    )
+    from fpf_thinking_map.state import SemanticMap, RuntimeBinding, ActiveState
+
+    sm = SemanticMap()
+    sm.register_context(ContextPrimitive("ctx", "Test"))
+    sm.register_evidence(EvidencePrimitive(
+        "ev1", "Fast decay", "ctx",
+        freshness=Freshness.CURRENT,
+        semantic_floor=SemanticFloor.OPERATIONAL,
+    ))
+
+    present = EvidencePresent("ev1")
+    fresh = EvidenceFresh("ev1")
+
+    # At step 0: both True
+    b = RuntimeBinding(active_context_id="ctx", current_evidence=["ev1"])
+    s = ActiveState(sm, b)
+    assert present.evaluate(s) is True
+    assert fresh.evaluate(s) is True
+
+    # At step 2 (TTL=2 for OPERATIONAL): present still True, fresh now False
+    s.step_count = 2
+    assert present.evaluate(s) is True
+    assert fresh.evaluate(s) is False
+
+    # Missing evidence: both False
+    s2 = ActiveState(sm, RuntimeBinding(active_context_id="ctx"))
+    assert present.evaluate(s2) is False
+    assert fresh.evaluate(s2) is False
+
+    # deploy_readiness rule uses EvidenceFresh — verify it fires correctly
+    from fpf_thinking_map.example_scenario import build_deploy_decision_map
+    deploy_sm = build_deploy_decision_map()
+    logic = build_deploy_rules()
+
+    # Fresh evidence → deploy_readiness fires
+    b3 = RuntimeBinding(
+        active_context_id="project_delivery",
+        actor_role_ids=["analyst"],
+        current_evidence=["test_results", "owner_approval"],
+    )
+    s3 = ActiveState(deploy_sm, b3, current_state="ready_for_decision")
+    actions = logic.satisfied_actions(s3, tags={"readiness"})
+    assert "proceed_to_deploy" in actions, f"Fresh evidence should allow deploy, got {actions}"
+
+    # Decay evidence past TTL → deploy_readiness stops firing
+    # test_results: F=0.8, R=0.9 → TTL=6. At step 7, it's STALE.
+    s3.step_count = 7
+    actions_stale = logic.satisfied_actions(s3, tags={"readiness"})
+    assert "proceed_to_deploy" not in actions_stale, \
+        f"Stale evidence should block deploy, got {actions_stale}"
+
+    # decay warning rule fires when evidence present but stale
+    decay_actions = logic.satisfied_actions(s3, tags={"decay"})
+    assert "evidence_stale_refresh_needed" in decay_actions, \
+        f"Decay warning should fire, got {decay_actions}"
+
+    # to_llm_prompt_state includes evidence_status
+    prompt = s3.to_llm_prompt_state()
+    assert "evidence_status" in prompt
+    assert "test_results" in prompt["evidence_status"]
+    status = prompt["evidence_status"]["test_results"]
+    assert status["freshness"] == "stale"
+    assert status["ttl_remaining"] == 0
+
+    # slice annotates evidence with freshness
+    deploy_sm.register_transition(TransitionPrimitive(
+        "t_test", "Test", "project_delivery", "ready_for_decision", "done",
+        required_evidence=["test_results"],
+    ))
+    sl = s3.slice("t_test")
+    assert len(sl["evidence"]["available"]) > 0
+    ev_item = sl["evidence"]["available"][0]
+    assert "freshness" in ev_item
+    assert "ttl_remaining" in ev_item
+
+
 def check_slice_blockers():
     """Verify slice includes blockers for HITL visibility."""
     from fpf_thinking_map.primitives import (
@@ -934,6 +1020,7 @@ def main():
         ("BRIDGE outcome (cross-context)", check_bridge_outcome),
         ("slice blockers (HITL)", check_slice_blockers),
         ("semantic floors (FPF vertical)", check_semantic_floors),
+        ("EvidenceFresh prop + integration", check_evidence_fresh_prop),
     ]
 
     passed = sum(check(name, fn) for name, fn in checks)

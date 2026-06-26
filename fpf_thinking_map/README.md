@@ -37,12 +37,12 @@ Two sources, both real academic material:
 ```
 fpf_thinking_map/
 │
-├── primitives.py            The 8 objects extracted from FPF
-├── state.py                 How inputs get bound and state gets tracked
-├── guards.py                6 hard rules the model cannot break
-├── logic.py                 6 logic operators + decision rules
-├── traversal.py             The engine that runs one step at a time
-├── verify.py                Self-test: run it, if 11/11 pass, package works
+├── primitives.py            10 semantic objects + 5 semantic floors from FPF
+├── state.py                 Binding, state, TTL tracking, evidence status, slice
+├── guards.py                9 deterministic guards the model cannot break
+├── logic.py                 6 logic operators + EvidenceFresh + decision rules
+├── traversal.py             Step engine with 10 lawful outcomes (incl. IDLE, BRIDGE)
+├── verify.py                Self-test: run it, if 18/18 pass, package works
 │
 ├── example_scenario.py      Worked example: "should we deploy?"
 ├── example_logic_scenario.py Worked example: all 6 logic operators in action
@@ -52,9 +52,9 @@ fpf_thinking_map/
 └── SOURCES.md               Detailed source attribution
 ```
 
-## The 8 objects from FPF (primitives.py)
+## The 10 objects from FPF (primitives.py)
 
-These are Python dataclasses. Each one was extracted from a specific section of the FPF spec.
+These are Python dataclasses. Each one was extracted from a specific section of the FPF spec. v1.1: includes SemanticFloor (5 vertical levels) and FGR-modulated TTL decay.
 
 | Object | What it is | Plain example |
 |--------|-----------|---------------|
@@ -90,7 +90,7 @@ These get composed into `DecisionRule` objects. Each rule has:
 
 Rules are collected in a `LogicLayer` and evaluated together. The layer checks for consistency (no contradictory actions firing at the same time).
 
-## The 6 guards (guards.py)
+## The 9 guards (guards.py)
 
 These are hard constraints. The model cannot override them. If a guard says DENY, the action is blocked.
 
@@ -101,7 +101,10 @@ These are hard constraints. The model cannot override them. If a guard says DENY
 | `role_conflict` | Two incompatible roles cannot be active at the same time (e.g., analyst and approver) |
 | `gate_pass` | If a transition requires a gate and the gate abstains (insufficient evidence), the transition is blocked |
 | `scope_check` | You cannot act in another context without an explicit bridge between contexts |
-| `evidence_freshness` | Stale or expired evidence triggers a warning |
+| `evidence_freshness` | Stale or TTL-expired evidence triggers a warning (uses floor-based decay) |
+| `context_invariants` | Context invariants are surfaced as warnings for the model to consider |
+| `expired_assignment` | Expired role assignments cannot authorize new work |
+| `speech_act_validity` | Expired or revoked speech acts (approvals, authorizations) trigger denial |
 
 Each guard has a `GuardScope` (TRANSITION, ROLE, EVIDENCE, or GLOBAL). The engine can evaluate only guards relevant to a specific move.
 
@@ -120,11 +123,13 @@ Input: an ActiveState (context + role + evidence + current position)
 4. Check for missing evidence on current transitions
    - If gaps exist → COLLECT_EVIDENCE
 5. Check if transitions exist from current state
-   - If no transitions and no actions → ASK
+   - If actions available → CONTINUE
+   - If bridges available → BRIDGE (cross-context escape)
+   - If nothing → IDLE (at rest, not stuck)
    - If transitions available → CONTINUE
 
 Output: an Outcome with:
-  - kind: continue / ask / abstain / escalate / publish / revise_plan / collect_evidence / change_frame
+  - kind: continue / ask / abstain / escalate / publish / revise_plan / collect_evidence / change_frame / idle / bridge
   - reason: why this outcome
   - missing_evidence: what is needed (if applicable)
   - warnings: non-blocking issues
@@ -170,7 +175,7 @@ These constraints are checked at execution time, not just in the display layer:
 ```bash
 # From the repo root:
 
-# Verify the package works (12 checks)
+# Verify the package works (18 checks)
 python -m fpf_thinking_map.verify
 
 # Run the deploy decision scenario
@@ -262,4 +267,4 @@ outcome = engine.step(state, transition_id="start_to_reviewed")
 - `demo_walk()` auto-fires the first available transition. It is for testing and examples only, not for operational use. In real use, the LLM calls `step()` and `attempt_transition()` with explicit choices.
 - Publications are registered on the map but stay out of the step/guard/logic path. They are for publish-type moves only.
 
-prichindel.com | 2026-06-24 | v1.0.0
+prichindel.com | 2026-06-26 | v1.1.2

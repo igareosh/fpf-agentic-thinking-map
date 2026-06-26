@@ -50,6 +50,7 @@ from fpf_thinking_map.logic import (
     RuleKind,
     Prop,
     EvidencePresent,
+    EvidenceFresh,
     GatePasses,
     GateBlocked,
     RoleActive,

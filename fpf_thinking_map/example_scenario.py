@@ -23,6 +23,7 @@ from fpf_thinking_map.primitives import (
     EvidencePrimitive,
     FGR,
     Freshness,
+    SemanticFloor,
     TransitionPrimitive,
     PublicationPrimitive,
     PublicationFace,
@@ -128,6 +129,7 @@ def build_deploy_decision_map() -> SemanticMap:
         source="CI pipeline",
         fgr=FGR(formality=0.8, scope=0.6, reliability=0.9),
         freshness=Freshness.CURRENT,
+        semantic_floor=SemanticFloor.EVIDENTIARY,
         supports=["no_deploy_without_evidence"],
     ))
 
@@ -139,6 +141,7 @@ def build_deploy_decision_map() -> SemanticMap:
         source="approval gate / speech act",
         fgr=FGR(formality=0.9, scope=0.8, reliability=0.95),
         freshness=Freshness.CURRENT,
+        semantic_floor=SemanticFloor.EVIDENTIARY,
         supports=["no_deploy_without_evidence"],
     ))
 
@@ -150,6 +153,7 @@ def build_deploy_decision_map() -> SemanticMap:
         source="runbook",
         fgr=FGR(formality=0.7, scope=0.5, reliability=0.8),
         freshness=Freshness.CURRENT,
+        semantic_floor=SemanticFloor.EVIDENTIARY,
     ))
 
     sm.register_transition(TransitionPrimitive(
@@ -177,6 +181,22 @@ def build_deploy_decision_map() -> SemanticMap:
         context_id="project_delivery",
         from_state="ready_for_decision",
         to_state="escalated",
+    ))
+
+    sm.register_transition(TransitionPrimitive(
+        transition_id="ops_release",
+        label="Release to production",
+        context_id="operations",
+        from_state="releasing",
+        to_state="monitoring",
+    ))
+
+    sm.register_transition(TransitionPrimitive(
+        transition_id="ops_monitor_stable",
+        label="Monitor → Stable",
+        context_id="operations",
+        from_state="monitoring",
+        to_state="stable",
     ))
 
     sm.register_publication(PublicationPrimitive(
@@ -302,7 +322,10 @@ def run_scenario_full_traversal():
     for _ in range(10):
         outcome = engine.step(state)
         outcomes.append(outcome)
-        if outcome.kind.value in ("abstain", "ask", "escalate", "publish", "collect_evidence"):
+        if outcome.kind.value in (
+            "abstain", "ask", "escalate", "publish",
+            "collect_evidence", "idle", "bridge",
+        ):
             break
         transitions = state.possible_transitions
         if transitions:

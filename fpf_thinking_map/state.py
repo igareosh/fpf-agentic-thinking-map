@@ -266,6 +266,17 @@ class ActiveState:
                 return Freshness.STALE
         return ev.freshness
 
+    def ttl_remaining(self, evidence_id: str) -> int | None:
+        """Steps until this evidence goes STALE. None if no TTL applies."""
+        ev = self.semantic_map.evidence.get(evidence_id)
+        if not ev:
+            return None
+        ttl = ev.computed_ttl
+        if ttl is None:
+            return None
+        added_at = self._evidence_added_at.get(evidence_id, 0)
+        return max(0, ttl - (self.step_count - added_at))
+
     @property
     def possible_transitions(self) -> list[TransitionPrimitive]:
         """#1: scoped to active context + current state."""
@@ -373,6 +384,13 @@ class ActiveState:
             if gate_decision else True
         )
 
+        relevant_eids = sorted(self.available_evidence_ids & set(
+            t.required_evidence + (
+                [eid for c in gate.checks for eid in c.required_evidence]
+                if gate else []
+            )
+        ))
+
         return {
             "move": {
                 "id": t.transition_id,
@@ -387,12 +405,14 @@ class ActiveState:
                 "missing": gate.missing_evidence(self.available_evidence_ids),
             } if gate else None,
             "evidence": {
-                "available": sorted(self.available_evidence_ids & set(
-                    t.required_evidence + (
-                        [eid for c in gate.checks for eid in c.required_evidence]
-                        if gate else []
-                    )
-                )),
+                "available": [
+                    {
+                        "id": eid,
+                        "freshness": self.effective_freshness(eid).value,
+                        "ttl_remaining": self.ttl_remaining(eid),
+                    }
+                    for eid in relevant_eids
+                ],
                 "missing": missing,
             },
             "roles": [
@@ -430,6 +450,13 @@ class ActiveState:
             "candidate_actions": self.binding.candidate_actions,
             "constraints": self.binding.constraints,
             "available_evidence": sorted(self.available_evidence_ids),
+            "evidence_status": {
+                eid: {
+                    "freshness": self.effective_freshness(eid).value,
+                    "ttl_remaining": self.ttl_remaining(eid),
+                }
+                for eid in sorted(self.available_evidence_ids)
+            },
             "missing_evidence": self.missing_evidence,
             "gate_status": gate_status,
             "possible_transitions": [
