@@ -85,12 +85,24 @@ Two FPF pattern families rejected for activation bias — they amplify existing 
 
 Full attribution in [SOURCES.md](fpf_thinking_map/SOURCES.md).
 
+## Why v1.1 exists — reasoning about reasoning is the bug
+
+When an LLM navigates a multi-step decision, it faces the same sub-questions at every step: "Is my evidence still valid? Am I going in circles? Is there another path? Why am I blocked?" Without structure, the model re-derives these answers from scratch each time — re-reasoning on its own prior reasoning. Each pass costs tokens, drifts from the original question, and eventually the context fills up with the model arguing with itself about whether it already checked something it checked three steps ago.
+
+This is not a hypothetical failure mode. It is the default behavior of every frontier model on multi-step tasks. The model loops, the reasoning amplifies, the token budget runs out, and the final output is whatever the model managed to squeeze out before the window closed. The answer is technically "an answer" in the same way that a student who ran out of exam time scribbles something in the last 30 seconds.
+
+**v1.1 replaces re-reasoning with arithmetic.** Instead of asking the model "is this evidence still good?" on every step, the code counts hops and computes freshness from a trust formula. Instead of asking "am I stuck or done?", the engine checks transitions, bridges, and actions — and returns a discrete outcome (IDLE, BRIDGE, COLLECT_EVIDENCE). Instead of hiding "why can't I proceed?" behind a boolean, the slice spells out the blockers in plain text.
+
+The model's job shrinks from "figure out the entire epistemic state of your own reasoning" to "read this small JSON, pick the next move." The thinking map handles what the model is bad at (tracking state across steps) and leaves it what it is good at (interpreting context and choosing between options).
+
 ## v1.1.2 changes
 
-- **TTL evidence decay** — `EvidencePrimitive.ttl_steps` + step counter on `ActiveState`. Evidence that was fresh at bind time degrades to STALE/EXPIRED as traversal steps accumulate. The freshness guard catches it. No more static evidence that stays green forever across a 10-step traversal.
-- **IDLE outcome** — `OutcomeKind.IDLE` distinguishes "at rest, nothing actionable" from "stuck, need input" (ASK). When no transitions, no actions, no bridges exist — the map is done, not broken.
-- **Bridge traversal** — `OutcomeKind.BRIDGE` + `SemanticMap.bridge_options()`. When dead-ended in a context, the engine checks precomputed bridge targets. If a bridge leads to a context with transitions, the agent gets a `BRIDGE` outcome with target info, entry states, and translation loss. Precomputed via indexed `_ctx_transition_idx`.
-- **Slice blockers** — `slice()` now returns a `blockers: list[str]` field explaining *why* `can_fire` is False. Gate decisions, missing evidence, and guard denials (passed through from traversal). HITL visibility — the operator sees the fuckup, not just a boolean.
+- **TTL evidence decay** — evidence degrades CURRENT → STALE → EXPIRED as traversal steps accumulate. The rate is computed from the FGR trust tuple: formal evidence from reliable sources lasts longer, anecdotal evidence expires fast. No more static evidence that stays green forever across a 10-step traversal. See [FPF_FLOOR_MAP.md](fpf_thinking_map/FPF_FLOOR_MAP.md) for the 5-floor vertical map.
+- **EvidenceFresh proposition** — `EvidenceFresh("test_results")` returns False when evidence has TTL-decayed. The deploy readiness rule now uses this instead of raw presence checks. The logic layer uses math, not re-reasoning, to decide if evidence is still valid.
+- **IDLE outcome** — distinguishes "at rest, nothing actionable" from "stuck, need input." When the map is done, it says so — the model does not loop trying to find work that does not exist.
+- **Bridge traversal** — when dead-ended in a context, the engine checks precomputed bridge targets. If a bridge leads to a context with transitions, the agent gets a concrete cross-context escape with target info, entry states, and translation loss. No more dead ends that the model tries to reason its way out of.
+- **Slice blockers** — `slice()` now explains *why* a move cannot fire: which gate abstained, which evidence is missing, which guard denied. The operator sees the problem, not just a red light.
+- **Evidence status in prompt** — the LLM prompt state now includes per-evidence freshness and TTL remaining. The model sees "test_results: 3 steps left" instead of just "test_results: exists." Decisions informed by countdown, not by guessing.
 
 ## Design principles
 
