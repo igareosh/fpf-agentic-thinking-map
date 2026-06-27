@@ -2,7 +2,9 @@ MIT License
 
 Copyright (c) 2026 prichindel.com (igareosh)
 
-Implementation and code by prichindel.com.
+Implementation and code by prichindel.com, built with Claude Code
+(Anthropic claude-sonnet-4-6).
+
 Semantic foundations based on FPF (First Principles Framework)
 by Anatoly Levenchuk (https://github.com/ailev/FPF).
 
