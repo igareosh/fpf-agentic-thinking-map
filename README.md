@@ -4,6 +4,8 @@
 
 A Python package that gives an AI model a small, structured board to reason on — one move at a time. Instead of freeform text generation, the model navigates a pre-shaped semantic field with deterministic guards and propositional logic constraints.
 
+**[Visual architecture →](ARCHITECTURE.md)** — module graph, step flowchart, floor map, evidence lifecycle, slice structure, deploy sequence diagram.
+
 ## What it does
 
 You define a domain as a semantic map (contexts, roles, gates, evidence, transitions). The model gets a per-move slice — just the current transition, its gate, its evidence, and whether it can fire. Deterministic guards enforce hard constraints the model cannot override. Propositional logic rules (NOT, AND, OR, XOR, IMPLIES, IFF) provide decision glue between the semantic primitives and the model's reasoning.
