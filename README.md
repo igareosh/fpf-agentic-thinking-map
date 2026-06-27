@@ -1,6 +1,6 @@
 # prichindel.com Agentic Thinking Map
 
-**v1.1.3** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
+**v1.2.0** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
 
 A Python package that gives an AI model a small, structured board to reason on — one move at a time. Instead of freeform text generation, the model navigates a pre-shaped semantic field with deterministic guards and propositional logic constraints.
 
@@ -94,7 +94,7 @@ This is not a hypothetical failure mode. It is the default behavior of every fro
 
 The model's job shrinks from "figure out the entire epistemic state of your own reasoning" to "read this small JSON, pick the next move." The thinking map handles what the model is bad at (tracking state across steps) and leaves it what it is good at (interpreting context and choosing between options).
 
-## v1.1.3 changes
+## v1.2.0 changes
 
 - **TTL evidence decay** — evidence degrades CURRENT → STALE → EXPIRED as traversal steps accumulate. The rate is computed from the FGR trust tuple: formal evidence from reliable sources lasts longer, anecdotal evidence expires fast. No more static evidence that stays green forever across a 10-step traversal. See [FPF_FLOOR_MAP.md](fpf_thinking_map/FPF_FLOOR_MAP.md) for the 5-floor vertical map.
 - **EvidenceFresh proposition** — `EvidenceFresh("test_results")` returns False when evidence has TTL-decayed. The deploy readiness rule now uses this instead of raw presence checks. The logic layer uses math, not re-reasoning, to decide if evidence is still valid.
@@ -186,4 +186,4 @@ MIT. See [LICENSE](LICENSE).
 
 ---
 
-**prichindel.com** — v1.1.3 — 2026-06-26
+**prichindel.com** — v1.2.0 — 2026-06-26
