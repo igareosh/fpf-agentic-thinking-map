@@ -1,6 +1,6 @@
 # prichindel.com Agentic Thinking Map
 
-**v1.1.2** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
+**v1.1.3** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
 
 A Python package that gives an AI model a small, structured board to reason on — one move at a time. Instead of freeform text generation, the model navigates a pre-shaped semantic field with deterministic guards and propositional logic constraints.
 
@@ -31,7 +31,7 @@ fpf_thinking_map/
 ├── guards.py                 9 deterministic guards (context, role, gate, evidence, assignment, speech act, readiness)
 ├── logic.py                  6 logic operators + decision rules + LogicLayer
 ├── traversal.py              Step engine with 10 lawful outcomes (incl. IDLE, BRIDGE)
-├── verify.py                 Self-verification harness (18/18 checks)
+├── verify.py                 Self-verification harness (19/19 checks)
 ├── examples.py               5 deploy decision scenarios (missing evidence, role conflict, logic glue, truth table)
 ├── README.md                 Full documentation (any-model readable)
 ├── SOURCES.md                Source attribution (FPF spec + Mitev lectures)
@@ -91,7 +91,7 @@ This is not a hypothetical failure mode. It is the default behavior of every fro
 
 The model's job shrinks from "figure out the entire epistemic state of your own reasoning" to "read this small JSON, pick the next move." The thinking map handles what the model is bad at (tracking state across steps) and leaves it what it is good at (interpreting context and choosing between options).
 
-## v1.1.2 changes
+## v1.1.3 changes
 
 - **TTL evidence decay** — evidence degrades CURRENT → STALE → EXPIRED as traversal steps accumulate. The rate is computed from the FGR trust tuple: formal evidence from reliable sources lasts longer, anecdotal evidence expires fast. No more static evidence that stays green forever across a 10-step traversal. See [FPF_FLOOR_MAP.md](fpf_thinking_map/FPF_FLOOR_MAP.md) for the 5-floor vertical map.
 - **EvidenceFresh proposition** — `EvidenceFresh("test_results")` returns False when evidence has TTL-decayed. The deploy readiness rule now uses this instead of raw presence checks. The logic layer uses math, not re-reasoning, to decide if evidence is still valid.
@@ -99,6 +99,7 @@ The model's job shrinks from "figure out the entire epistemic state of your own 
 - **Bridge traversal** — when dead-ended in a context, the engine checks precomputed bridge targets. If a bridge leads to a context with transitions, the agent gets a concrete cross-context escape with target info, entry states, and translation loss. No more dead ends that the model tries to reason its way out of.
 - **Slice blockers** — `slice()` now explains *why* a move cannot fire: which gate abstained, which evidence is missing, which guard denied. The operator sees the problem, not just a red light.
 - **Evidence status in prompt** — the LLM prompt state now includes per-evidence freshness and TTL remaining. The model sees "test_results: 3 steps left" instead of just "test_results: exists." Decisions informed by countdown, not by guessing.
+- **Response contract** — every slice now ends with a `response_contract`: the structured template the model must fill when responding. Pre-filled fields (scope, basis with freshness/TTL, allowed use, not allowed use, modality, canonical terms, audience) come from the computed state. Empty fields (claim, risky aliases) are for the model. This is why all the code exists — so the contract has precomputed, validated values instead of being re-derived by the model from scratch.
 
 ## Design principles
 
@@ -125,4 +126,4 @@ MIT. See [LICENSE](LICENSE).
 
 ---
 
-**prichindel.com** — v1.1.2 — 2026-06-26
+**prichindel.com** — v1.1.3 — 2026-06-26

@@ -1,6 +1,6 @@
 [project]
 name = "fpf-thinking-map"
-version = "1.1.2"
+version = "1.1.3"
 description = "FPF compiled into an agentic thinking map with propositional logic glue"
 readme = "fpf_thinking_map/README.md"
 license = {text = "MIT"}

@@ -27,6 +27,7 @@ from fpf_thinking_map.primitives import (
     WorkPlanPrimitive,
     SpeechActPrimitive,
     CommitmentPrimitive,
+    DeonticModality,
     GatePrimitive,
     EvidencePrimitive,
     TransitionPrimitive,
@@ -345,6 +346,61 @@ class ActiveState:
         if evidence_id not in self._evidence_added_at:
             self._evidence_added_at[evidence_id] = self.step_count
 
+    def response_contract(self, transition_id: str | None = None) -> dict:
+        """Output contract — what the model's response must contain.
+
+        Pre-filled fields come from the computed state (basis, scope,
+        modality, canonical terms, constraints). Empty fields are for the
+        model to fill (claim, risky aliases). This is why the code exists:
+        so these fields have precomputed, TTL-checked, guard-validated values
+        instead of being re-derived by the model from scratch each step.
+        """
+        ctx = self.active_context
+        ctx_id = self.binding.active_context_id
+
+        if transition_id:
+            t = self.semantic_map.transitions.get(transition_id)
+            relevant = set(t.required_evidence) if t else set()
+            basis = [
+                {"id": eid, "freshness": self.effective_freshness(eid).value,
+                 "ttl_remaining": self.ttl_remaining(eid)}
+                for eid in sorted(relevant & self.available_evidence_ids)
+            ]
+        else:
+            basis = [
+                {"id": eid, "freshness": self.effective_freshness(eid).value,
+                 "ttl_remaining": self.ttl_remaining(eid)}
+                for eid in sorted(self.available_evidence_ids)
+            ]
+
+        commitments = [
+            c for c in self.semantic_map.commitments.values()
+            if not ctx_id or c.context_id == ctx_id
+        ]
+
+        return {
+            "claim": "",
+            "scope": ctx.label if ctx else "",
+            "basis": basis,
+            "allowed_use": [
+                c.scope for c in commitments
+                if c.modality in (DeonticModality.MUST, DeonticModality.SHOULD)
+                and c.scope
+            ],
+            "not_allowed_use": [
+                c.scope for c in commitments
+                if c.modality in (DeonticModality.MUST_NOT, DeonticModality.SHOULD_NOT)
+                and c.scope
+            ] + (ctx.invariants if ctx else []),
+            "modality": [
+                {"commitment": c.label, "force": c.modality.value, "scope": c.scope}
+                for c in commitments
+            ],
+            "audience": self.binding.audience,
+            "canonical_terms": ctx.glossary if ctx else {},
+            "risky_aliases": [],
+        }
+
     def slice(
         self,
         transition_id: str,
@@ -418,6 +474,7 @@ class ActiveState:
             ],
             "can_fire": can_fire,
             "blockers": blockers,
+            "response_contract": self.response_contract(transition_id),
         }
 
     def to_llm_prompt_state(self) -> dict:

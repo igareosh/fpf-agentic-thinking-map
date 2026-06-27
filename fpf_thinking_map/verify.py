@@ -998,6 +998,62 @@ def check_slice_blockers():
     assert "error" in sl_err
 
 
+def check_response_contract():
+    """Verify response contract is precomputed from state, not empty scaffolding."""
+    from fpf_thinking_map.examples import build_deploy_decision_map
+    from fpf_thinking_map.state import RuntimeBinding, ActiveState
+
+    sm = build_deploy_decision_map()
+
+    b = RuntimeBinding(
+        active_context_id="project_delivery",
+        actor_role_ids=["analyst"],
+        current_evidence=["test_results", "owner_approval"],
+        audience="team lead",
+    )
+    s = ActiveState(sm, b, current_state="ready_for_decision")
+
+    # Contract from slice
+    sl = s.slice("ready_to_deploy")
+    rc = sl["response_contract"]
+
+    # Pre-filled fields are populated, not empty
+    assert rc["scope"] == "Project Delivery"
+    assert rc["audience"] == "team lead"
+    assert len(rc["basis"]) == 2
+    assert any(e["id"] == "test_results" for e in rc["basis"])
+    assert any(e["id"] == "owner_approval" for e in rc["basis"])
+
+    # Basis includes freshness and TTL
+    for e in rc["basis"]:
+        assert "freshness" in e
+        assert "ttl_remaining" in e
+
+    # Canonical terms from context glossary
+    assert "deploy" in rc["canonical_terms"]
+    assert "rollback" in rc["canonical_terms"]
+
+    # Modality from commitments
+    assert len(rc["modality"]) >= 1
+    must_commit = [m for m in rc["modality"] if m["force"] == "must"]
+    assert len(must_commit) >= 1
+
+    # Allowed use from MUST/SHOULD commitments
+    assert len(rc["allowed_use"]) >= 1
+
+    # Not-allowed includes context invariants
+    assert any("no deploy without" in n for n in rc["not_allowed_use"])
+
+    # Model-filled fields are empty (waiting for model)
+    assert rc["claim"] == ""
+    assert rc["risky_aliases"] == []
+
+    # Standalone contract (no transition_id)
+    rc2 = s.response_contract()
+    assert rc2["scope"] == "Project Delivery"
+    assert len(rc2["basis"]) == 2
+
+
 def main():
     print("FPF Thinking Map — Self-verification (horizontal)")
     print("=" * 55)
@@ -1021,6 +1077,7 @@ def main():
         ("slice blockers (HITL)", check_slice_blockers),
         ("semantic floors (FPF vertical)", check_semantic_floors),
         ("EvidenceFresh prop + integration", check_evidence_fresh_prop),
+        ("response contract (output discipline)", check_response_contract),
     ]
 
     passed = sum(check(name, fn) for name, fn in checks)
