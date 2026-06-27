@@ -14,6 +14,7 @@ import traceback
 
 from fpf_thinking_map.examples import (
     build_deploy_decision_map,
+    build_deploy_rules,
     run_logic_scenario,
     run_scenario_full_traversal,
     run_scenario_missing_evidence,
@@ -29,7 +30,6 @@ from fpf_thinking_map.logic import (
     RuleKind,
     RiskAbove,
     CustomProp,
-    build_deploy_rules,
 )
 from fpf_thinking_map.primitives import (
     ContextBridge,

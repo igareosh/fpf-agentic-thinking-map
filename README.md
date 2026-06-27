@@ -111,6 +111,63 @@ The model's job shrinks from "figure out the entire epistemic state of your own 
 - **Horizontal operational clarity** over vertical semantic completeness
 - **Compile-time richness** over runtime payload growth
 
+## Using as a dependency
+
+This package is the reasoning engine. Your domain maps run on top of it.
+
+```bash
+pip install git+https://github.com/igareosh/prichindel.com-agentic-thinking-map.git
+```
+
+```python
+from fpf_thinking_map import (
+    SemanticMap, ContextPrimitive, RolePrimitive, TransitionPrimitive,
+    GatePrimitive, GateCheck, EvidencePrimitive, CommitmentPrimitive,
+    FGR, Freshness, SemanticFloor, DeonticModality, AgencyLevel,
+    RuntimeBinding, ThinkingMapTraversal,
+    LogicLayer, DecisionRule, RuleKind, EvidenceFresh,
+)
+
+# 1. Build your domain map
+sm = SemanticMap()
+sm.register_context(ContextPrimitive("sales", "Sales Process",
+    glossary={"lead": "potential customer", "deal": "qualified opportunity"},
+    invariants=["no invoice without signed contract"],
+))
+sm.register_role(RolePrimitive("sales_rep", "Sales Rep", "sales",
+    incompatible_with=["approver"],
+))
+sm.register_gate(GatePrimitive("deal_gate", "Deal Gate", "sales", checks=[
+    GateCheck("contract", "Signed contract", required_evidence=["signed_contract"]),
+]))
+sm.register_transition(TransitionPrimitive(
+    "qualify", "Qualify Lead", "sales", "new_lead", "qualified",
+    required_evidence=["contact_info"],
+))
+
+# 2. Build your logic rules (optional)
+logic = LogicLayer()
+logic.add_rule(DecisionRule(
+    name="deal_ready",
+    condition=EvidenceFresh("signed_contract"),
+    action_if_true="proceed", action_if_false="collect_signature",
+    kind=RuleKind.ROUTE, tags=["sales"],
+))
+
+# 3. Create engine and step
+engine = ThinkingMapTraversal(sm, logic_layer=logic)
+state = engine.build_active_state(
+    RuntimeBinding(task="qualify lead", actor_role_ids=["sales_rep"],
+                   active_context_id="sales", current_evidence=["contact_info"]),
+    current_state="new_lead",
+)
+outcome = engine.step(state)
+# outcome.kind → CONTINUE, COLLECT_EVIDENCE, IDLE, BRIDGE, ...
+# outcome.llm_prompt_state → JSON for the model (includes response_contract)
+```
+
+The engine has no domain-specific code. The deploy example in `examples.py` is a reference implementation — your domain maps import the engine and build their own SemanticMaps, gates, and rules.
+
 ## Compatibility
 
 Built with Claude Code (Anthropic claude-sonnet-4-6). Tested and verified to work with:

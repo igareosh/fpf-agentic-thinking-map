@@ -15,7 +15,21 @@ Build map: from fpf_thinking_map.examples import build_deploy_decision_map
 
 import json
 
-from fpf_thinking_map.logic import EvidencePresent, build_deploy_rules
+from fpf_thinking_map.logic import (
+    CustomProp,
+    DecisionRule,
+    EvidenceFresh,
+    EvidencePresent,
+    GateBlocked,
+    GatePasses,
+    HasMissingEvidence,
+    InState,
+    LogicLayer,
+    RiskAbove,
+    RoleActive,
+    RuleKind,
+    TransitionAvailable,
+)
 from fpf_thinking_map.primitives import (
     AgencyLevel,
     CommitmentPrimitive,
@@ -344,6 +358,96 @@ def run_scenario_full_traversal():
 
     for i, o in enumerate(outcomes):
         print(f"\n  Step {i + 1}: {o.kind.value} — {o.reason}")
+
+
+def build_deploy_rules() -> LogicLayer:
+    """Deploy-decision rules demonstrating all 6 operators + freshness-aware checks.
+
+    Domain-specific: uses the deploy scenario's evidence IDs, gate IDs, and roles.
+    For your own domain, build a LogicLayer with your own DecisionRules.
+    """
+    logic = LogicLayer()
+
+    ev_tests = EvidencePresent("test_results")
+    ev_approval = EvidencePresent("owner_approval")
+    ev_rollback = EvidencePresent("rollback_plan")
+    ev_tests_fresh = EvidenceFresh("test_results")
+    ev_approval_fresh = EvidenceFresh("owner_approval")
+    gate_deploy = GatePasses("deploy_gate")
+    gate_blocked = GateBlocked("deploy_gate")
+    role_analyst = RoleActive("analyst")
+    role_approver = RoleActive("approver")
+    has_gaps = HasMissingEvidence()
+    high_risk = RiskAbove("high")
+    ready = InState("ready_for_decision")
+    t_deploy = TransitionAvailable("ready_to_deploy")
+
+    logic.add_rule(DecisionRule(
+        name="deploy_readiness",
+        condition=ev_tests_fresh.AND(ev_approval_fresh).AND(gate_deploy),
+        action_if_true="proceed_to_deploy",
+        action_if_false="not_ready",
+        kind=RuleKind.ROUTE,
+        tags=["deploy", "readiness"],
+        exclusive_with=["block_transition"],
+    ))
+    logic.add_rule(DecisionRule(
+        name="gate_blocked_implies_collect",
+        condition=gate_blocked.IMPLIES(has_gaps),
+        action_if_true="collect_evidence",
+        kind=RuleKind.HINT,
+        tags=["deploy", "evidence"],
+    ))
+    logic.add_rule(DecisionRule(
+        name="evidence_gap_detected",
+        condition=ev_approval.NOT(),
+        action_if_true="request_approval",
+        kind=RuleKind.WARN,
+        tags=["deploy", "evidence"],
+    ))
+    logic.add_rule(DecisionRule(
+        name="evidence_decay_warning",
+        condition=ev_tests.AND(ev_tests_fresh.NOT()),
+        action_if_true="evidence_stale_refresh_needed",
+        kind=RuleKind.WARN,
+        tags=["deploy", "evidence", "decay"],
+    ))
+    logic.add_rule(DecisionRule(
+        name="role_separation",
+        condition=role_analyst.XOR(role_approver),
+        action_if_true="valid_role_assignment",
+        action_if_false="role_conflict",
+        kind=RuleKind.BLOCK,
+        tags=["roles"],
+    ))
+    logic.add_rule(DecisionRule(
+        name="recovery_path_exists",
+        condition=ev_rollback.OR(t_deploy.NOT()),
+        action_if_true="safe_to_proceed",
+        action_if_false="no_safety_net",
+        kind=RuleKind.WARN,
+        tags=["deploy", "safety"],
+    ))
+    logic.add_rule(DecisionRule(
+        name="readiness_equivalence",
+        condition=ready.IFF(gate_deploy),
+        action_if_true="state_gate_aligned",
+        action_if_false="state_gate_mismatch",
+        kind=RuleKind.HINT,
+        tags=["deploy", "readiness"],
+    ))
+    logic.add_rule(DecisionRule(
+        name="risk_escalation",
+        condition=high_risk.AND(has_gaps).IMPLIES(
+            CustomProp("should_escalate", lambda s: True)
+        ),
+        action_if_true="escalate_if_risky",
+        kind=RuleKind.ROUTE,
+        tags=["deploy", "risk"],
+        risk_sensitive=True,
+    ))
+
+    return logic
 
 
 def run_logic_scenario():
