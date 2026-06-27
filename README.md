@@ -37,6 +37,7 @@ fpf_thinking_map/
 ├── SOURCES.md                Source attribution (FPF spec + Mitev lectures)
 ├── FPF_SOURCE_TO_CODE_RELATION_AUDIT.md   50-item relation audit
 ├── FPF_AUDIT_RESPONSE.md     Audit response with design decisions
+├── WHY_THIS_EXISTS.md            Compiled FPF vs raw FPF — the triple tax problem
 ├── FPF_FLOOR_MAP.md              Semantic floor map (5 floors, TTL derivation)
 ├── REJECTED_C32_CANDIDATE_SYNTHESIS.md    C.32 rejection (activation bias)
 └── REJECTED_NQD_OEE_CULTURAL_EVOLUTION.md NQD/OEE rejection (bias injector)
