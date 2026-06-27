@@ -2,6 +2,16 @@ MIT License
 
 Copyright (c) 2026 prichindel.com (igareosh)
 
+Implementation and code by prichindel.com.
+Semantic foundations based on FPF (First Principles Framework)
+by Anatoly Levenchuk (https://github.com/ailev/FPF).
+
+This is an independent implementation — our own research, design,
+and code. Not a port or copy of the FPF specification. The FPF spec
+informed the semantic primitives; the compiled thinking map, TTL
+evidence decay, guard engine, propositional logic layer, traversal
+engine, and response contract are original work.
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
