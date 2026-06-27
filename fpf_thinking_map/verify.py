@@ -12,6 +12,48 @@ import io
 import contextlib
 import traceback
 
+from fpf_thinking_map.examples import (
+    build_deploy_decision_map,
+    run_logic_scenario,
+    run_scenario_full_traversal,
+    run_scenario_missing_evidence,
+    run_scenario_role_conflict,
+    run_truth_table_demo,
+)
+from fpf_thinking_map.guards import GuardEngine, GuardScope, GuardVerdict
+from fpf_thinking_map.logic import (
+    DecisionRule,
+    EvidenceFresh,
+    EvidencePresent,
+    LogicLayer,
+    RuleKind,
+    RiskAbove,
+    CustomProp,
+    build_deploy_rules,
+)
+from fpf_thinking_map.primitives import (
+    ContextBridge,
+    ContextPrimitive,
+    CommitmentPrimitive,
+    DeonticModality,
+    EvidencePrimitive,
+    FGR,
+    FLOOR_BASE_TTL,
+    Freshness,
+    GateCheck,
+    GateDecision,
+    GatePrimitive,
+    RoleAssignment,
+    RolePrimitive,
+    SemanticFloor,
+    SpeechActPrimitive,
+    SpeechActType,
+    TransitionPrimitive,
+    WorkPrimitive,
+)
+from fpf_thinking_map.state import ActiveState, MoveTrace, RuntimeBinding, SemanticMap
+from fpf_thinking_map.traversal import OutcomeKind, ThinkingMapTraversal
+
 
 def check(name: str, fn):
     try:
@@ -40,12 +82,6 @@ def check_imports():
 
 
 def check_primitives():
-    from fpf_thinking_map.primitives import (
-        ContextPrimitive, RolePrimitive, CommitmentPrimitive,
-        DeonticModality, GatePrimitive, GateCheck, GateDecision,
-        FGR, Freshness,
-    )
-
     ctx = ContextPrimitive("c1", "Test", glossary={"x": "y"})
     assert ctx.term_defined("x")
     assert ctx.resolve_term("x") == "y"
@@ -73,12 +109,6 @@ def check_primitives():
 
 
 def check_state():
-    from fpf_thinking_map.primitives import (
-        ContextPrimitive, RolePrimitive, GatePrimitive, GateCheck,
-        TransitionPrimitive,
-    )
-    from fpf_thinking_map.state import SemanticMap, RuntimeBinding, ActiveState
-
     sm = SemanticMap()
     sm.register_context(ContextPrimitive("c1", "Ctx1"))
     sm.register_role(RolePrimitive("r1", "Role1", "c1"))
@@ -90,53 +120,41 @@ def check_state():
         required_gate_id="g1", required_evidence=["e1"],
     ))
 
-    # #1: transitions_for scoped to context + state
     assert len(sm.transitions_for("c1", "s1")) == 1
     assert len(sm.transitions_for("c1", "s2")) == 0
     assert len(sm.transitions_for("other", "s1")) == 0
 
-    # #2: gates_for_transitions
     transitions = sm.transitions_for("c1", "s1")
     gates = sm.gates_for_transitions(transitions)
     assert len(gates) == 1
 
-    # #14: empty roles when none bound
     binding = RuntimeBinding(active_context_id="c1", current_evidence=["e1"])
     state = ActiveState(sm, binding, current_state="s1")
     assert len(state.active_roles) == 0
 
-    # #15: explicit role binding
     binding2 = RuntimeBinding(
         active_context_id="c1", actor_role_ids=["r1"], current_evidence=["e1"],
     )
     state2 = ActiveState(sm, binding2, current_state="s1")
     assert len(state2.active_roles) == 1
 
-    # #3: per-transition missing evidence
     binding3 = RuntimeBinding(active_context_id="c1", current_evidence=[])
     state3 = ActiveState(sm, binding3, current_state="s1")
     assert state3.missing_evidence_for("t1") == ["e1"]
     assert state3.missing_evidence_for("nonexistent") == []
 
-    # #5: slice
     sl = state2.slice("t1")
     assert sl["move"]["id"] == "t1"
     assert sl["can_fire"] is True
 
-    # #24: trace
     prompt = state2.to_llm_prompt_state()
     assert prompt["active_context"] == "c1"
     assert prompt["trace"] is None  # no previous move
 
 
 def check_guards():
-    from fpf_thinking_map.examples import build_deploy_decision_map
-    from fpf_thinking_map.state import RuntimeBinding, ActiveState
-    from fpf_thinking_map.guards import GuardEngine, GuardVerdict, GuardScope
-
     sm = build_deploy_decision_map()
 
-    # #19: scoped evaluation with transition_id
     b = RuntimeBinding(
         active_context_id="project_delivery",
         actor_role_ids=["analyst"],
@@ -179,9 +197,6 @@ def check_guards():
 
 
 def check_logic_operators():
-    from fpf_thinking_map.logic import EvidencePresent
-    from fpf_thinking_map.state import SemanticMap, RuntimeBinding, ActiveState
-
     sm = SemanticMap()
     p = EvidencePresent("p")
     q = EvidencePresent("q")
@@ -212,10 +227,6 @@ def check_logic_operators():
 
 
 def check_logic_layer():
-    from fpf_thinking_map.examples import build_deploy_decision_map
-    from fpf_thinking_map.logic import build_deploy_rules, RuleKind
-    from fpf_thinking_map.state import RuntimeBinding, ActiveState
-
     sm = build_deploy_decision_map()
     logic = build_deploy_rules()
 
@@ -226,35 +237,26 @@ def check_logic_layer():
     )
     s = ActiveState(sm, b, current_state="ready_for_decision")
 
-    # #9: split into facts and actions
     ctx = logic.to_llm_context(s)
     assert "facts" in ctx
     assert "actions" in ctx
     assert ctx["consistency"]["consistent"]
 
-    # #12: tag-scoped evaluation
     deploy_ctx = logic.to_llm_context(s, tags={"deploy"})
     role_ctx = logic.to_llm_context(s, tags={"roles"})
     assert len(deploy_ctx["facts"]) + len(deploy_ctx["actions"]) >= 1
     assert len(role_ctx["actions"]) >= 1
 
-    # #10: rules have kinds
     all_results = logic.evaluate_all(s)
     kinds = {r["kind"] for r in all_results}
     assert "route" in kinds or "block" in kinds or "hint" in kinds
 
 
 def check_traversal():
-    from fpf_thinking_map.examples import build_deploy_decision_map
-    from fpf_thinking_map.logic import build_deploy_rules
-    from fpf_thinking_map.state import RuntimeBinding
-    from fpf_thinking_map.traversal import ThinkingMapTraversal, OutcomeKind
-
     sm = build_deploy_decision_map()
     logic = build_deploy_rules()
     engine = ThinkingMapTraversal(sm, logic_layer=logic)
 
-    # #6: focused step with transition_id
     b1 = RuntimeBinding(
         active_context_id="project_delivery",
         actor_role_ids=["analyst"],
@@ -286,7 +288,6 @@ def check_traversal():
     o4 = engine.step(s3)
     assert o4.kind == OutcomeKind.CHANGE_FRAME
 
-    # #25: demo_walk
     b5 = RuntimeBinding(
         active_context_id="project_delivery",
         actor_role_ids=["analyst"],
@@ -299,16 +300,6 @@ def check_traversal():
 
 def check_boundary_enforcement():
     """Verify the 4 findings are fixed: no cross-context leaks, no advisory evidence."""
-    from fpf_thinking_map.primitives import (
-        ContextPrimitive, RolePrimitive, TransitionPrimitive,
-        GatePrimitive, GateCheck,
-    )
-    from fpf_thinking_map.state import SemanticMap, RuntimeBinding, ActiveState
-    from fpf_thinking_map.traversal import ThinkingMapTraversal, OutcomeKind
-    from fpf_thinking_map.logic import (
-        LogicLayer, DecisionRule, RuleKind, RiskAbove, CustomProp,
-    )
-
     sm = SemanticMap()
     sm.register_context(ContextPrimitive("ctx_a", "Context A"))
     sm.register_context(ContextPrimitive("ctx_b", "Context B"))
@@ -404,14 +395,6 @@ def check_boundary_enforcement():
 
 def check_audit_fixes():
     """Verify R07/R08, R09, R17, R20/R21 from the FPF audit."""
-    from fpf_thinking_map.primitives import (
-        ContextPrimitive, RolePrimitive, RoleAssignment,
-        WorkPrimitive, SpeechActPrimitive, SpeechActType,
-        CommitmentPrimitive, DeonticModality, GateDecision,
-    )
-    from fpf_thinking_map.state import SemanticMap, RuntimeBinding, ActiveState
-    from fpf_thinking_map.guards import GuardEngine, GuardVerdict
-
     sm = SemanticMap()
     sm.register_context(ContextPrimitive("ctx", "Test"))
     sm.register_role(RolePrimitive("dev", "Developer", "ctx"))
@@ -491,10 +474,6 @@ def check_audit_fixes():
 
 
 def check_end_to_end():
-    from fpf_thinking_map.examples import (
-        run_scenario_missing_evidence, run_scenario_role_conflict,
-        run_scenario_full_traversal,
-    )
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         run_scenario_missing_evidence()
@@ -505,9 +484,6 @@ def check_end_to_end():
 
 
 def check_logic_end_to_end():
-    from fpf_thinking_map.examples import (
-        run_logic_scenario, run_truth_table_demo,
-    )
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         run_logic_scenario()
@@ -519,14 +495,6 @@ def check_logic_end_to_end():
 
 def check_horizontal_properties():
     """Verify the 25 horizontal improvements are structurally present."""
-    from fpf_thinking_map.state import SemanticMap, RuntimeBinding, ActiveState, MoveTrace
-    from fpf_thinking_map.primitives import (
-        ContextPrimitive, RolePrimitive, TransitionPrimitive,
-        GatePrimitive, GateCheck, Freshness,
-    )
-    from fpf_thinking_map.guards import GuardEngine, GuardScope
-    from fpf_thinking_map.logic import LogicLayer, DecisionRule, RuleKind, EvidencePresent
-
     sm = SemanticMap()
     sm.register_context(ContextPrimitive("c1", "Ctx"))
     sm.register_role(RolePrimitive("r1", "R1", "c1"))
@@ -538,40 +506,30 @@ def check_horizontal_properties():
         GateCheck("gc1", "chk", required_evidence=["e1"]),
     ]))
 
-    # #1: transitions_for exists and scopes
     assert hasattr(sm, "transitions_for")
 
-    # #2: gates_for_transitions exists
     assert hasattr(sm, "gates_for_transitions")
 
-    # #5: slice exists
     b = RuntimeBinding(active_context_id="c1", actor_role_ids=["r1"], current_evidence=["e1"])
     s = ActiveState(sm, b, "s1")
     assert "move" in s.slice("t1")
 
-    # #10: RuleKind enum
     assert RuleKind.BLOCK.value == "block"
     assert RuleKind.HINT.value == "hint"
 
-    # #11: exclusive_with on DecisionRule
     dr = DecisionRule("test", EvidencePresent("x"), "a", exclusive_with=["b"])
     assert dr.exclusive_with == ["b"]
 
-    # #14: empty roles when unbound
     s2 = ActiveState(sm, RuntimeBinding(active_context_id="c1"), "s1")
     assert s2.active_roles == []
 
-    # #16: register_work exists
     assert hasattr(sm, "register_work")
 
-    # #19: GuardScope exists
     assert GuardScope.TRANSITION.value == "transition"
 
-    # #20: Freshness enum
     assert Freshness.STALE.value == "stale"
     assert Freshness.EXPIRED.value == "expired"
 
-    # #24: MoveTrace
     mt = MoveTrace()
     assert hasattr(mt, "previous_state")
     assert hasattr(mt, "evidence_delta")
@@ -579,13 +537,6 @@ def check_horizontal_properties():
 
 def check_ttl_decay():
     """Verify TTL evidence decay over traversal steps."""
-    from fpf_thinking_map.primitives import (
-        ContextPrimitive, EvidencePrimitive, FGR, Freshness,
-        TransitionPrimitive,
-    )
-    from fpf_thinking_map.state import SemanticMap, RuntimeBinding, ActiveState
-    from fpf_thinking_map.guards import GuardEngine, GuardVerdict
-
     sm = SemanticMap()
     sm.register_context(ContextPrimitive("ctx", "Test"))
     sm.register_evidence(EvidencePrimitive(
@@ -647,10 +598,6 @@ def check_ttl_decay():
 
 def check_idle_outcome():
     """Verify IDLE outcome for clean terminal states."""
-    from fpf_thinking_map.primitives import ContextPrimitive, TransitionPrimitive
-    from fpf_thinking_map.state import SemanticMap, RuntimeBinding
-    from fpf_thinking_map.traversal import ThinkingMapTraversal, OutcomeKind
-
     sm = SemanticMap()
     sm.register_context(ContextPrimitive("ctx", "Test"))
     sm.register_transition(TransitionPrimitive(
@@ -692,12 +639,6 @@ def check_idle_outcome():
 
 def check_bridge_outcome():
     """Verify BRIDGE outcome for cross-context escape."""
-    from fpf_thinking_map.primitives import (
-        ContextPrimitive, ContextBridge, TransitionPrimitive,
-    )
-    from fpf_thinking_map.state import SemanticMap, RuntimeBinding
-    from fpf_thinking_map.traversal import ThinkingMapTraversal, OutcomeKind
-
     sm = SemanticMap()
     sm.register_context(ContextPrimitive(
         context_id="ctx_a", label="Context A",
@@ -753,12 +694,6 @@ def check_bridge_outcome():
 
 def check_semantic_floors():
     """Verify semantic floor TTL computation from FGR trust factors."""
-    from fpf_thinking_map.primitives import (
-        ContextPrimitive, EvidencePrimitive, FGR, Freshness,
-        SemanticFloor, FLOOR_BASE_TTL, TransitionPrimitive,
-    )
-    from fpf_thinking_map.state import SemanticMap, RuntimeBinding, ActiveState
-
     # Floor constants exist and are correct
     assert FLOOR_BASE_TTL[SemanticFloor.STRUCTURAL] is None
     assert FLOOR_BASE_TTL[SemanticFloor.BINDING] == 10
@@ -864,16 +799,6 @@ def check_semantic_floors():
 
 def check_evidence_fresh_prop():
     """Verify EvidenceFresh proposition — temporal check vs structural EvidencePresent."""
-    from fpf_thinking_map.primitives import (
-        ContextPrimitive, EvidencePrimitive, FGR, Freshness,
-        SemanticFloor, TransitionPrimitive,
-    )
-    from fpf_thinking_map.logic import (
-        EvidencePresent, EvidenceFresh, LogicLayer, DecisionRule, RuleKind,
-        build_deploy_rules,
-    )
-    from fpf_thinking_map.state import SemanticMap, RuntimeBinding, ActiveState
-
     sm = SemanticMap()
     sm.register_context(ContextPrimitive("ctx", "Test"))
     sm.register_evidence(EvidencePrimitive(
@@ -902,7 +827,6 @@ def check_evidence_fresh_prop():
     assert fresh.evaluate(s2) is False
 
     # deploy_readiness rule uses EvidenceFresh — verify it fires correctly
-    from fpf_thinking_map.examples import build_deploy_decision_map
     deploy_sm = build_deploy_decision_map()
     logic = build_deploy_rules()
 
@@ -950,12 +874,6 @@ def check_evidence_fresh_prop():
 
 def check_slice_blockers():
     """Verify slice includes blockers for HITL visibility."""
-    from fpf_thinking_map.primitives import (
-        ContextPrimitive, RolePrimitive, GatePrimitive, GateCheck,
-        TransitionPrimitive,
-    )
-    from fpf_thinking_map.state import SemanticMap, RuntimeBinding, ActiveState
-
     sm = SemanticMap()
     sm.register_context(ContextPrimitive("ctx", "Test"))
     sm.register_role(RolePrimitive("r1", "Role", "ctx"))
@@ -1000,9 +918,6 @@ def check_slice_blockers():
 
 def check_response_contract():
     """Verify response contract is precomputed from state, not empty scaffolding."""
-    from fpf_thinking_map.examples import build_deploy_decision_map
-    from fpf_thinking_map.state import RuntimeBinding, ActiveState
-
     sm = build_deploy_decision_map()
 
     b = RuntimeBinding(
