@@ -34,7 +34,7 @@ from fpf_thinking_map.primitives import (
     TransitionPrimitive,
 )
 from fpf_thinking_map.state import ActiveState, RuntimeBinding, SemanticMap
-from fpf_thinking_map.traversal import ThinkingMapTraversal
+from fpf_thinking_map.traversal import OutcomeKind, ThinkingMapTraversal
 
 
 def build_deploy_decision_map() -> SemanticMap:
@@ -327,16 +327,17 @@ def run_scenario_full_traversal():
     for _ in range(10):
         outcome = engine.step(state)
         outcomes.append(outcome)
-        if outcome.kind.value in (
-            "abstain", "ask", "escalate", "publish",
-            "collect_evidence", "idle", "bridge",
+        if outcome.kind in (
+            OutcomeKind.ABSTAIN, OutcomeKind.ASK, OutcomeKind.ESCALATE,
+            OutcomeKind.PUBLISH, OutcomeKind.COLLECT_EVIDENCE,
+            OutcomeKind.IDLE, OutcomeKind.BRIDGE,
         ):
             break
         transitions = state.possible_transitions
         if transitions:
             t_out = engine.attempt_transition(state, transitions[0].transition_id)
             outcomes.append(t_out)
-            if t_out.kind.value != "continue":
+            if t_out.kind != OutcomeKind.CONTINUE:
                 break
         else:
             break

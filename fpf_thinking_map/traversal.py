@@ -35,7 +35,7 @@ class OutcomeKind(Enum):
     """The agent's lawful moves — FPF-bounded outcome space."""
     CONTINUE = "continue"
     ASK = "ask"
-    ABSTAIN = "abstain"
+    ABSTAIN = "denied"
     ESCALATE = "escalate"
     PUBLISH = "publish"
     REVISE_PLAN = "revise_plan"

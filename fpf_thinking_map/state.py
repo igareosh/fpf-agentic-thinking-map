@@ -392,12 +392,12 @@ class ActiveState:
                 if c.modality in (DeonticModality.MUST_NOT, DeonticModality.SHOULD_NOT)
                 and c.scope
             ] + (ctx.invariants if ctx else []),
-            "modality": [
+            "obligations": [
                 {"commitment": c.label, "force": c.modality.value, "scope": c.scope}
                 for c in commitments
             ],
             "audience": self.binding.audience,
-            "canonical_terms": ctx.glossary if ctx else {},
+            "correct_terms": ctx.glossary if ctx else {},
             "risky_aliases": [],
         }
 

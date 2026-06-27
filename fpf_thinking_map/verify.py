@@ -1030,12 +1030,12 @@ def check_response_contract():
         assert "ttl_remaining" in e
 
     # Canonical terms from context glossary
-    assert "deploy" in rc["canonical_terms"]
-    assert "rollback" in rc["canonical_terms"]
+    assert "deploy" in rc["correct_terms"]
+    assert "rollback" in rc["correct_terms"]
 
     # Modality from commitments
-    assert len(rc["modality"]) >= 1
-    must_commit = [m for m in rc["modality"] if m["force"] == "must"]
+    assert len(rc["obligations"]) >= 1
+    must_commit = [m for m in rc["obligations"] if m["force"] == "must"]
     assert len(must_commit) >= 1
 
     # Allowed use from MUST/SHOULD commitments

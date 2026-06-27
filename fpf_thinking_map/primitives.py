@@ -236,9 +236,9 @@ class GateDecision(Enum):
     DEGRADE = partial checks satisfied (proceed with caution)
     BLOCK   = hard denial (cannot proceed regardless of evidence)
     """
-    ABSTAIN = "abstain"
+    ABSTAIN = "insufficient"
     PASS = "pass"
-    DEGRADE = "degrade"
+    DEGRADE = "partial"
     BLOCK = "block"
 
 
