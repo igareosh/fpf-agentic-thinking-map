@@ -256,6 +256,12 @@ We release this because it is useful beyond our own stack.
 - It helps turn model failure from mystical drift into inspectable state.
 - It stays intentionally narrow, so it can remain legible instead of becoming another overbuilt "agent platform."
 
+## Credits
+
+- **igareosh** — project direction, scope discipline, practical use-case pressure, and product truth
+- **Claude Code (Anthropic)** — implementation support, library iteration, and earlier release preparation
+- **Codex / OpenAI** — product framing polish, packaging cleanup, verification, and release-readiness work
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
