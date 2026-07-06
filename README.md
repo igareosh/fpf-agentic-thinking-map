@@ -1,6 +1,6 @@
 # prichindel.com Agentic Thinking Map
 
-**v1.3.0** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
+**v1.3.1** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
 
 A Python package that gives an AI model a small, structured board to reason on — one move at a time. Instead of freeform text generation, the model navigates a pre-shaped semantic field with deterministic guards and propositional logic constraints.
 
@@ -104,6 +104,12 @@ The model's job shrinks from "figure out the entire epistemic state of your own 
 - **Evidence status in prompt** — the LLM prompt state now includes per-evidence freshness and TTL remaining. The model sees "test_results: 3 steps left" instead of just "test_results: exists." Decisions informed by countdown, not by guessing.
 - **Response contract** — every slice now ends with a `response_contract`: the structured template the model must fill when responding. Pre-filled fields (scope, basis with freshness/TTL, allowed use, not allowed use, modality, canonical terms, audience) come from the computed state. Empty fields (claim, risky aliases) are for the model. This is why all the code exists — so the contract has precomputed, validated values instead of being re-derived by the model from scratch.
 
+## v1.3.0 changes
+
+- **Bridge crossing is enforced, not just advertised** — `ActiveState.cross_bridge()` / `ThinkingMapTraversal.attempt_bridge()` actually perform a cross-context hop and check `substitution_license` against `risk_level` before mutating state. An unlicensed bridge under `high`/`critical` risk is refused (`ESCALATE`), not silently allowed. Before this, `bridge_options()` was advisory metadata only — the model decided for itself whether a lossy translation was acceptable.
+- **`include_full_state=False`** — `step()` can now ship the scoped `slice()` alone, without the whole board bolted on. Default stays `True`; opt in when the caller already knows its `transition_id` and wants the lean payload.
+- 21/21 self-verification checks (`python -m fpf_thinking_map.verify`), two new: bridge crossing and lean-slice payload shape.
+
 ## Design principles
 
 - **Only add structure when it changes agentic behavior** — not for source fidelity alone
@@ -113,10 +119,10 @@ The model's job shrinks from "figure out the entire epistemic state of your own 
 
 ## Using as a dependency
 
-This package is the reasoning engine. Your domain maps run on top of it.
+This package is the compiled map, not a reasoning engine — it doesn't think for the model. Denying unlawful moves is the smaller half of the job; the bigger half is handing back the lawful ones as a small, plain-JSON slice — what can fire, what's missing, why — so the model has simple, understandable room to behave properly instead of guessing at its own state. That slice also lets the agent check itself, at any point mid-run, against whatever context it's currently in: `can_fire`, `blockers`, `outcome.kind` are plain +/- signals the model reads to self-address its own progress, not a verdict it has to reconstruct by re-reasoning. Your domain maps run on top of it; the model just reads the slice and picks a move from what's actually open to it.
 
 ```bash
-pip install git+https://github.com/igareosh/prichindel.com-agentic-thinking-map.git
+pip install fpf-thinking-map
 ```
 
 ```python
@@ -186,4 +192,4 @@ MIT. See [LICENSE](LICENSE).
 
 ---
 
-**prichindel.com** — v1.2.1 — 2026-06-26
+**prichindel.com** — v1.3.1 — 2026-07-06
