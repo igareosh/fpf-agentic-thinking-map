@@ -4,6 +4,8 @@ This document explains why this package exists adjacent to the original FPF spec
 
 This is not a critique of FPF itself. As a human-readable transdisciplinary framework, FPF is strong and well-structured. The problem is not the framework — it is the assumption that a language model can absorb a 51,000-line specification and then apply it the way a human reader would.
 
+We are not trying to turn FPF into another giant AI stack. We took what was useful for bounded traversal, compiled it, and kept the result intentionally small. That is the product choice here: publish a practical instrument, not an empire.
+
 ## The triple tax: what happens when a model reads raw FPF
 
 When you give a language model the FPF specification text and ask it to make a decision, three things happen in sequence. Each one costs tokens, time, and accuracy.
@@ -52,6 +54,8 @@ One pass. No translation. No re-reasoning. The code already did the FPF thinking
 
 The model's job shrinks from "understand this 51k-line philosophy of reasoning and then apply it" to "read this small JSON, fill in the claim field, pick the next move."
 
+That smallness matters. It gives the model a simple operating surface for self-addressing its own run: what can fire, what cannot, what is missing, what is risky, whether it should continue, bridge, idle, or escalate. Not mystical agency. Just enough instrumentation to behave properly.
+
 ## Three problems with feeding raw FPF to a model
 
 ### 1. It makes the model re-reason N times
@@ -87,6 +91,8 @@ FPF as a human-readable specification: strong.
 FPF as raw input to a language model: triple tax.
 FPF compiled into a thinking map with precomputed state: what this package does.
 
+This is also why we release it publicly. The value is not private magic. The value is that other people building agents can stop overfeeding models with giant conceptual blobs and start giving them smaller, inspectable decision surfaces instead.
+
 ---
 
-prichindel.com | 2026-06-27 | v1.1.3
+prichindel.com | 2026-07-06 | v1.3.1

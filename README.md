@@ -1,16 +1,31 @@
 # prichindel.com Agentic Thinking Map
 
-**v1.3.1** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
+**v1.3.1** — [FPF (First Principles Framework)](https://github.com/ailev/FPF), compiled into a small traversal map for LLM agents.
 
-A Python package that gives an AI model a small, structured board to reason on — one move at a time. Instead of freeform text generation, the model navigates a pre-shaped semantic field with deterministic guards and propositional logic constraints.
+A Python package that gives a model a bounded move board instead of a giant framework to digest at runtime. Instead of rereading a sprawling semantic corpus and improvising from it, the model gets a small JSON slice: what context it is in, what move is open, what evidence is missing, what is risky, and what outcome class applies.
 
 **[Visual architecture →](ARCHITECTURE.md)** — module graph, step flowchart, floor map, evidence lifecycle, slice structure, deploy sequence diagram.
 
+## Why this exists
+
+FPF is valuable, but it is large, clumsy at runtime, and poorly shaped for direct model consumption. A human can read a 51k-line framework, understand its distinctions, and apply them carefully. A model usually does something else: it absorbs the vocabulary, performs the tone of the framework, and still drifts on the actual task.
+
+This package exists because the useful part is not making the model sound more scientific. The useful part is compiling the parts of FPF that help operational decisions into something small, explicit, and inspectable. We took what mattered for bounded traversal, left out what would bloat or bias the model, and evolved the result as publishers of a practical library rather than trying to reproduce the whole upstream framework inside another AI mega-system.
+
+The goal is simple: give the model enough structure to behave understandably, without building a cage so elaborate that it becomes another source of drift.
+
 ## What it does
 
-You define a domain as a semantic map (contexts, roles, gates, evidence, transitions). The model gets a per-move slice — just the current transition, its gate, its evidence, and whether it can fire. Deterministic guards enforce hard constraints the model cannot override. Propositional logic rules (NOT, AND, OR, XOR, IMPLIES, IFF) provide decision glue between the semantic primitives and the model's reasoning.
+You define a domain as a semantic map: contexts, roles, gates, evidence, transitions. The model gets a per-move slice, not a theory dump. Deterministic guards handle the hard checks. Propositional logic rules (NOT, AND, OR, XOR, IMPLIES, IFF) provide explicit decision glue between the semantic primitives and the current state.
 
-The model's job is not "what does FPF mean?" — it is: **given this semantic map and this state, what is the best lawful next move?**
+The model's job is not "what does FPF mean?" It is: **given this map and this state, what is the best lawful next move?**
+
+In practice this does two useful things:
+
+- it reduces unexplained drift by moving state tracking and hard checks out of freeform model reasoning
+- it gives the model simple, understandable outcomes such as `CONTINUE`, `COLLECT_EVIDENCE`, `BRIDGE`, `IDLE`, `ESCALATE`, instead of making it reconstruct its own epistemic condition from scratch
+
+This is not a panacea. Models still miss information. They still drift. But with a bounded traversal map, the failure mode becomes much easier to explain: missing evidence, wrong context, blocked move, stale basis, unlicensed bridge. The weirdness gets smaller because the state is smaller.
 
 ## Quick start
 
@@ -49,6 +64,8 @@ fpf_thinking_map/
 
 This package is built on [ailev/FPF](https://github.com/ailev/FPF) by Anatoly Levenchuk. It is an independent implementation — our own research and code, MIT-licensed, with further development rights.
 
+It is not an attempt to "finish" FPF, replace FPF, or repackage the whole corpus for LLM ingestion. It is a selective compilation for agentic traversal.
+
 ### What we reviewed
 
 We cross-checked the following FPF commits (June 2026 precision restoration cluster) against our code:
@@ -77,12 +94,36 @@ Two FPF pattern families rejected for activation bias — they amplify existing 
 
 **Design rule**: the map evaluates and constrains moves. It does not propose them. Generative, branch-friendly, candidate-multiplying patterns are the opposite of what a per-move guard-constrained thinking map should contain.
 
+## Scope and non-goals
+
+This library is intentionally small in scope.
+
+- It is for bounded, stepwise agent traversal in a defined domain.
+- It is for making model behavior more understandable, not more magical.
+- It is for simple +/- operational decisions in context, not for open-ended idea generation.
+- It is for constraining and instrumenting an agent run, not replacing the model.
+
+It is not:
+
+- a full semantic ingestion layer for all of FPF
+- a universal reasoning engine
+- a replacement for ordinary application logic or policy code
+- a proof that an LLM will behave correctly just because the map exists
+
 ## Sources
 
 - **[FPF (First Principles Framework)](https://github.com/ailev/FPF)** by Anatoly Levenchuk — transdisciplinary specification (~51k lines). We extracted 10 semantic primitives and 9 guard rules. This is a compiled distillation, not a port.
 - **Computational logic (Mitev L.)** — "Bazele programarii logice." 6 propositional logic operators and the Wumpus World agent navigation pattern.
 
 Full attribution in [SOURCES.md](fpf_thinking_map/SOURCES.md).
+
+## Why it works
+
+The core advantage is not "more theory." It is less runtime burden.
+
+Without a compiled map, the model keeps re-addressing its own run: am I allowed to move, did I already satisfy the gate, am I missing evidence, am I in the wrong context, am I done or blocked? That self-management loop is where a lot of bad agent behavior comes from.
+
+This package turns that loop into a small stateful instrument panel. The model sees what can fire, what cannot, and why. That is enough of an operating surface for many practical agent tasks. Not a panacea, not a grand theory of intelligence, just enough window and file-handles for the model to open the right thing without smashing the house.
 
 ## Why v1.1 exists — reasoning about reasoning is the bug
 
@@ -119,7 +160,7 @@ The model's job shrinks from "figure out the entire epistemic state of your own 
 
 ## Using as a dependency
 
-This package is the compiled map, not a reasoning engine — it doesn't think for the model. Denying unlawful moves is the smaller half of the job; the bigger half is handing back the lawful ones as a small, plain-JSON slice — what can fire, what's missing, why — so the model has simple, understandable room to behave properly instead of guessing at its own state. That slice also lets the agent check itself, at any point mid-run, against whatever context it's currently in: `can_fire`, `blockers`, `outcome.kind` are plain +/- signals the model reads to self-address its own progress, not a verdict it has to reconstruct by re-reasoning. Your domain maps run on top of it; the model just reads the slice and picks a move from what's actually open to it.
+This package is the compiled map, not a thinking replacement for the model. Denying unlawful moves is only half the job. The bigger half is returning the lawful surface as a small, plain-JSON slice: what can fire, what is missing, what is risky, why a move is blocked, what response shape is expected. That lets the model self-address its own run with simple signals such as `can_fire`, `blockers`, and `outcome.kind` instead of re-reasoning about its state from prose.
 
 ```bash
 pip install fpf-thinking-map
@@ -185,6 +226,15 @@ Built with Claude Code (Anthropic claude-sonnet-4-6). Tested and verified to wor
 | **Any model that reads JSON and follows structured constraints** | Should work | The package outputs plain dicts. No model-specific prompting. |
 
 This is not a compliance seal. It means: we used these models against this package and they produced correct, usable results. The per-move slice is small enough for mid-tier models. The logic and guard outputs are plain JSON — no special tokenization or prompt format required.
+
+## Why release this
+
+We release this because it is useful beyond our own stack.
+
+- It captures a practical subset of FPF in a form models can actually use.
+- It gives agent builders a small constraint surface instead of another giant AI framework.
+- It helps turn model failure from mystical drift into inspectable state.
+- It stays intentionally narrow, so it can remain legible instead of becoming another overbuilt "agent platform."
 
 ## License
 
