@@ -692,6 +692,96 @@ def check_bridge_outcome():
     assert o2.kind == OutcomeKind.IDLE
 
 
+def check_bridge_crossing():
+    """#26: validated writeback for bridge crossing — enact, not just advertise."""
+    def _make_map(license_: bool):
+        sm = SemanticMap()
+        sm.register_context(ContextPrimitive(
+            context_id="ctx_a", label="Context A",
+            bridges_to=[ContextBridge(
+                target_context_id="ctx_b",
+                mapping={"deploy": "release"},
+                translation_loss="ops uses 'release' where dev uses 'deploy'",
+                substitution_license=license_,
+            )],
+        ))
+        sm.register_context(ContextPrimitive(context_id="ctx_b", label="Context B"))
+        sm.register_transition(TransitionPrimitive(
+            "t_b1", "B entry", "ctx_b", "ready", "active",
+        ))
+        return sm
+
+    # Unlicensed bridge, normal risk — lossy but tolerable, crossing succeeds
+    sm = _make_map(license_=False)
+    engine = ThinkingMapTraversal(sm)
+    b = RuntimeBinding(active_context_id="ctx_a", risk_level="normal")
+    s = engine.build_active_state(b, current_state="done")
+    o = engine.attempt_bridge(s, "ctx_b", "ready")
+    assert o.kind == OutcomeKind.CONTINUE, f"Expected CONTINUE, got {o.kind}: {o.reason}"
+    assert s.binding.active_context_id == "ctx_b"
+    assert s.current_state == "ready"
+    assert s.trace.bridge_target == "ctx_b"
+
+    # Unlicensed bridge, high risk — refused, state untouched
+    sm2 = _make_map(license_=False)
+    engine2 = ThinkingMapTraversal(sm2)
+    b2 = RuntimeBinding(active_context_id="ctx_a", risk_level="high")
+    s2 = engine2.build_active_state(b2, current_state="done")
+    o2 = engine2.attempt_bridge(s2, "ctx_b", "ready")
+    assert o2.kind == OutcomeKind.ESCALATE, f"Expected ESCALATE, got {o2.kind}"
+    assert "unlicensed" in o2.reason
+    assert s2.binding.active_context_id == "ctx_a", "unlicensed+high-risk must not mutate state"
+    assert s2.current_state == "done"
+
+    # Licensed bridge, high risk — allowed despite risk level
+    sm3 = _make_map(license_=True)
+    engine3 = ThinkingMapTraversal(sm3)
+    b3 = RuntimeBinding(active_context_id="ctx_a", risk_level="high")
+    s3 = engine3.build_active_state(b3, current_state="done")
+    o3 = engine3.attempt_bridge(s3, "ctx_b", "ready")
+    assert o3.kind == OutcomeKind.CONTINUE
+    assert s3.binding.active_context_id == "ctx_b"
+
+    # No such bridge target
+    sm4 = _make_map(license_=True)
+    engine4 = ThinkingMapTraversal(sm4)
+    b4 = RuntimeBinding(active_context_id="ctx_a")
+    s4 = engine4.build_active_state(b4, current_state="done")
+    o4 = engine4.attempt_bridge(s4, "ctx_z", "ready")
+    assert o4.kind == OutcomeKind.ABSTAIN
+    assert "no bridge" in o4.reason
+
+    # Invalid entry state — not a real transition start in target context
+    sm5 = _make_map(license_=True)
+    engine5 = ThinkingMapTraversal(sm5)
+    b5 = RuntimeBinding(active_context_id="ctx_a")
+    s5 = engine5.build_active_state(b5, current_state="done")
+    o5 = engine5.attempt_bridge(s5, "ctx_b", "nowhere")
+    assert o5.kind == OutcomeKind.ABSTAIN
+    assert "not a valid entry state" in o5.reason
+
+
+def check_lean_slice():
+    """#27: include_full_state=False ships the slice without the full board."""
+    sm = SemanticMap()
+    sm.register_context(ContextPrimitive(context_id="ctx", label="Ctx"))
+    sm.register_transition(TransitionPrimitive(
+        "t1", "Do it", "ctx", "start", "done",
+    ))
+    engine = ThinkingMapTraversal(sm)
+    b = RuntimeBinding(active_context_id="ctx")
+    s = engine.build_active_state(b, current_state="start")
+
+    o_full = engine.step(s, transition_id="t1")
+    assert "full_state" in o_full.llm_prompt_state
+    assert "move" in o_full.llm_prompt_state
+
+    s2 = engine.build_active_state(b, current_state="start")
+    o_lean = engine.step(s2, transition_id="t1", include_full_state=False)
+    assert "full_state" not in o_lean.llm_prompt_state
+    assert "move" in o_lean.llm_prompt_state, "lean payload must keep the slice itself"
+
+
 def check_semantic_floors():
     """Verify semantic floor TTL computation from FGR trust factors."""
     # Floor constants exist and are correct
@@ -989,6 +1079,8 @@ def main():
         ("TTL evidence decay", check_ttl_decay),
         ("IDLE outcome", check_idle_outcome),
         ("BRIDGE outcome (cross-context)", check_bridge_outcome),
+        ("bridge crossing (validated writeback)", check_bridge_crossing),
+        ("lean slice (no full_state bolt-on)", check_lean_slice),
         ("slice blockers (HITL)", check_slice_blockers),
         ("semantic floors (FPF vertical)", check_semantic_floors),
         ("EvidenceFresh prop + integration", check_evidence_fresh_prop),

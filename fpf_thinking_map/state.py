@@ -170,6 +170,7 @@ class MoveTrace:
     """#24: compressed trace — last move only, no narrative accumulation."""
     previous_state: str | None = None
     last_transition_id: str | None = None
+    bridge_target: str | None = None
     blockers: list[str] = field(default_factory=list)
     evidence_delta: list[str] = field(default_factory=list)
 
@@ -338,6 +339,55 @@ class ActiveState:
         )
         self.current_state = t.to_state
         return True
+
+    def cross_bridge(self, target_context_id: str, entry_state: str) -> tuple[bool, str]:
+        """#26: validated writeback for a cross-context bridge crossing.
+
+        FPF A.6.9 gives bridges an explicit fidelity contract — substitution_license
+        and translation_loss — but until now that contract was surfaced only as
+        advisory metadata in bridge_options(); nothing enforced it before the LLM
+        wandered into the target context. This closes that gap: the engine, not
+        the model, decides whether a crossing is licensed.
+
+        An unlicensed bridge (substitution_license=False) is fine for low/normal
+        risk moves — the translation_loss is real but tolerable. At high/critical
+        risk_level it is refused: a lossy, unlicensed substitution must not carry
+        weight it wasn't licensed for.
+
+        Returns (ok, reason). On ok=True, current_state and active_context_id are
+        updated and the crossing is recorded in trace as bridge_target.
+        """
+        ctx = self.active_context
+        if not ctx:
+            return False, "no active context to bridge from"
+
+        bridge = next(
+            (b for b in ctx.bridges_to if b.target_context_id == target_context_id),
+            None,
+        )
+        if bridge is None:
+            return False, f"no bridge from '{ctx.context_id}' to '{target_context_id}'"
+
+        if not self.semantic_map.transitions_for(target_context_id, entry_state):
+            return False, (
+                f"'{entry_state}' is not a valid entry state in '{target_context_id}' "
+                f"(no transitions start there)"
+            )
+
+        if not bridge.substitution_license and self.binding.risk_level in ("high", "critical"):
+            return False, (
+                f"bridge to '{target_context_id}' is unlicensed for substitution "
+                f"(translation_loss: '{bridge.translation_loss}') — risk_level "
+                f"'{self.binding.risk_level}' requires a licensed bridge"
+            )
+
+        self.trace = MoveTrace(
+            previous_state=self.current_state,
+            bridge_target=target_context_id,
+        )
+        self.binding.active_context_id = target_context_id
+        self.current_state = entry_state
+        return True, f"crossed to '{target_context_id}' at '{entry_state}'"
 
     def add_evidence(self, evidence_id: str) -> None:
         if evidence_id not in self.binding.current_evidence:

@@ -12,7 +12,7 @@ Modules:
   logic       — 6 propositional operators + freshness-aware decision rules
   traversal   — step engine with 10 lawful outcomes
   examples    — deploy decision scenarios demonstrating the full system
-  verify      — 18-check self-verification harness
+  verify      — 21-check self-verification harness
 """
 
 # --- Primitives: the semantic field ---

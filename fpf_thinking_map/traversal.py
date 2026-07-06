@@ -111,10 +111,19 @@ class ThinkingMapTraversal:
         logic_ctx: dict,
         transition_id: str | None = None,
         guard_blockers: list[str] | None = None,
+        include_full_state: bool = True,
     ) -> dict:
+        """#27: include_full_state=False ships the A-RAG "chunk read" alone.
+
+        A caller that already knows its transition_id doesn't need the whole
+        board bolted on — that's the win slice() was built for in the first
+        place. Default stays True so every existing caller sees identical
+        output; opt out only when you want the lean payload.
+        """
         if transition_id:
             prompt = state.slice(transition_id, guard_blockers=guard_blockers)
-            prompt["full_state"] = state.to_llm_prompt_state()
+            if include_full_state:
+                prompt["full_state"] = state.to_llm_prompt_state()
         else:
             prompt = state.to_llm_prompt_state()
         if logic_ctx:
@@ -131,6 +140,7 @@ class ThinkingMapTraversal:
         state: ActiveState,
         transition_id: str | None = None,
         logic_tags: set[str] | None = None,
+        include_full_state: bool = True,
     ) -> Outcome:
         """#6: one traversal step, optionally focused on a specific transition.
 
@@ -138,6 +148,9 @@ class ThinkingMapTraversal:
         Without: scans possible transitions from current state.
 
         Increments step_count each call — drives TTL evidence decay.
+
+        include_full_state=False (only meaningful together with transition_id):
+        ships the scoped slice without the full board — see #27 in _build_prompt.
         """
         state.step_count += 1
 
@@ -167,7 +180,7 @@ class ThinkingMapTraversal:
                     kind=OutcomeKind.ABSTAIN,
                     reason=f"Logic contradiction: {consistency.get('contradictions', [])}",
                     warnings=consistency.get("contradictions", []),
-                    llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id),
+                    llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id, include_full_state=include_full_state),
                 )
 
         allowed, guard_results = self.guard_engine.is_action_allowed(state, transition_id)
@@ -186,7 +199,8 @@ class ThinkingMapTraversal:
                     missing_evidence=missing,
                     warnings=warnings,
                     llm_prompt_state=self._build_prompt(
-                        state, logic_ctx, transition_id, guard_blockers=denials,
+                        state, logic_ctx, transition_id,
+                        guard_blockers=denials, include_full_state=include_full_state,
                     ),
                 )
             return Outcome(
@@ -208,7 +222,7 @@ class ThinkingMapTraversal:
                 reason=f"Evidence gaps: {missing}",
                 missing_evidence=missing,
                 warnings=warnings,
-                llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id),
+                llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id, include_full_state=include_full_state),
             )
 
         transitions = state.possible_transitions
@@ -218,7 +232,7 @@ class ThinkingMapTraversal:
                     kind=OutcomeKind.CONTINUE,
                     reason="No transitions but actions available",
                     warnings=warnings,
-                    llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id),
+                    llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id, include_full_state=include_full_state),
                 )
 
             bridge_opts = self.semantic_map.bridge_options(ctx_id)
@@ -240,14 +254,14 @@ class ThinkingMapTraversal:
                 kind=OutcomeKind.IDLE,
                 reason="At rest — no transitions, no actions, no bridges",
                 warnings=warnings,
-                llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id),
+                llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id, include_full_state=include_full_state),
             )
 
         return Outcome(
             kind=OutcomeKind.CONTINUE,
             reason="Guards pass, evidence sufficient, transitions available",
             warnings=warnings,
-            llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id),
+            llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id, include_full_state=include_full_state),
         )
 
     def attempt_transition(
@@ -321,6 +335,33 @@ class ThinkingMapTraversal:
         return Outcome(
             kind=OutcomeKind.ABSTAIN,
             reason="Transition failed",
+        )
+
+    def attempt_bridge(
+        self,
+        state: ActiveState,
+        target_context_id: str,
+        entry_state: str,
+    ) -> Outcome:
+        """#26: enact a bridge crossing the BRIDGE outcome only advertised.
+
+        step() surfaces bridge_options() as advisory metadata; this is the
+        enactment half — it enforces the bridge's fidelity contract
+        (substitution_license vs. risk_level) before mutating state, then
+        performs the crossing. An unlicensed bridge under high/critical risk
+        is refused as ESCALATE, not silently allowed.
+        """
+        ok, reason = state.cross_bridge(target_context_id, entry_state)
+        if not ok:
+            kind = OutcomeKind.ESCALATE if "unlicensed" in reason else OutcomeKind.ABSTAIN
+            return Outcome(kind=kind, reason=reason)
+
+        logic_ctx = self._eval_logic(state)
+        return Outcome(
+            kind=OutcomeKind.CONTINUE,
+            reason=reason,
+            next_state=state.current_state,
+            llm_prompt_state=self._build_prompt(state, logic_ctx),
         )
 
     def demo_walk(

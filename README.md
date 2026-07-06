@@ -1,6 +1,6 @@
 # prichindel.com Agentic Thinking Map
 
-**v1.2.1** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
+**v1.3.0** — [FPF (First Principles Framework)](https://github.com/ailev/FPF) compiled into a semi-formal thinking map for agentic AI guidance.
 
 A Python package that gives an AI model a small, structured board to reason on — one move at a time. Instead of freeform text generation, the model navigates a pre-shaped semantic field with deterministic guards and propositional logic constraints.
 
@@ -17,7 +17,7 @@ The model's job is not "what does FPF mean?" — it is: **given this semantic ma
 ```bash
 # No dependencies. Python 3.12+.
 
-# Verify the package (18 checks)
+# Verify the package (21 checks)
 python -m fpf_thinking_map.verify
 
 # Run the deploy decision scenario
@@ -33,7 +33,7 @@ fpf_thinking_map/
 ├── guards.py                 9 deterministic guards (context, role, gate, evidence, assignment, speech act, readiness)
 ├── logic.py                  6 logic operators + decision rules + LogicLayer
 ├── traversal.py              Step engine with 10 lawful outcomes (incl. IDLE, BRIDGE)
-├── verify.py                 Self-verification harness (19/19 checks)
+├── verify.py                 Self-verification harness (21/21 checks)
 ├── examples.py               5 deploy decision scenarios (missing evidence, role conflict, logic glue, truth table)
 ├── README.md                 Full documentation (any-model readable)
 ├── SOURCES.md                Source attribution (FPF spec + Mitev lectures)
