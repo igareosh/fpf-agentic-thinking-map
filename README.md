@@ -14,6 +14,8 @@ This package exists because the useful part is not making the model sound more s
 
 The goal is simple: give the model enough structure to behave understandably, without building a cage so elaborate that it becomes another source of drift.
 
+We do not compete with FPF and we do not need to. FPF stays FPF: broad, ambitious, and useful as a frame. This library is the smaller usable tool for people who want the frame without carrying the whole corpus into every project.
+
 ## What it does
 
 You define a domain as a semantic map: contexts, roles, gates, evidence, transitions. The model gets a per-move slice, not a theory dump. Deterministic guards handle the hard checks. Propositional logic rules (NOT, AND, OR, XOR, IMPLIES, IFF) provide explicit decision glue between the semantic primitives and the current state.
@@ -26,6 +28,18 @@ In practice this does two useful things:
 - it gives the model simple, understandable outcomes such as `CONTINUE`, `COLLECT_EVIDENCE`, `BRIDGE`, `IDLE`, `ESCALATE`, instead of making it reconstruct its own epistemic condition from scratch
 
 This is not a panacea. Models still miss information. They still drift. But with a bounded traversal map, the failure mode becomes much easier to explain: missing evidence, wrong context, blocked move, stale basis, unlicensed bridge. The weirdness gets smaller because the state is smaller.
+
+## Provable practical gains
+
+The improvements here are intentionally simple and operational:
+
+- less random drift, because the agent reads explicit state instead of reconstructing state from prose
+- fewer unlawful moves, because guards and scoped transitions check them before the model improvises
+- clearer failure, because "why blocked" is surfaced directly
+- smaller runtime payload, because the model gets a slice, not a corpus
+- easier debugging, because outcomes are discrete and inspectable
+
+That is the whole point: practical gain, not intellectual theater.
 
 ## Quick start
 
@@ -124,6 +138,12 @@ The core advantage is not "more theory." It is less runtime burden.
 Without a compiled map, the model keeps re-addressing its own run: am I allowed to move, did I already satisfy the gate, am I missing evidence, am I in the wrong context, am I done or blocked? That self-management loop is where a lot of bad agent behavior comes from.
 
 This package turns that loop into a small stateful instrument panel. The model sees what can fire, what cannot, and why. That is enough of an operating surface for many practical agent tasks. Not a panacea, not a grand theory of intelligence, just enough window and file-handles for the model to open the right thing without smashing the house.
+
+Clean product truth:
+
+- FPF is the frame.
+- This library is the usable tool.
+- It keeps the frame where it helps, removes the bloat where it hurts, and gives agents a small operational board that produces simpler, more provable behavior.
 
 ## Why v1.1 exists — reasoning about reasoning is the bug
 
