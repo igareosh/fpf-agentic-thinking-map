@@ -15,7 +15,7 @@ import json
 import sys
 import traceback
 
-from dev_mcp.server import get_audit_gaps, get_fpf_source_mapping, run_scenario, run_verify
+from dev_mcp.server import get_advisories, get_audit_gaps, get_fpf_source_mapping, run_scenario, run_verify
 
 
 def check(name: str, fn) -> bool:
@@ -53,6 +53,12 @@ def check_audit_gaps_filtered():
 def check_audit_gaps_no_match():
     text = get_audit_gaps("zzz-no-such-status-exists")
     assert text.startswith("(no rows matching"), f"expected the no-match message, got: {text[:80]}"
+
+
+def check_advisories_content():
+    text = get_advisories()
+    assert "ADV-01" in text and "ADV-02" in text, "expected both current advisories present"
+    assert "Not defects" in text, "advisories must be framed as advisories, not bugs"
 
 
 def check_run_scenario_valid_core():
@@ -118,6 +124,7 @@ def main() -> int:
         ("get_audit_gaps unfiltered", check_audit_gaps_unfiltered),
         ("get_audit_gaps filtered", check_audit_gaps_filtered),
         ("get_audit_gaps no-match message", check_audit_gaps_no_match),
+        ("get_advisories content", check_advisories_content),
         ("run_scenario: valid scope=core", check_run_scenario_valid_core),
         ("run_scenario: valid scope=user-extension", check_run_scenario_valid_user_extension),
         ("run_scenario: invalid scope rejected", check_run_scenario_invalid_scope_rejected),

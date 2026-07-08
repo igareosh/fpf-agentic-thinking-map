@@ -49,6 +49,12 @@ exists for the inspected side of that line.
 - **`get_audit_gaps(status_filter)`** — the 50-item `FPF_SOURCE_TO_CODE_RELATION_AUDIT.md`
   backlog (R01–R50), optionally filtered to `missing` / `partial` / `wrong-shape`
   rows. A menu of known gaps to target.
+- **`get_advisories()`** — `ADVISORIES.md`: publisher advisories for integrators.
+  Not defects — places the library is deliberately minimal, with why and how
+  to get stricter behavior if your domain needs it. Read this before assuming
+  default behavior matches what you need; a finding through `run_scenario`
+  that turns out to be "working as intended, but you should know" belongs
+  here, not the audit backlog.
 - **`run_verify()`** — runs `python -m fpf_thinking_map.verify` (the existing
   22-check harness) via subprocess. Logic tests stay reachable from here too.
 
@@ -57,7 +63,7 @@ exists for the inspected side of that line.
 ```bash
 pip install -e .              # from repo root — installs fpf_thinking_map
 pip install -r dev_mcp/requirements.txt
-python -m dev_mcp.test_server # self-test — 12/12 should pass before you rely on this
+python -m dev_mcp.test_server # self-test — 13/13 should pass before you rely on this
 ```
 
 Claude Code (project-scoped, from repo root):

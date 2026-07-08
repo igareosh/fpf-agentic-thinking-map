@@ -67,6 +67,7 @@ fpf_thinking_map/
 ├── README.md                 Full documentation (any-model readable)
 ├── SOURCES.md                Source attribution (FPF spec + Mitev lectures)
 ├── FPF_SOURCE_TO_CODE_RELATION_AUDIT.md   50-item relation audit
+├── ADVISORIES.md             Publisher advisories for integrators — not defects, deliberate minimalism + how to tighten it
 ├── FPF_AUDIT_RESPONSE.md     Audit response with design decisions
 ├── WHY_THIS_EXISTS.md            Compiled FPF vs raw FPF — the triple tax problem
 ├── FPF_FLOOR_MAP.md              Semantic floor map (5 floors, TTL derivation)
@@ -76,7 +77,7 @@ fpf_thinking_map/
 
 ## dev_mcp — testing surface (GitHub only, not on PyPI)
 
-`verify.py` proves the engine's own logic is internally consistent. It doesn't prove the compiled map covers the breadth of the original FPF spec — `examples.py` has one domain, five scenarios. `dev_mcp/` is an MCP server for constructing scenarios ad hoc and driving them against the two documents that already ground FPF semantics in this repo: `SOURCES.md` (which spec section each primitive is supposed to enforce) and `FPF_SOURCE_TO_CODE_RELATION_AUDIT.md` (a cited 50-item gap backlog).
+`verify.py` proves the engine's own logic is internally consistent. It doesn't prove the compiled map covers the breadth of the original FPF spec — `examples.py` has one domain, five scenarios. `dev_mcp/` is an MCP server for constructing scenarios ad hoc and driving them against the documents that already ground FPF semantics in this repo: `SOURCES.md` (which spec section each primitive is supposed to enforce), `FPF_SOURCE_TO_CODE_RELATION_AUDIT.md` (a cited 50-item gap backlog), and `ADVISORIES.md` (deliberate-minimalism findings for integrators — not defects, but real defaults you should know about before assuming they match your domain).
 
 Not shipped in the package — `pyproject.toml` only builds `fpf_thinking_map*`, so this stays a repo-only dev tool by construction, for whoever's interested enough to dig past `pip install`. `run_scenario` requires a `scope`: `"core"` for testing this library's own shipped primitives (our responsibility, our tracking), `"user-extension"` for testing a domain map built on top (your responsibility, your repo). Full docs, install steps, self-test, worked example: [dev_mcp/README.md](dev_mcp/README.md).
 

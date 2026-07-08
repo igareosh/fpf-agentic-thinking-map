@@ -7,10 +7,13 @@ verify.py proves the engine's own logic is internally consistent. It does not
 prove the compiled map covers the breadth of what the original FPF spec
 describes — examples.py has exactly one domain (deploy decision, 5 scenarios).
 This server exposes the engine's construction/traversal surface generically,
-plus the two documents that already ground FPF semantics in this repo
-(SOURCES.md, FPF_SOURCE_TO_CODE_RELATION_AUDIT.md), so an LLM session can
-construct new scenarios ad hoc and drive them against known, cited gaps
-instead of the ~20 hand-picked fixtures already in verify.py.
+plus the documents that already ground FPF semantics in this repo
+(SOURCES.md, FPF_SOURCE_TO_CODE_RELATION_AUDIT.md, ADVISORIES.md), so an LLM
+session can construct new scenarios ad hoc and drive them against known,
+cited gaps instead of the ~20 hand-picked fixtures already in verify.py.
+Findings that turn out to be "the library is minimal here on purpose, but
+an integrator needs to know" go into ADVISORIES.md, not the audit backlog —
+see get_advisories().
 
 Two modes, one tool, distinguished by who's responsible for a finding:
   - core           — testing fpf_thinking_map's own shipped primitives/engine.
@@ -57,6 +60,7 @@ mcp = FastMCP("fpf-thinking-map-test")
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SOURCES_MD = REPO_ROOT / "fpf_thinking_map" / "SOURCES.md"
 AUDIT_MD = REPO_ROOT / "fpf_thinking_map" / "FPF_SOURCE_TO_CODE_RELATION_AUDIT.md"
+ADVISORIES_MD = REPO_ROOT / "fpf_thinking_map" / "ADVISORIES.md"
 
 
 _VALID_SCOPES = {"core", "user-extension"}
@@ -159,6 +163,21 @@ def get_audit_gaps(status_filter: str = "") -> str:
     if not rows:
         return f"(no rows matching status_filter={status_filter!r})"
     return "\n".join(preamble + rows)
+
+
+@mcp.tool(
+    description=(
+        "Publisher advisories for integrators (ADVISORIES.md, ships in the PyPI package). "
+        "Not defects — places where the library deliberately stays minimal and leaves a real "
+        "decision to whoever builds a domain map on top of it, with what the default behavior "
+        "is, why, and exactly how to get stricter behavior if your domain needs it. Read this "
+        "before assuming default behavior matches what your domain requires."
+    )
+)
+def get_advisories() -> str:
+    if not ADVISORIES_MD.is_file():
+        return f"ERROR: {ADVISORIES_MD} not found"
+    return ADVISORIES_MD.read_text(encoding="utf-8")
 
 
 @mcp.tool(description="Run the existing self-verification harness (python -m fpf_thinking_map.verify).")
