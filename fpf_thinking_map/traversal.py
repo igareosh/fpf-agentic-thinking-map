@@ -161,6 +161,8 @@ class ThinkingMapTraversal:
                 llm_prompt_state=state.to_llm_prompt_state(),
             )
 
+        state.register_visit()
+
         ctx_id = state.binding.active_context_id or ""
 
         if transition_id:

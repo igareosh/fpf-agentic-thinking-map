@@ -187,7 +187,10 @@ class ActiveState:
     current_state: str = "initial"
     trace: MoveTrace = field(default_factory=MoveTrace)
     step_count: int = 0
+    stagnation_threshold: int = 3
     _evidence_added_at: dict[str, int] = field(default_factory=dict, init=False, repr=False)
+    _state_visits: dict[str, int] = field(default_factory=dict, init=False, repr=False)
+    _state_visit_evidence: dict[str, frozenset[str]] = field(default_factory=dict, init=False, repr=False)
 
     def __post_init__(self) -> None:
         for eid in self.binding.current_evidence:
@@ -275,6 +278,56 @@ class ActiveState:
             return None
         added_at = self._evidence_added_at.get(evidence_id, 0)
         return max(0, ttl - (self.step_count - added_at))
+
+    def _visit_key(self) -> str:
+        return f"{self.binding.active_context_id}:{self.current_state}"
+
+    def register_visit(self) -> int:
+        """#28: count consecutive step()s at this (context, state) pair.
+
+        A revisit with the same evidence set is not progress — it's the
+        countable, deterministic version of "the agent is stuck," instead
+        of asking the model to introspect about its own psychology. New
+        evidence resets the counter: different evidence means there's
+        something new to try, not a loop.
+
+        Called once per step() — see traversal.py. Returns the new count.
+
+        Syntactic, not semantic: this tracks set membership on evidence_ids,
+        not whether anything meaningful actually happened. Two consequences
+        a caller should know about. (1) A harness that adds a new evidence_id
+        on every attempt — even a low-value one — resets the counter every
+        time and this will never fire, no matter how unproductive the loop
+        actually is. (2) This only sees what reaches step(); flailing that
+        happens inside a single turn and never gets reported back as a step()
+        call is invisible to it. The guarantee this method gives is
+        conditional: if one real attempt maps to one step() call, and
+        evidence is only added when it's genuinely new, revisits are bounded
+        at stagnation_threshold. It cannot judge whether an attempt was real
+        progress — that's a semantic question this library doesn't answer.
+        """
+        key = self._visit_key()
+        snapshot = frozenset(self.available_evidence_ids)
+        if self._state_visit_evidence.get(key) != snapshot:
+            self._state_visits[key] = 0
+            self._state_visit_evidence[key] = snapshot
+        self._state_visits[key] = self._state_visits.get(key, 0) + 1
+        return self._state_visits[key]
+
+    @property
+    def visit_count(self) -> int:
+        """How many consecutive step()s have landed on this (context, state)
+        with the current evidence set, without advancing."""
+        return self._state_visits.get(self._visit_key(), 0)
+
+    @property
+    def visits_remaining(self) -> int:
+        """Countdown to stagnation_threshold — mirrors ttl_remaining's shape."""
+        return max(0, self.stagnation_threshold - self.visit_count)
+
+    @property
+    def is_stagnant(self) -> bool:
+        return self.visit_count >= self.stagnation_threshold
 
     @property
     def possible_transitions(self) -> list[TransitionPrimitive]:
@@ -524,6 +577,12 @@ class ActiveState:
             ],
             "can_fire": can_fire,
             "blockers": blockers,
+            "stagnation": {
+                "visits": self.visit_count,
+                "remaining": self.visits_remaining,
+                "threshold": self.stagnation_threshold,
+                "is_stagnant": self.is_stagnant,
+            },
             "response_contract": self.response_contract(transition_id),
         }
 
@@ -577,6 +636,12 @@ class ActiveState:
             "available_tools": self.binding.available_tools,
             "audience": self.binding.audience,
             "step_count": self.step_count,
+            "stagnation": {
+                "visits": self.visit_count,
+                "remaining": self.visits_remaining,
+                "threshold": self.stagnation_threshold,
+                "is_stagnant": self.is_stagnant,
+            },
             "trace": {
                 "previous_state": self.trace.previous_state,
                 "last_transition": self.trace.last_transition_id,

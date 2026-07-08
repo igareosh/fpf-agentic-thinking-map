@@ -123,6 +123,17 @@ It is not:
 - a universal reasoning engine
 - a replacement for ordinary application logic or policy code
 - a proof that an LLM will behave correctly just because the map exists
+- Memory-Augmented Generation (MAG) — no embeddings, no vector store, no cross-session retrieval, ever, inside this engine. Rejected deliberately and permanently, not by omission. See below.
+
+## What this actually guarantees
+
+fpf does not ship better reasoning. It ships **inspectability**: did the agent follow the lawful path, and was evidence honestly reported at the one place that matters — the wire between what the agent actually did and what this library was told.
+
+Take the stagnation counter as the concrete case. It bounds repetition — but only if the integration maps one real attempt to one `step()` call, and only adds evidence when something genuinely new was found. Whether that actually catches a real LLM thrashing depends entirely on whether the calling harness wires evidence honestly, not just "a tool returned something." That wiring discipline lives outside this library, in whatever integrates it — an agent loop, an MCP server, application code. fpf can't verify that discipline was followed; it can only guarantee that if it was, repetition is bounded.
+
+That boundary is the correct seam, not a gap to apologize for. Judging whether a piece of evidence is actually meaningful is a semantic question, and semantic questions need prompting, an LLM judge, or domain logic to answer — which is exactly where that belongs: outside fpf, at the evidence-wiring layer, not folded into a library whose entire value is staying small and deterministic. If you want semantics and clever prompting, that's the plug-in point.
+
+**This is also why Memory-Augmented Generation (MAG) is rejected as fpf's own architecture, deliberately and permanently.** MAG — retrieval, embeddings, cross-session recall — solves a different problem (what did we discuss three sessions ago) than fpf solves (is this move lawful right now), and it needs exactly the dependency profile this library rules out by design. That is a scope boundary, not a verdict on MAG as a technique: a MAG system is a legitimate thing to run *upstream* of fpf. Whatever it retrieves becomes an evidence_id in `RuntimeBinding.current_evidence` like any other — fpf doesn't care how evidence was produced, only whether it's present, fresh, and licensed. Memory belongs at the evidence-wiring layer, alongside every other semantic judgment this library deliberately doesn't make.
 
 ## Sources
 
@@ -138,6 +149,8 @@ The core advantage is not "more theory." It is less runtime burden.
 Without a compiled map, the model keeps re-addressing its own run: am I allowed to move, did I already satisfy the gate, am I missing evidence, am I in the wrong context, am I done or blocked? That self-management loop is where a lot of bad agent behavior comes from.
 
 This package turns that loop into a small stateful instrument panel. The model sees what can fire, what cannot, and why. That is enough of an operating surface for many practical agent tasks. Not a panacea, not a grand theory of intelligence, just enough window and file-handles for the model to open the right thing without smashing the house.
+
+The bottleneck was never raw model capability — it's self-management overhead eating the capability that's already there. Most orgs running these models, at any scale, hit that ceiling: infra and process that never actually asked the model for full capacity, so upgrading the model changes nothing. This library doesn't make the model smarter. It shrinks what the model has to hold in its head at any one step, so whatever capability is actually there gets spent on the real problem instead of on self-management overhead.
 
 Clean product truth:
 
