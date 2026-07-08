@@ -52,17 +52,18 @@ exists for the inspected side of that line.
 - **`run_verify()`** — runs `python -m fpf_thinking_map.verify` (the existing
   22-check harness) via subprocess. Logic tests stay reachable from here too.
 
-## Install & register
+## Install, register, test
 
 ```bash
 pip install -e .              # from repo root — installs fpf_thinking_map
 pip install -r dev_mcp/requirements.txt
+python -m dev_mcp.test_server # self-test — 12/12 should pass before you rely on this
 ```
 
 Claude Code (project-scoped, from repo root):
 
 ```bash
-claude mcp add fpf-test -- python dev_mcp/server.py
+claude mcp add fpf-test -- python -m dev_mcp.server
 ```
 
 Or by hand in `.mcp.json`:
@@ -72,11 +73,18 @@ Or by hand in `.mcp.json`:
   "mcpServers": {
     "fpf-test": {
       "command": "python",
-      "args": ["dev_mcp/server.py"]
+      "args": ["-m", "dev_mcp.server"]
     }
   }
 }
 ```
+
+`python dev_mcp/server.py` (direct script path) also works — `-m dev_mcp.server`
+is just the more standard invocation and what `test_server.py` assumes.
+
+If `fpf_thinking_map` isn't installed, `run_scenario` returns a clear
+`"fpf_thinking_map is not importable"` error naming the fix, instead of a
+raw traceback — the server itself still starts either way.
 
 ## Example session
 

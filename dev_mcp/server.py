@@ -86,10 +86,20 @@ def run_scenario(code: str, scope: str) -> str:
         )
 
     ns: dict = {}
-    exec("from fpf_thinking_map import *", ns)  # noqa: S102 — local dev tool, not a security boundary
-    exec("from fpf_thinking_map.traversal import ThinkingMapTraversal, Outcome, OutcomeKind", ns)
-    exec("from fpf_thinking_map.guards import GuardEngine, GuardVerdict, GuardScope", ns)
-    exec("from fpf_thinking_map.logic import LogicLayer, DecisionRule, RuleKind, EvidenceFresh", ns)
+    try:
+        exec("from fpf_thinking_map import *", ns)  # noqa: S102 — local dev tool, not a security boundary
+        exec("from fpf_thinking_map.traversal import ThinkingMapTraversal, Outcome, OutcomeKind", ns)
+        exec("from fpf_thinking_map.guards import GuardEngine, GuardVerdict, GuardScope", ns)
+        exec("from fpf_thinking_map.logic import LogicLayer, DecisionRule, RuleKind, EvidenceFresh", ns)
+    except ImportError as exc:
+        return json.dumps(
+            {
+                "scope": scope,
+                "error": f"fpf_thinking_map is not importable: {exc}. "
+                         f"Run `pip install -e .` from the repo root first.",
+            },
+            indent=2,
+        )
 
     buf = io.StringIO()
     try:
