@@ -1,6 +1,6 @@
 [project]
 name = "fpf-thinking-map"
-version = "1.4.0"
+version = "1.4.1"
 description = "Agentic thinking map — structured reasoning constraints for LLMs with TTL evidence decay, deterministic guards, and propositional logic glue. Compiled from FPF (First Principles Framework)."
 readme = "README.md"
 license = "MIT"

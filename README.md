@@ -1,6 +1,6 @@
 # prichindel.com Agentic Thinking Map
 
-**v1.4.0** — [FPF (First Principles Framework)](https://github.com/ailev/FPF), compiled into a small traversal map for LLM agents.
+**v1.4.1** — [FPF (First Principles Framework)](https://github.com/ailev/FPF), compiled into a small traversal map for LLM agents.
 
 A Python package that gives a model a bounded move board instead of a giant framework to digest at runtime. Instead of rereading a sprawling semantic corpus and improvising from it, the model gets a small JSON slice: what context it is in, what move is open, what evidence is missing, what is risky, and what outcome class applies.
 
@@ -197,6 +197,12 @@ The model's job shrinks from "figure out the entire epistemic state of your own 
 - The guarantee is conditional, and the docs say so plainly: this tracks evidence *set membership*, not evidence *meaning*. It bounds repetition only if the integration maps one real attempt to one `step()` call and only adds evidence that's genuinely new — see [What this actually guarantees](#what-this-actually-guarantees).
 - 22/22 self-verification checks, one new: `check_stagnation_counter`.
 
+## v1.4.1 changes
+
+- **`ADVISORIES.md`** — publisher advisories for integrators, ships in the package alongside `SOURCES.md` and the audit backlog. Not defects: places the library deliberately stays minimal and leaves a real decision to whoever builds a domain map on top of it, with what the default is, why, and exactly how to tighten it. v1 ships two, both found by actually running scenarios through `dev_mcp` rather than by inspection: evidence staleness warns but doesn't block by default (ADV-01), `risk_level` doesn't filter `possible_transitions` on its own (ADV-02).
+- `dev_mcp` gains `get_advisories()`, same read-the-doc pattern as `get_fpf_source_mapping`/`get_audit_gaps`.
+- 13/13 `dev_mcp` self-test checks (one new).
+
 ## Design principles
 
 - **Only add structure when it changes agentic behavior** — not for source fidelity alone
@@ -294,4 +300,4 @@ MIT. See [LICENSE](LICENSE).
 
 ---
 
-**prichindel.com** — v1.4.0 — 2026-07-07
+**prichindel.com** — v1.4.1 — 2026-07-08
