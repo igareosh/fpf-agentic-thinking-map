@@ -15,29 +15,22 @@ Findings that turn out to be "the library is minimal here on purpose, but
 an integrator needs to know" go into ADVISORIES.md, not the audit backlog —
 see get_advisories().
 
-Two modes, one tool, distinguished by who's responsible for a finding:
+Two modes, one tool, distinguished by which repo should track a finding:
   - core           — testing fpf_thinking_map's own shipped primitives/engine.
-                      Applied inspectfully (a human/LLM reviews each result
-                      live). This is the publisher's mode: we seal the
-                      default (the shipped package) on release, backed by
-                      this kind of testing plus verify.py. Findings here are
-                      our responsibility — this repo's tracking, not anyone
-                      else's.
+                      Review each result live. Use this as the publisher
+                      mode for checking the released default, alongside
+                      verify.py. Track findings in this repo.
   - user-extension  — testing a domain map someone built on top of the
                       shipped primitives, above the general mapping this
-                      library ships. Still applied inspectfully via this
-                      tool, but the seal (if any) is the user's own to grant
-                      — their extension, their context, their repo. Mode 2
-                      in the strict sense (the shipped package running
-                      "blindly" in someone's production agent, no inspection
-                      tooling wrapped around it) isn't part of this server at
-                      all — it's just `pip install fpf-thinking-map` used
-                      normally, which is the point: dev_mcp only exists for
-                      the inspected side of that line.
+                      library ships. Review each result the same way, then
+                      track findings in the integrating repo. The case where
+                      the shipped package runs in a production agent without
+                      interactive inspection is outside this server; that is
+                      ordinary `pip install fpf-thinking-map` usage.
 
-run_scenario requires scope to be set to one of the above on every call —
-mandatory self-tagging, not a permission gate, so a finding can't get
-separated from whose responsibility it is.
+run_scenario requires scope to be set to one of the above on every call.
+Treat it as mandatory self-tagging, not as a permission gate, so a finding
+stays attached to the repo that should track it.
 
 Run: python -m dev_mcp.server  (from the repo root, with fpf_thinking_map
 installed — `pip install -e .` first)
@@ -73,13 +66,13 @@ _VALID_SCOPES = {"core", "user-extension"}
         "are pre-imported. Assign to `result` for it to be returned. This is the same "
         "thing examples.py and verify.py's check_* functions do in code — this just "
         "gives it a tool-call interface instead of an edit-and-reinstall cycle.\n\n"
-        "scope is mandatory self-tagging, not a permission gate — it declares whose "
-        "responsibility a finding is, at the source, so it can't get lost later: "
-        "'core' = testing fpf_thinking_map's own shipped primitives/engine (publisher "
-        "scope — findings belong in this repo's own tracking, e.g. "
-        "FPF_SOURCE_TO_CODE_RELATION_AUDIT.md). 'user-extension' = testing a domain map "
-        "someone built on top of the shipped primitives, above the general mapping this "
-        "library ships (consumer scope — findings belong in THEIR project, not this one)."
+        "scope is mandatory self-tagging, not a permission gate. It records which repo "
+        "should track a finding at the source: 'core' = testing fpf_thinking_map's own "
+        "shipped primitives/engine (publisher scope — track findings in this repo, for "
+        "example in FPF_SOURCE_TO_CODE_RELATION_AUDIT.md). 'user-extension' = testing a "
+        "domain map someone built on top of the shipped primitives, above the general "
+        "mapping this library ships (consumer scope — track findings in the integrating "
+        "project, not here)."
     )
 )
 def run_scenario(code: str, scope: str) -> str:

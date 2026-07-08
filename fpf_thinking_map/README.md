@@ -1,6 +1,6 @@
 # FPF Thinking Map
 
-This folder contains a Python package that helps an AI model make bounded decisions step by step. It combines a compiled subset of FPF with basic logic operations from computer science so the model can read a small move board instead of digesting a giant framework at runtime.
+This folder contains a Python package that helps an AI model make bounded decisions step by step. It combines a compiled subset of FPF with basic logic operations from computer science so the model can read a small move board instead of digesting a large framework at runtime.
 
 No external dependencies. Pure Python 3.12+. No pip install needed.
 
@@ -15,11 +15,11 @@ This package gives the model a small, structured board to reason on. The board h
 
 The model reads the board, then picks from a fixed set of moves: continue, ask, abstain, escalate, collect evidence, etc.
 
-The point is not to make the model "more intelligent." The point is to make its behavior smaller, more understandable, and less likely to drift for stupid reasons.
+The point is not to make the model "more intelligent." The point is to make its behavior smaller, more understandable, and less likely to drift for ordinary, inspectable reasons.
 
 ## Why this package exists next to FPF
 
-FPF is strong material for humans, but too big and too clumsy to hand to a model raw and expect clean operational behavior. A model tends to absorb the vocabulary, imitate the posture of rigor, and still miss the simple thing it needed to do.
+FPF is strong material for humans, but too large to hand to a model raw and expect clean operational behavior. A model tends to absorb the vocabulary, imitate the posture of rigor, and still miss the simple thing it needed to do.
 
 So we did not port the whole framework. We extracted what was useful for bounded traversal, made it executable, and left out the parts that would inflate runtime payload or trigger open-ended academic-pattern generation. This package is not "FPF but more." It is "the part of FPF that helps agents behave better, compiled into something they can actually use."
 
@@ -50,7 +50,7 @@ fpf_thinking_map/
 ├── guards.py                9 deterministic guards the model cannot break
 ├── logic.py                 6 logic operators + EvidenceFresh + decision rules
 ├── traversal.py             Step engine with 10 lawful outcomes (incl. IDLE, BRIDGE)
-├── verify.py                Self-test: run it, if 21/21 pass, package works
+├── verify.py                Self-test: run it, if 22/22 pass, package works
 │
 ├── examples.py              5 deploy decision scenarios (all features in action)
 │
@@ -264,7 +264,7 @@ outcome = engine.step(state, transition_id="start_to_reviewed")
 - Not a replacement for the full FPF spec
 - Not a symbolic AI / expert system (the LLM interprets; logic + guards constrain)
 - Not a framework to build on top of — it is a small self-contained package
-- Not a panacea for agent drift; it reduces and explains drift, it does not eliminate it
+- Not a panacea for agent drift; it reduces and explains drift, but it does not eliminate it
 
 ## Known design decisions
 
@@ -272,4 +272,4 @@ outcome = engine.step(state, transition_id="start_to_reviewed")
 - `demo_walk()` auto-fires the first available transition. It is for testing and examples only, not for operational use. In real use, the LLM calls `step()` and `attempt_transition()` with explicit choices.
 - Publications are registered on the map but stay out of the step/guard/logic path. They are for publish-type moves only.
 
-prichindel.com | 2026-06-26 | v1.1.2
+prichindel.com | 2026-07-08 | v1.4.3

@@ -4,11 +4,11 @@ This package is maintained by **prichindel.com**.
 
 ## How to contribute
 
-We accept contributions that improve the agentic runtime — not contributions that expand the semantic model for its own sake.
+Submit contributions that improve the agentic runtime. Do not submit expansions of the semantic model for their own sake.
 
-Before writing code, open an issue describing what agentic behavior your change affects. One sentence is enough: "the agent currently does X, it should do Y because Z."
+Before writing code, open an issue that states what agentic behavior your change affects. One sentence is enough: "the agent currently does X, it should do Y because Z."
 
-### What we will review
+### Review focus
 
 - Bug fixes where the runtime produces a wrong outcome (wrong gate decision, wrong guard verdict, evidence check that doesn't enforce)
 - New guards or logic rules that change what the agent does on a single move
@@ -16,18 +16,18 @@ Before writing code, open an issue describing what agentic behavior your change 
 - New example scenarios that demonstrate real domain use
 - Documentation fixes
 
-### What we will not merge
+### Out of scope
 
 - Additions that enrich the semantic model without changing per-move agent behavior
 - FPF spec fidelity patches (we intentionally compress 51k lines into 10 primitives — that is the design, not a gap)
 - Runtime payload growth (more fields in the LLM prompt state, wider slices, ambient scanning)
 - Framework abstractions, plugin systems, or configuration layers
 
-### The design rule
+### Design rule
 
 **Only add structure when a missing relation changes what the agent does on a single move.**
 
-If your change makes the per-step chew larger without making the per-step decision better, it is the wrong change. See `FPF_AUDIT_RESPONSE.md` for 40 examples of things we chose not to implement and why.
+If your change makes the per-step chew larger without making the per-step decision better, do not ship it here. See `FPF_AUDIT_RESPONSE.md` for concrete examples of choices we left out and why.
 
 ## How to verify
 
@@ -35,7 +35,7 @@ If your change makes the per-step chew larger without making the per-step decisi
 python -m fpf_thinking_map.verify
 ```
 
-All checks must pass. If you add new behavior, add a verification check for it.
+Require all checks to pass. If you add new behavior, add a verification check for it.
 
 ## Process
 

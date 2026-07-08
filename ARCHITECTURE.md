@@ -12,7 +12,7 @@ graph LR
     L[logic.py<br/>6 operators + rules]
     T[traversal.py<br/>step engine + 10 outcomes]
     E[examples.py<br/>5 scenarios]
-    V[verify.py<br/>19 checks]
+    V[verify.py<br/>22 checks]
 
     P --> S
     P --> G
@@ -220,4 +220,4 @@ sequenceDiagram
 
 ---
 
-**prichindel.com** — v1.1.3
+**prichindel.com** — v1.4.3

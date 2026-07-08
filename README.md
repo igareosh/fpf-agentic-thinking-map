@@ -8,9 +8,9 @@ A Python package that gives a model a bounded move board instead of a giant fram
 
 ## Why this exists
 
-FPF is valuable, but it is large, clumsy at runtime, and poorly shaped for direct model consumption. A human can read a 51k-line framework, understand its distinctions, and apply them carefully. A model usually does something else: it absorbs the vocabulary, performs the tone of the framework, and still drifts on the actual task.
+FPF is valuable, but it is large at runtime and not well shaped for direct model consumption. A human can read a 51k-line framework, understand its distinctions, and apply them carefully. A model often does something narrower: it absorbs the vocabulary, mirrors the posture of rigor, and still drifts on the actual task.
 
-This package exists because the useful part is not making the model sound more scientific. The useful part is compiling the parts of FPF that help operational decisions into something small, explicit, and inspectable. We took what mattered for bounded traversal, left out what would bloat or bias the model, and evolved the result as publishers of a practical library rather than trying to reproduce the whole upstream framework inside another AI mega-system.
+This package exists because the useful part is not making the model sound more scientific. The useful part is compiling the parts of FPF that help operational decisions into something small, explicit, and inspectable. We kept the parts that matter for bounded traversal, left out parts that would bloat or bias the model, and published the result as a practical library rather than as a reproduction of the full upstream framework.
 
 The goal is simple: give the model enough structure to behave understandably, without building a cage so elaborate that it becomes another source of drift.
 
@@ -27,7 +27,7 @@ In practice this does two useful things:
 - it reduces unexplained drift by moving state tracking and hard checks out of freeform model reasoning
 - it gives the model simple, understandable outcomes such as `CONTINUE`, `COLLECT_EVIDENCE`, `BRIDGE`, `IDLE`, `ESCALATE`, instead of making it reconstruct its own epistemic condition from scratch
 
-This is not a panacea. Models still miss information. They still drift. But with a bounded traversal map, the failure mode becomes much easier to explain: missing evidence, wrong context, blocked move, stale basis, unlicensed bridge. The weirdness gets smaller because the state is smaller.
+This is not a panacea. Models still miss information. They still drift. With a bounded traversal map, however, the failure mode becomes easier to explain: missing evidence, wrong context, blocked move, stale basis, unlicensed bridge. The state is smaller, so the failure surface is easier to inspect.
 
 ## Provable practical gains
 
@@ -39,7 +39,7 @@ The improvements here are intentionally simple and operational:
 - smaller runtime payload, because the model gets a slice, not a corpus
 - easier debugging, because outcomes are discrete and inspectable
 
-That is the whole point: practical gain, not intellectual theater.
+That is the whole point: practical gain, stated plainly and checked in code.
 
 ## Quick start
 
@@ -79,7 +79,7 @@ fpf_thinking_map/
 
 `verify.py` proves the engine's own logic is internally consistent. It doesn't prove the compiled map covers the breadth of the original FPF spec — `examples.py` has one domain, five scenarios. `dev_mcp/` is an MCP server for constructing scenarios ad hoc and driving them against the documents that already ground FPF semantics in this repo: `SOURCES.md` (which spec section each primitive is supposed to enforce), `FPF_SOURCE_TO_CODE_RELATION_AUDIT.md` (a cited 50-item gap backlog), and `ADVISORIES.md` (deliberate-minimalism findings for integrators — not defects, but real defaults you should know about before assuming they match your domain).
 
-Not shipped in the package — `pyproject.toml` only builds `fpf_thinking_map*`, so this stays a repo-only dev tool by construction, for whoever's interested enough to dig past `pip install`. `run_scenario` requires a `scope`: `"core"` for testing this library's own shipped primitives (our responsibility, our tracking), `"user-extension"` for testing a domain map built on top (your responsibility, your repo). Full docs, install steps, self-test, worked example: [dev_mcp/README.md](dev_mcp/README.md).
+Not shipped in the package — `pyproject.toml` only builds `fpf_thinking_map*`, so this stays a repo-only development tool by construction. `run_scenario` requires a `scope`: `"core"` for testing this library's own shipped primitives (publisher tracking in this repo), `"user-extension"` for testing a domain map built on top (consumer tracking in the integrating repo). Full docs, install steps, self-test, and a worked example are in [dev_mcp/README.md](dev_mcp/README.md).
 
 ## Relationship to ailev/FPF
 
@@ -138,7 +138,7 @@ fpf does not ship better reasoning. It ships **inspectability**: did the agent f
 
 Take the stagnation counter as the concrete case. It bounds repetition — but only if the integration maps one real attempt to one `step()` call, and only adds evidence when something genuinely new was found. Whether that actually catches a real LLM thrashing depends entirely on whether the calling harness wires evidence honestly, not just "a tool returned something." That wiring discipline lives outside this library, in whatever integrates it — an agent loop, an MCP server, application code. fpf can't verify that discipline was followed; it can only guarantee that if it was, repetition is bounded.
 
-That boundary is the correct seam, not a gap to apologize for. Judging whether a piece of evidence is actually meaningful is a semantic question, and semantic questions need prompting, an LLM judge, or domain logic to answer — which is exactly where that belongs: outside fpf, at the evidence-wiring layer, not folded into a library whose entire value is staying small and deterministic. If you want semantics and clever prompting, that's the plug-in point.
+That boundary is the correct seam. Judging whether a piece of evidence is actually meaningful is a semantic question, and semantic questions need prompting, an LLM judge, or domain logic to answer. That work belongs outside `fpf`, at the evidence-wiring layer, not inside a library whose value comes from staying small and deterministic. If a project needs richer semantics, add them at that integration point.
 
 **This is also why Memory-Augmented Generation (MAG) is rejected as fpf's own architecture, deliberately and permanently.** MAG — retrieval, embeddings, cross-session recall — solves a different problem (what did we discuss three sessions ago) than fpf solves (is this move lawful right now), and it needs exactly the dependency profile this library rules out by design. That is a scope boundary, not a verdict on MAG as a technique: a MAG system is a legitimate thing to run *upstream* of fpf. Whatever it retrieves becomes an evidence_id in `RuntimeBinding.current_evidence` like any other — fpf doesn't care how evidence was produced, only whether it's present, fresh, and licensed. Memory belongs at the evidence-wiring layer, alongside every other semantic judgment this library deliberately doesn't make.
 
@@ -155,7 +155,7 @@ The core advantage is not "more theory." It is less runtime burden.
 
 Without a compiled map, the model keeps re-addressing its own run: am I allowed to move, did I already satisfy the gate, am I missing evidence, am I in the wrong context, am I done or blocked? That self-management loop is where a lot of bad agent behavior comes from.
 
-This package turns that loop into a small stateful instrument panel. The model sees what can fire, what cannot, and why. That is enough of an operating surface for many practical agent tasks. Not a panacea, not a grand theory of intelligence, just enough window and file-handles for the model to open the right thing without smashing the house.
+This package turns that loop into a small stateful instrument panel. The model sees what can fire, what cannot, and why. That is enough of an operating surface for many practical agent tasks: not a grand theory of intelligence, just a narrow surface that helps the model choose the next lawful move.
 
 The bottleneck was never raw model capability — it's self-management overhead eating the capability that's already there. Most orgs running these models, at any scale, hit that ceiling: infra and process that never actually asked the model for full capacity, so upgrading the model changes nothing. This library doesn't make the model smarter. It shrinks what the model has to hold in its head at any one step, so whatever capability is actually there gets spent on the real problem instead of on self-management overhead.
 
@@ -189,7 +189,7 @@ The model's job shrinks from "figure out the entire epistemic state of your own 
 
 - **Bridge crossing is enforced, not just advertised** — `ActiveState.cross_bridge()` / `ThinkingMapTraversal.attempt_bridge()` actually perform a cross-context hop and check `substitution_license` against `risk_level` before mutating state. An unlicensed bridge under `high`/`critical` risk is refused (`ESCALATE`), not silently allowed. Before this, `bridge_options()` was advisory metadata only — the model decided for itself whether a lossy translation was acceptable.
 - **`include_full_state=False`** — `step()` can now ship the scoped `slice()` alone, without the whole board bolted on. Default stays `True`; opt in when the caller already knows its `transition_id` and wants the lean payload.
-- 21/21 self-verification checks (`python -m fpf_thinking_map.verify`), two new: bridge crossing and lean-slice payload shape.
+- 21/21 self-verification checks at release time (`python -m fpf_thinking_map.verify`), two new: bridge crossing and lean-slice payload shape.
 
 ## v1.4.0 changes
 
@@ -287,7 +287,7 @@ Built with Claude Code (Anthropic claude-sonnet-4-6). Tested and verified to wor
 | **OpenAI GPT** (GPT-4o, o1, o3) | Works | Used for the 50-item source-to-code relation audit. Reads the primitives, logic rules, and prompt state correctly. |
 | **Any model that reads JSON and follows structured constraints** | Should work | The package outputs plain dicts. No model-specific prompting. |
 
-This is not a compliance seal. It means: we used these models against this package and they produced correct, usable results. The per-move slice is small enough for mid-tier models. The logic and guard outputs are plain JSON — no special tokenization or prompt format required.
+This is not a compliance certification. It means the package was exercised against these model families in this repo and produced correct, usable results. The per-move slice is small enough for mid-tier models. The logic and guard outputs are plain JSON, with no model-specific prompt format required.
 
 ## Why release this
 
@@ -295,8 +295,8 @@ We release this because it is useful beyond our own stack.
 
 - It captures a practical subset of FPF in a form models can actually use.
 - It gives agent builders a small constraint surface instead of another giant AI framework.
-- It helps turn model failure from mystical drift into inspectable state.
-- It stays intentionally narrow, so it can remain legible instead of becoming another overbuilt "agent platform."
+- It helps turn model failure from opaque drift into inspectable state.
+- It stays intentionally narrow so the package remains legible and easy to audit.
 
 ## Credits
 

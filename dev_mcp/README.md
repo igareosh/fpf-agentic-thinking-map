@@ -17,25 +17,23 @@ this repo, so you can construct new scenarios ad hoc and drive them against
 
 ## Two modes, one tool
 
-`run_scenario` requires a `scope` on every call — mandatory self-tagging,
-not a permission gate, so a finding can never get separated from whose
-responsibility it is:
+`run_scenario` requires a `scope` on every call. Treat it as mandatory
+self-tagging, not as a permission gate, so a finding never gets separated
+from the repo that should track it:
 
-- **`scope="core"`** — testing `fpf_thinking_map`'s own shipped primitives
-  and engine. Applied *inspectfully* (you review each result live). This is
-  the publisher's mode: we seal the default (the shipped package) on release,
-  backed by this kind of testing plus `verify.py`. Findings here are **our**
-  responsibility — this repo's own tracking (e.g.
-  `FPF_SOURCE_TO_CODE_RELATION_AUDIT.md`), not anyone else's.
+- **`scope="core"`** — test `fpf_thinking_map`'s own shipped primitives
+  and engine. Review each result live. Use this as the publisher mode when
+  checking the released default, alongside `verify.py`. Track findings here
+  in this repo (for example, in `FPF_SOURCE_TO_CODE_RELATION_AUDIT.md`).
 - **`scope="user-extension"`** — testing a domain map *you* built on top of
   the shipped primitives, above the general mapping this library ships.
-  Still inspected via this same tool, but the seal — if any — is yours to
-  grant. Your extension, your context, your repo.
+  Review the result in the same way, then track the finding in the
+  integrating repo. Your extension, your context, your release decision.
 
-The other mode, the shipped package running *blindly* in a production agent
-with no inspection wrapped around it, isn't part of this server at all —
-that's just `pip install fpf-thinking-map` used normally. `dev_mcp` only
-exists for the inspected side of that line.
+The other case, the shipped package running in a production agent without
+interactive inspection, is outside this server. That is ordinary
+`pip install fpf-thinking-map` usage. `dev_mcp` exists for the inspected
+side of that line.
 
 ## Tools
 
@@ -112,8 +110,7 @@ result = "describe what you observed"
 )
 ```
 
-If the outcome doesn't match what `SOURCES.md`/the audit say it should,
-that's a real finding — write it up the same way `#26`/`#28` started:
-a genuine gap, not a paper-parity feature. If you're instead testing your
-own domain map built on top of this library, use `scope="user-extension"`
-and keep the finding in your own project — not this one.
+If the outcome does not match what `SOURCES.md` or the audit says it should,
+treat it as a real finding and write it up. If you are testing your own
+domain map built on top of this library, use `scope="user-extension"` and
+track the finding in your own project instead of this one.
