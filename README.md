@@ -1,6 +1,6 @@
 # prichindel.com Agentic Thinking Map
 
-**v1.3.1** — [FPF (First Principles Framework)](https://github.com/ailev/FPF), compiled into a small traversal map for LLM agents.
+**v1.4.0** — [FPF (First Principles Framework)](https://github.com/ailev/FPF), compiled into a small traversal map for LLM agents.
 
 A Python package that gives a model a bounded move board instead of a giant framework to digest at runtime. Instead of rereading a sprawling semantic corpus and improvising from it, the model gets a small JSON slice: what context it is in, what move is open, what evidence is missing, what is risky, and what outcome class applies.
 
@@ -46,7 +46,7 @@ That is the whole point: practical gain, not intellectual theater.
 ```bash
 # No dependencies. Python 3.12+.
 
-# Verify the package (21 checks)
+# Verify the package (22 checks)
 python -m fpf_thinking_map.verify
 
 # Run the deploy decision scenario
@@ -62,7 +62,7 @@ fpf_thinking_map/
 ├── guards.py                 9 deterministic guards (context, role, gate, evidence, assignment, speech act, readiness)
 ├── logic.py                  6 logic operators + decision rules + LogicLayer
 ├── traversal.py              Step engine with 10 lawful outcomes (incl. IDLE, BRIDGE)
-├── verify.py                 Self-verification harness (21/21 checks)
+├── verify.py                 Self-verification harness (22/22 checks)
 ├── examples.py               5 deploy decision scenarios (missing evidence, role conflict, logic glue, truth table)
 ├── README.md                 Full documentation (any-model readable)
 ├── SOURCES.md                Source attribution (FPF spec + Mitev lectures)
@@ -184,6 +184,12 @@ The model's job shrinks from "figure out the entire epistemic state of your own 
 - **`include_full_state=False`** — `step()` can now ship the scoped `slice()` alone, without the whole board bolted on. Default stays `True`; opt in when the caller already knows its `transition_id` and wants the lean payload.
 - 21/21 self-verification checks (`python -m fpf_thinking_map.verify`), two new: bridge crossing and lean-slice payload shape.
 
+## v1.4.0 changes
+
+- **Stagnation counter** — `ActiveState.register_visit()` / `visit_count` / `visits_remaining` / `is_stagnant` count consecutive `step()`s at the same `(context, state)` pair with no new evidence gathered; the counter resets the moment the evidence set changes. `visits_remaining` mirrors `ttl_remaining`'s exact shape — a countdown, not a boolean. Surfaced in both `slice()` and `to_llm_prompt_state()` as a `stagnation` block. Pure signal: no new outcome kind, nothing blocks, no restraint added to the model's options. Closes a real blind spot — `MoveTrace` is deliberately last-move-only (no narrative accumulation), so the engine previously had no way to notice "I've revisited this exact state N times with nothing new to show for it."
+- The guarantee is conditional, and the docs say so plainly: this tracks evidence *set membership*, not evidence *meaning*. It bounds repetition only if the integration maps one real attempt to one `step()` call and only adds evidence that's genuinely new — see [What this actually guarantees](#what-this-actually-guarantees).
+- 22/22 self-verification checks, one new: `check_stagnation_counter`.
+
 ## Design principles
 
 - **Only add structure when it changes agentic behavior** — not for source fidelity alone
@@ -281,4 +287,4 @@ MIT. See [LICENSE](LICENSE).
 
 ---
 
-**prichindel.com** — v1.3.1 — 2026-07-06
+**prichindel.com** — v1.4.0 — 2026-07-07

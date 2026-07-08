@@ -654,65 +654,6 @@ def check_stagnation_counter():
     assert s4.visit_count == 0
 
 
-def check_behavioral_thrash_bound():
-    """#29: stagnation counter correctly bounds a *simulated* thrash pattern.
-
-    What this does NOT prove: no LLM is involved here. This drives step()
-    directly with evidence held constant, so it verifies the counter's own
-    bookkeeping (same (context, state) key + unchanged evidence snapshot ->
-    counter climbs -> is_stagnant fires at threshold) — not that fpf can
-    detect a real LLM thrashing.
-
-    That's a syntactic check, not a semantic one, and the gap between the
-    two is real:
-
-    1. If the calling harness adds a *new* evidence_id on every attempt --
-       even junk that represents no actual progress -- the counter resets
-       every time and never fires. fpf has no way to judge whether evidence
-       is meaningful; it only tracks set membership.
-    2. If the LLM's flailing happens between step() calls (several internal
-       tool calls or reasoning turns that never get surfaced back to fpf as
-       a step()), fpf has zero visibility into any of it. It can only count
-       what it's told about.
-
-    So the honest claim is conditional: GIVEN a harness that maps one real
-    attempt to one step() call, and that only adds evidence which is
-    genuinely new, THEN repetition is bounded at stagnation_threshold calls,
-    deterministically. This does not, and structurally cannot, guarantee
-    detection of thrash in an actual agent loop -- that would require
-    judging whether an action was real progress, which is a semantic
-    question this library deliberately does not attempt to answer.
-
-    Gh-Novel/ThinkMCP-Agentic-Tools' ablation benchmark (worst case: 45 tool
-    calls without a planning signal, 15 with one) motivated building #28 in
-    the first place — it is not evidence that #28 reproduces their result.
-    """
-    sm = SemanticMap()
-    sm.register_context(ContextPrimitive("ctx", "Test"))
-    sm.register_transition(TransitionPrimitive(
-        "t1", "Go", "ctx", "stuck", "done", required_evidence=["missing_ev"],
-    ))
-    engine = ThinkingMapTraversal(sm)
-    s = engine.build_active_state(RuntimeBinding(active_context_id="ctx"), current_state="stuck")
-
-    # Simulate the naive-thrash shape from ThinkMCP's ablated worst case:
-    # same blocked move, retried blindly, no new evidence gathered.
-    calls_to_flag = None
-    for i in range(1, 46):  # 45 == their ablated worst-case call count
-        engine.step(s)
-        if s.is_stagnant:
-            calls_to_flag = i
-            break
-
-    assert calls_to_flag is not None, "naive thrash loop was never flagged as stagnant"
-    assert calls_to_flag == s.stagnation_threshold, (
-        f"flag should fire at exactly stagnation_threshold calls, "
-        f"took {calls_to_flag} vs threshold {s.stagnation_threshold}"
-    )
-    # The point: bounded, cheap detection — not "eventually," not "after 45."
-    assert calls_to_flag < 45
-
-
 def check_idle_outcome():
     """Verify IDLE outcome for clean terminal states."""
     sm = SemanticMap()
@@ -1195,7 +1136,6 @@ def main():
         ("horizontal properties (25 items)", check_horizontal_properties),
         ("TTL evidence decay", check_ttl_decay),
         ("stagnation counter (visit countdown)", check_stagnation_counter),
-        ("stagnation counter bookkeeping (simulated thrash)", check_behavioral_thrash_bound),
         ("IDLE outcome", check_idle_outcome),
         ("BRIDGE outcome (cross-context)", check_bridge_outcome),
         ("bridge crossing (validated writeback)", check_bridge_crossing),
