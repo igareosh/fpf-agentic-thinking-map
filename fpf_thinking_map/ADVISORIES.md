@@ -4,6 +4,8 @@ Not defects. These are places where `fpf_thinking_map` deliberately stays minima
 
 Each advisory: what the default behavior actually is, why that's the default, and exactly how to get stricter behavior if your domain needs it.
 
+**Read these two first if you read nothing else here: [`ADV-03`](#adv-03--active_context_id-is-self-asserted-not-verified-against-how-you-got-there) (context claims aren't verified) and [`ADV-07`](#adv-07--riskaboves-string-matching-is-case-sensitive-and-fails-silently) (a routing rule built exactly as this doc recommends can still silently do the opposite of what you intended). Both are silent — no error, no warning — and both sit directly behind paths this document itself tells you to use.**
+
 ---
 
 ## ADV-01 — Evidence staleness warns, it does not block
@@ -68,4 +70,18 @@ Each advisory: what the default behavior actually is, why that's the default, an
 
 ---
 
-*v1 — 2026-07-08 (ADV-01/02), v2 — 2026-07-08 (ADV-03..06). All found by actually running scenarios through `dev_mcp` (`scope="core"`), not by inspection or guesswork. More advisories get added here the same way — dug up, not invented.*
+## ADV-07 — `RiskAbove`'s string matching is case-sensitive and fails silently
+
+**The other one to read before you ship. Following `ADV-02`'s own advice does not protect you from this.**
+
+**What**: `RiskAbove(threshold)` compares `binding.risk_level` against a fixed internal table (`{"low": 0, "normal": 1, "high": 2, "critical": 3}`) via plain dict lookup — `self._levels.get(state.binding.risk_level, 1)`. Any string not found in that table, including a correctly-spelled value in the wrong case (`"CRITICAL"` instead of `"critical"`), silently resolves to `1` — the same numeric level as `"normal"`. There is no error, no warning, no `UNKNOWN` sentinel. A `DecisionRule` gated on `RiskAbove("critical")` will report `satisfied: False` for `risk_level="CRITICAL"` exactly as if the input had genuinely been low-risk.
+
+Confirmed directly: a rule wired `condition=RiskAbove("critical"), action_if_true="escalate", action_if_false="queue"` returns `action: "escalate"` for `risk_level="critical"` and silently `action: "queue"` — the opposite decision — for `risk_level="CRITICAL"`. `consistency_check()` reports `consistent: True` in both cases; nothing in the outcome distinguishes a genuine low-risk case from a typo'd critical one.
+
+**Why this is the default**: `risk_level` is a plain string on `RuntimeBinding`, not a validated enum — the primitive layer accepts any value a caller supplies, and `RiskAbove` was built to degrade gracefully (default to `1`/`"normal"`) rather than raise on unrecognized input, on the assumption that a missing/malformed risk signal should fail toward caution-as-normal rather than crash the traversal. That default-to-normal choice is defensible in isolation; it becomes dangerous specifically because it's silent and specifically because `ADV-02` recommends `RiskAbove` as *the* fix for risk-based routing without calling out that the string has to match exactly.
+
+**How to close the gap**: normalize `risk_level` before it reaches the engine — lowercase and validate against the known set (`{"low", "normal", "high", "critical"}`) at the point where your harness constructs `RuntimeBinding`, and reject or log anything that doesn't match rather than letting it fall through to `RiskAbove`'s silent default. Do this at the boundary, once, rather than trusting every caller to spell `risk_level` correctly forever.
+
+---
+
+*v1 — 2026-07-08 (ADV-01/02), v2 — 2026-07-08 (ADV-03..06), v3 — 2026-07-08 (ADV-07). All found by actually running scenarios through `dev_mcp` (`scope="core"`), not by inspection or guesswork. More advisories get added here the same way — dug up, not invented.*

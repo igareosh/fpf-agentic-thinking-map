@@ -1,6 +1,6 @@
 # prichindel.com Agentic Thinking Map
 
-**v1.4.2** — [FPF (First Principles Framework)](https://github.com/ailev/FPF), compiled into a small traversal map for LLM agents.
+**v1.4.3** — [FPF (First Principles Framework)](https://github.com/ailev/FPF), compiled into a small traversal map for LLM agents.
 
 A Python package that gives a model a bounded move board instead of a giant framework to digest at runtime. Instead of rereading a sprawling semantic corpus and improvising from it, the model gets a small JSON slice: what context it is in, what move is open, what evidence is missing, what is risky, and what outcome class applies.
 
@@ -208,6 +208,11 @@ The model's job shrinks from "figure out the entire epistemic state of your own 
 - **Four more advisories** (`ADV-03`–`ADV-06`), found the same way as `ADV-01`/`ADV-02` — running scenarios through `dev_mcp`, not inspection. The one to actually read: **`ADV-03`** — `RuntimeBinding.active_context_id` is self-asserted input, never verified against having actually crossed a bridge; a caller can claim any context directly and get the identical `CONTINUE` a licensed `cross_bridge()` call would produce. `ADV-04` — contradiction detection between `DecisionRule`s is opt-in via `exclusive_with`, not inferred from opposite-looking action names. `ADV-05` — gate `DEGRADE` only distinguishes partial evidence when related facts are grouped into *one* `GateCheck`; split across separate checks, "one of three known" collapses to indistinguishable from "none known." `ADV-06` — `agency_level` (PASSIVE/REACTIVE/AUTONOMOUS/DELIBERATIVE) is descriptive metadata only, same shape as `risk_level` (`ADV-02`) — nothing stops a `PASSIVE` role from firing what a `DELIBERATIVE` role can.
 - `check_advisories_content` now asserts all six advisory IDs are present, not just the original two.
 
+## v1.4.3 changes
+
+- **`ADV-07`** — the sharpest advisory yet, called out at the top of `ADVISORIES.md` alongside `ADV-03`. `RiskAbove(threshold)` matches `risk_level` against a fixed table via plain dict lookup; anything not found — including a correctly-spelled value in the wrong case (`"CRITICAL"` vs. `"critical"`) — silently resolves to `"normal"`. Confirmed directly: a `RiskAbove("critical")` rule wired exactly as `ADV-02` recommends returns the *opposite* routed action for `"CRITICAL"` vs. `"critical"`, with no error, no warning, `consistency_check()` reporting `True` either way. Following the library's own documented fix for `ADV-02` does not protect you from this — normalize and validate `risk_level` at your harness boundary before it reaches the engine.
+- `check_advisories_content` now asserts all seven advisory IDs.
+
 ## Design principles
 
 - **Only add structure when it changes agentic behavior** — not for source fidelity alone
@@ -305,4 +310,4 @@ MIT. See [LICENSE](LICENSE).
 
 ---
 
-**prichindel.com** — v1.4.2 — 2026-07-08
+**prichindel.com** — v1.4.3 — 2026-07-08
