@@ -12,6 +12,30 @@ plus the two documents that already ground FPF semantics in this repo
 construct new scenarios ad hoc and drive them against known, cited gaps
 instead of the ~20 hand-picked fixtures already in verify.py.
 
+Two modes, one tool, distinguished by who's responsible for a finding:
+  - core           — testing fpf_thinking_map's own shipped primitives/engine.
+                      Applied inspectfully (a human/LLM reviews each result
+                      live). This is the publisher's mode: we seal the
+                      default (the shipped package) on release, backed by
+                      this kind of testing plus verify.py. Findings here are
+                      our responsibility — this repo's tracking, not anyone
+                      else's.
+  - user-extension  — testing a domain map someone built on top of the
+                      shipped primitives, above the general mapping this
+                      library ships. Still applied inspectfully via this
+                      tool, but the seal (if any) is the user's own to grant
+                      — their extension, their context, their repo. Mode 2
+                      in the strict sense (the shipped package running
+                      "blindly" in someone's production agent, no inspection
+                      tooling wrapped around it) isn't part of this server at
+                      all — it's just `pip install fpf-thinking-map` used
+                      normally, which is the point: dev_mcp only exists for
+                      the inspected side of that line.
+
+run_scenario requires scope to be set to one of the above on every call —
+mandatory self-tagging, not a permission gate, so a finding can't get
+separated from whose responsibility it is.
+
 Run: python -m dev_mcp.server  (from the repo root, with fpf_thinking_map
 installed — `pip install -e .` first)
 """
@@ -35,16 +59,32 @@ SOURCES_MD = REPO_ROOT / "fpf_thinking_map" / "SOURCES.md"
 AUDIT_MD = REPO_ROOT / "fpf_thinking_map" / "FPF_SOURCE_TO_CODE_RELATION_AUDIT.md"
 
 
+_VALID_SCOPES = {"core", "user-extension"}
+
+
 @mcp.tool(
     description=(
         "Run arbitrary Python constructing/driving a fpf_thinking_map scenario. "
         "All fpf_thinking_map primitives, state, guards, logic, and traversal classes "
         "are pre-imported. Assign to `result` for it to be returned. This is the same "
         "thing examples.py and verify.py's check_* functions do in code — this just "
-        "gives it a tool-call interface instead of an edit-and-reinstall cycle."
+        "gives it a tool-call interface instead of an edit-and-reinstall cycle.\n\n"
+        "scope is mandatory self-tagging, not a permission gate — it declares whose "
+        "responsibility a finding is, at the source, so it can't get lost later: "
+        "'core' = testing fpf_thinking_map's own shipped primitives/engine (publisher "
+        "scope — findings belong in this repo's own tracking, e.g. "
+        "FPF_SOURCE_TO_CODE_RELATION_AUDIT.md). 'user-extension' = testing a domain map "
+        "someone built on top of the shipped primitives, above the general mapping this "
+        "library ships (consumer scope — findings belong in THEIR project, not this one)."
     )
 )
-def run_scenario(code: str) -> str:
+def run_scenario(code: str, scope: str) -> str:
+    if scope not in _VALID_SCOPES:
+        return json.dumps(
+            {"error": f"scope must be one of {sorted(_VALID_SCOPES)}, got {scope!r}"},
+            indent=2,
+        )
+
     ns: dict = {}
     exec("from fpf_thinking_map import *", ns)  # noqa: S102 — local dev tool, not a security boundary
     exec("from fpf_thinking_map.traversal import ThinkingMapTraversal, Outcome, OutcomeKind", ns)
@@ -57,12 +97,16 @@ def run_scenario(code: str) -> str:
             exec(code, ns)  # noqa: S102 — see docstring
     except Exception as exc:  # noqa: BLE001 — reporting the failure IS the point of this tool
         return json.dumps(
-            {"error": f"{type(exc).__name__}: {exc}", "stdout": buf.getvalue()},
+            {"scope": scope, "error": f"{type(exc).__name__}: {exc}", "stdout": buf.getvalue()},
             indent=2, default=str,
         )
 
     return json.dumps(
-        {"result": repr(ns.get("result", "<no `result` assigned>")), "stdout": buf.getvalue()},
+        {
+            "scope": scope,
+            "result": repr(ns.get("result", "<no `result` assigned>")),
+            "stdout": buf.getvalue(),
+        },
         indent=2, default=str,
     )
 
