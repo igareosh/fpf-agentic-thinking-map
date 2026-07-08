@@ -74,6 +74,12 @@ fpf_thinking_map/
 └── REJECTED_NQD_OEE_CULTURAL_EVOLUTION.md NQD/OEE rejection (bias injector)
 ```
 
+## dev_mcp — testing surface (GitHub only, not on PyPI)
+
+`verify.py` proves the engine's own logic is internally consistent. It doesn't prove the compiled map covers the breadth of the original FPF spec — `examples.py` has one domain, five scenarios. `dev_mcp/` is an MCP server for constructing scenarios ad hoc and driving them against the two documents that already ground FPF semantics in this repo: `SOURCES.md` (which spec section each primitive is supposed to enforce) and `FPF_SOURCE_TO_CODE_RELATION_AUDIT.md` (a cited 50-item gap backlog).
+
+Not shipped in the package — `pyproject.toml` only builds `fpf_thinking_map*`, so this stays a repo-only dev tool by construction, for whoever's interested enough to dig past `pip install`. `run_scenario` requires a `scope`: `"core"` for testing this library's own shipped primitives (our responsibility, our tracking), `"user-extension"` for testing a domain map built on top (your responsibility, your repo). Full docs, install steps, self-test, worked example: [dev_mcp/README.md](dev_mcp/README.md).
+
 ## Relationship to ailev/FPF
 
 This package is built on [ailev/FPF](https://github.com/ailev/FPF) by Anatoly Levenchuk. It is an independent implementation — our own research and code, MIT-licensed, with further development rights.
