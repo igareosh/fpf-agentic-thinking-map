@@ -57,7 +57,8 @@ def check_audit_gaps_no_match():
 
 def check_advisories_content():
     text = get_advisories()
-    assert "ADV-01" in text and "ADV-02" in text, "expected both current advisories present"
+    for adv_id in ("ADV-01", "ADV-02", "ADV-03", "ADV-04", "ADV-05", "ADV-06"):
+        assert adv_id in text, f"expected {adv_id} present"
     assert "Not defects" in text, "advisories must be framed as advisories, not bugs"
 
 
