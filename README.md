@@ -1,6 +1,6 @@
-# prichindel.com Agentic Thinking Map
+# FPF Agentic Thinking Map
 
-**v1.4.3** — [FPF (First Principles Framework)](https://github.com/ailev/FPF), compiled into a small traversal map for LLM agents.
+**v1.4.4** — [FPF (First Principles Framework)](https://github.com/ailev/FPF), compiled into a small traversal map for LLM agents.
 
 A Python package that gives a model a bounded move board instead of a giant framework to digest at runtime. Instead of rereading a sprawling semantic corpus and improvising from it, the model gets a small JSON slice: what context it is in, what move is open, what evidence is missing, what is risky, and what outcome class applies.
 
@@ -310,4 +310,4 @@ MIT. See [LICENSE](LICENSE).
 
 ---
 
-**prichindel.com** — v1.4.3 — 2026-07-08
+**prichindel.com** — v1.4.4 — 2026-07-09

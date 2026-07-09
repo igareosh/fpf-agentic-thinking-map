@@ -220,4 +220,4 @@ sequenceDiagram
 
 ---
 
-**prichindel.com** — v1.4.3
+**prichindel.com** — v1.4.4

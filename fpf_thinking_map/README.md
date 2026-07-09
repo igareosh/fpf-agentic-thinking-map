@@ -272,4 +272,4 @@ outcome = engine.step(state, transition_id="start_to_reviewed")
 - `demo_walk()` auto-fires the first available transition. It is for testing and examples only, not for operational use. In real use, the LLM calls `step()` and `attempt_transition()` with explicit choices.
 - Publications are registered on the map but stay out of the step/guard/logic path. They are for publish-type moves only.
 
-prichindel.com | 2026-07-08 | v1.4.3
+prichindel.com | 2026-07-09 | v1.4.4
