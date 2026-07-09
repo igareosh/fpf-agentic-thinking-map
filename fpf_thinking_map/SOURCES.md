@@ -70,4 +70,4 @@ We applied the same pattern:
 - **Adaptation**: prichindel.com
 - **Created**: 2026-06-24
 - **Purpose**: Semi-encode FPF into an agentic thinking map with propositional logic glue
-- **Repository**: [github.com/igareosh/prichindel.com-agentic-thinking-map](https://github.com/igareosh/prichindel.com-agentic-thinking-map)
+- **Repository**: [github.com/igareosh/fpf-agentic-thinking-map](https://github.com/igareosh/fpf-agentic-thinking-map)
