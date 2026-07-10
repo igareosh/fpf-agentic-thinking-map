@@ -23,3 +23,15 @@ The Wright brothers didn't win because they had more resources — Langley had t
 Same rule applies here: use the framework for speed, use direct testing for truth, and don't confuse a well-written table for a verified one.
 
 — igareosh
+
+## Lego blocks and the five whys
+
+There's a simpler way to say what the wind tunnel section above says, and it's the Lego-house one. Hand someone a finished house and most people rearrange a few blocks and call it improved. Take the house apart down to individual bricks and you can build a different house, or a bridge, or nothing house-shaped at all. The value isn't in going infinitely deep — it's in going one or two layers past where everyone else stopped.
+
+FPF as published is a finished house. It's a good one. The default move is what most people do with any framework: take it whole, hand it to the model, rearrange a few prompts around the edges when it doesn't work, call that the improvement. We took it apart into bricks instead — the ten dataclasses, nine guards, six logic operators in `primitives.py`, `guards.py`, `logic.py` — and only reassembled the pieces that survived being asked *why* they needed to be there.
+
+That's the other technique in this piece: the five whys. Not a metaphor, an actual thing we did on every FPF mechanism that made it into the compiled map. Why does the model need this concept at runtime — because it changes what the model is allowed to do next. Why does it need it phrased this way — it doesn't, that phrasing is for human readers, so it got compiled into a JSON key instead. Why does the model need to reason about "epistemic holons" — it doesn't, it needs to know if evidence is missing, so that's the field name now. Every layer of "why" that didn't terminate in something the model's next decision actually depended on got cut. `REJECTED_C32_CANDIDATE_SYNTHESIS.md` and `REJECTED_NQD_OEE_CULTURAL_EVOLUTION.md` are what's left over when you ask why enough times and the answer runs out before you reach something load-bearing.
+
+The corporate-meeting version of this in the piece — ask why three times and someone says "let's take this offline" — is the same failure as handing a model the raw spec and hoping it self-organizes. Both are a refusal to go one layer deeper because the first layer was already familiar and already published. The whole point of this package is that we did the annoying part once, at compile time, so the model doesn't have to reason by analogy to a 51,000-line document on every single step. It gets the bricks that were already tested, not the house that was already built.
+
+— igareosh
