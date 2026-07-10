@@ -66,6 +66,16 @@ We applied the same pattern:
 - Guards are the hard constraints (like "don't walk into a known pit")
 - The model picks moves from the safe set
 
+## External references
+
+Short notes, not incorporated into the package — background reading around FPF and adjacent efforts.
+
+- [fpf.sh/generated/patterns/E.4.FPF](https://fpf.sh/generated/patterns/E.4.FPF) — normative pattern distinguishing the FPF framework edition from its carriers (publication formats, skill packs, MCP services).
+- [fpf.sh/work-packets](https://fpf.sh/work-packets) — FPF's own official method for agent use: bounded MCP retrieval of 3-8 pattern IDs per task, not compilation.
+- [ailev.livejournal.com/1770224.html](https://ailev.livejournal.com/1770224.html) — FPF author's own writeup: FPF vs. classical upper ontologies, normative "what to think about" vs. descriptive "what exists."
+- [github.com/miltonian/principles](https://github.com/miltonian/principles) — unrelated independent first-principles agent framework; see `RELATED_WORK_MILTONIAN_PRINCIPLES.md`.
+- [community.openai.com — Principles Framework writeup](https://community.openai.com/t/principles-framework-generate-ai-agents-using-first-principles-reasoning/1045890) — author's own announcement of the above.
+
 ## Package authorship
 
 - **Adaptation**: prichindel.com
