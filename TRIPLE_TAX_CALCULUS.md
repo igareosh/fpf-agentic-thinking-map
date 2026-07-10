@@ -85,6 +85,20 @@ Approximation note:
 - Live self-reported pass count: `0`
 - Live self-reported pass labels: `[]`
 
+## Who won, and why
+
+Not the question we set out to answer, but it's the honest one, so it gets a section.
+
+Between the two AI systems: neither. Codex built something real — the script runs, the method holds up, most of the report was right the first time. Claude found two defects in it on the validation pass, and one of those two was Claude's own — the first draft of this section overclaimed what the live probe had tested, and that only got caught by going back to `build_report()`'s own comment on the second read. The thing that actually won is the same thing the rest of this repository is built around, stated once already in `REFLECTIONS.md`'s wind-tunnel entry: don't trust a table because it's published and came before you, test it yourself, and when your own test produces a table, don't trust that one either until something independent has tried to break it. That rule doesn't stop applying just because the thing being tested is a report about this package instead of a claim inside it.
+
+Between compiled and raw FPF — the actual engineering question — this is a partial win, and the partial part matters more than the win.
+
+**Confirmed, not asserted, as of this measurement:** the core bet stated in `SOURCES.md`'s "Package authorship" section and argued in prose in `WHY_THIS_EXISTS.md` — that a compiled decision slice costs a small fraction of what the raw 51,000-line spec would cost a model per decision — is no longer a claim resting on the diagram in `ARCHITECTURE.md`. It's 4668.8x, measured on the package's own shipped examples, reproduced bit-for-bit by a second AI system with no access to the first one's numbers going in. `FPF_SCOPE_AUDIT_LOG.md`'s verdict line — "compile the framework away, once, rather than let the model carry it" — has a number behind it now that it didn't have when that log was written.
+
+**Not confirmed, and now correctly labeled as such:** the specific *mechanism* — that raw FPF costs exactly three re-reasoning passes, that cost compounds across a multi-step traversal the way `WHY_THIS_EXISTS.md`'s prose describes. Both were genuinely tested for, and both came back inconclusive rather than confirmed: the raw side was too large to live-test at all, and the compiled side's compounding read came from two deltas on a traversal that terminates in three steps by design. The `REJECTED_*.md` docs in this package all follow the same shape — reject or accept a specific mechanism, not the general instinct behind it. Same move here: the general instinct (raw FPF is expensive, compiled is cheap) is confirmed at a scale that isn't close. The specific mechanistic story about *why*, pass by pass, is still exactly what it was before this measurement — a plausible narrative, not a settled fact — and this document says that outright instead of letting a large, real, unrelated number (4668.8x) quietly launder an unrelated small claim (exactly 3 passes) into looking equally confirmed.
+
+That's the actual scope rail this measurement had to respect: get to use the big win, don't get to borrow its credibility for the part that wasn't tested.
+
 ## Disclosure
 
 Full disclosure of who executed what, as of 2026-07-10 — two different AI systems touched this document, and the record should say so plainly rather than let it read as one continuous authorial voice.

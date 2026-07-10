@@ -1,6 +1,6 @@
 [project]
 name = "fpf-thinking-map"
-version = "1.4.18"
+version = "1.4.19"
 description = "Agentic thinking map for bounded LLM traversal, with TTL evidence decay, deterministic guards, and propositional logic. Compiled from FPF (First Principles Framework)."
 readme = "README.md"
 license = "MIT"
