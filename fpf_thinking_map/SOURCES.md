@@ -1,6 +1,6 @@
 # Sources and attribution
 
-This package was built from two academic sources. Nothing was invented. Everything traces back to one of these.
+This package was built from two academic sources. Almost everything traces back to one of these. A small number of implementation-level mechanics do not — FPF specifies what evidence decay, role assignment, and communicative work *are*, not the concrete numeric or structural form a compiled runtime engine needs to actually run them. Those gaps are ours: documented explicitly in "What we invented" below, built within FPF's boundaries, not offered back as FPF vocabulary, and not a rewrite or reinterpretation of anything FPF already settles.
 
 ## Source 1: FPF (First Principles Framework)
 
@@ -21,6 +21,9 @@ A transdisciplinary specification for reasoning, assurance, and evolution — an
 | `ContextBridge` | A.6.9 CrossContextSamenessDisambiguation | How to connect two contexts: direction, mapping, substitution license, loss notes. |
 | `RolePrimitive` | A.2 Role Taxonomy, A.2.1 U.RoleAssignment, A.2.7 U.RoleAlgebra, A.13 AgentialRole | Roles as assignments (not identities). Specialization (≤), incompatibility (⊥), bundles (⊗). Agency as a spectrum (passive → deliberative). |
 | `WorkPrimitive` | A.15 U.Planning, A.15.1 U.Work, A.15.2 U.WorkPlan | The strict distinction between a plan (intent) and an enactment (what actually happened). A plan is NOT done work. |
+| `WorkPlanPrimitive` | A.15.2 U.WorkPlan | A schedule of intent, kept as its own type from `WorkPrimitive` — the type distinction IS the enforcement; a plan existing does not mean the work was executed. |
+| `RoleAssignment` | A.2.1 U.RoleAssignment | The binding of a holder to a role inside a context, kept distinct from `RolePrimitive` (the role definition) and from role enactment (work done under the assignment). Can expire. |
+| `SpeechActPrimitive` | A.2.9 U.SpeechAct | A communicative work occurrence — approval, authorization, revocation. Turns evidence IDs like "owner_approval" from magic strings into a checkable act: who approved, when, what it institutes, whether it's still valid. |
 | `CommitmentPrimitive` | A.2.8 U.Commitment | Deontic obligations: MUST, SHOULD, MAY, MUST_NOT, SHOULD_NOT. Scoped, with validity windows and evidence refs. Separate from gates (deontic vs structural). |
 | `GatePrimitive` | A.21 GateProfilization, A.19.UNM (tri-state guard) | Operational gates that aggregate checks. Four outcomes: abstain, pass, degrade, block. Fail-closed by default. |
 | `EvidencePrimitive` | A.10 Evidence Graph, A.2.4 U.EvidenceRole, B.3 Trust & Assurance (F-G-R), B.3.4 Evidence Decay | Evidence with provenance. Trust is a computed tuple: Formality (how rigorous), scope (how broad), Reliability (how dependable). Evidence can go stale. |
@@ -35,7 +38,13 @@ A transdisciplinary specification for reasoning, assurance, and evolution — an
 
 ### What we did NOT take from FPF
 
-The full FPF spec is ~51,000 lines covering dozens of patterns across 7 parts (A through G). We extracted 10 objects and 9 guard rules. Everything else in the spec (the full ontology, the mathematical formalism, the publication kit details, the SoTA harvesting, the ethics framework, the explore-exploit calculus) was left out intentionally. This package is a distillation, not a port.
+The full FPF spec is ~51,000 lines covering dozens of patterns across 7 parts (A through G). We extracted the objects and guard rules in the table above. Everything else in the spec (the full ontology, the mathematical formalism, the publication kit details, the SoTA harvesting, the ethics framework, the explore-exploit calculus) was left out intentionally. FPF is a transdisciplinary, all-encompassing specification; this package was never meant to copy it, and does not try to. It is a distillation of the small slice that changes what a model does on one runtime move, not a port.
+
+### What we invented (not extracted from FPF)
+
+One piece of this package is genuinely ours, not FPF's, and the line above used to claim otherwise. Recorded here instead of quietly folded into the table above, because pretending it traces to a spec section it does not trace to would be exactly the kind of self-deception this package's own guard design refuses to allow the model to get away with — no reason to allow it in our own documentation.
+
+**`SemanticFloor`** (`primitives.py`) — a 5-tier vertical structure (`STRUCTURAL / BINDING / EVIDENTIARY / OPERATIONAL / PUBLICATION`) with concrete base-TTL constants (10, 8, 2 steps) that drives evidence decay. FPF's B.3.4 (Evidence Decay) establishes *that* evidence goes stale and *that* freshness matters — it does not hand down a five-tier hierarchy or those specific numbers. Grouping FPF sections into structural/binding/evidentiary/operational/publication tiers, and picking concrete decay rates for each, was an engineering decision made to close the gap between "evidence can go stale" (the concept FPF states) and "here is the actual number of steps before a guard should distrust this claim" (the mechanic a running engine needs). It is own know-how, built to serve this package's own pursued scope — a deterministic runtime engine — within FPF's boundaries: it uses FPF's own section citations as the grounding for which concepts sit at which tier, it does not contradict or attempt to amend anything FPF already settles, and it was never proposed back into FPF's own spec as shared vocabulary (see `REJECTED_F17_UNIFIED_TERM_SHEET.md` on why that kind of ecosystem-facing naming discipline does not apply to a single downstream package like this one).
 
 ## Source 2: Computational logic lectures (Mitev L.)
 
