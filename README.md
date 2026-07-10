@@ -1,6 +1,6 @@
 # FPF Agentic Thinking Map
 
-**v1.4.5** — [FPF (First Principles Framework)](https://github.com/ailev/FPF), compiled into a small traversal map for LLM agents.
+**v1.4.24** — [FPF (First Principles Framework)](https://github.com/ailev/FPF), compiled into a small traversal map for LLM agents.
 
 A Python package that gives a model a bounded move board instead of a giant framework to digest at runtime. Instead of rereading a sprawling semantic corpus and improvising from it, the model gets a small JSON slice: what context it is in, what move is open, what evidence is missing, what is risky, and what outcome class applies.
 
@@ -213,6 +213,10 @@ The model's job shrinks from "figure out the entire epistemic state of your own 
 - **`ADV-07`** — the sharpest advisory yet, called out at the top of `ADVISORIES.md` alongside `ADV-03`. `RiskAbove(threshold)` matches `risk_level` against a fixed table via plain dict lookup; anything not found — including a correctly-spelled value in the wrong case (`"CRITICAL"` vs. `"critical"`) — silently resolves to `"normal"`. Confirmed directly: a `RiskAbove("critical")` rule wired exactly as `ADV-02` recommends returns the *opposite* routed action for `"CRITICAL"` vs. `"critical"`, with no error, no warning, `consistency_check()` reporting `True` either way. Following the library's own documented fix for `ADV-02` does not protect you from this — normalize and validate `risk_level` at your harness boundary before it reaches the engine.
 - `check_advisories_content` now asserts all seven advisory IDs.
 
+## v1.4.4–v1.4.24 changes
+
+Docs, provenance, and measurement work only — no changes to `fpf_thinking_map/*.py` in this range. Highlights: `SOURCES.md` external-reference audit, `REJECTED_*.md`/`RELATED_WORK_*.md` scope notes, a full `ARCHITECTURE.md` revision (outcome-kind and primitive-count corrections), and `TRIPLE_TAX_CALCULUS.md` — a reproducible raw-FPF-vs-compiled-slice token/cost measurement, including a self-audit that walked back an earlier unmeasured "3-pass"/"36-pass" reasoning claim (see [`WHY_THIS_EXISTS.md`](fpf_thinking_map/WHY_THIS_EXISTS.md#verification)). Full per-version detail: [GitHub Releases](https://github.com/igareosh/fpf-agentic-thinking-map/releases).
+
 ## Design principles
 
 - **Only add structure when it changes agentic behavior** — not for source fidelity alone
@@ -310,4 +314,4 @@ MIT. See [LICENSE](LICENSE).
 
 ---
 
-**prichindel.com** — v1.4.5 — 2026-07-09
+**prichindel.com** — v1.4.24 — 2026-07-10
