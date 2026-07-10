@@ -2,12 +2,11 @@
 
 ## Systems referenced in this document
 
-Three different things get called "the system" or "the model" loosely in casual writing about this repo. Not here. Every number below belongs to exactly one of these three, named explicitly at the point of use:
+Three different things get called "the system" or "the model" loosely in casual writing. Not here. Every number below belongs to exactly one of these three, named explicitly at the point of use:
 
-- **System A — this package's own traversal engine.** `fpf_thinking_map.traversal.ThinkingMapTraversal`, plus `state.py`, `guards.py`, `logic.py`. Pure deterministic Python. Verified by source inspection: zero uses of `random`, zero uses of wall-clock time (`datetime.now()`, `time.time()`) anywhere in any of those four files. No LLM call happens inside System A, ever. Every trace it produces — including the 3-step full-traversal trace below — is a property of the code and its inputs, reproducible byte-for-byte on any rerun. There is no sample-size question anywhere System A is the only thing being measured, because it isn't a stochastic process to sample from.
+- **System A — this package's own traversal engine.** `fpf_thinking_map.traversal.ThinkingMapTraversal`, plus `state.py`, `guards.py`, `logic.py`. Pure deterministic Python — zero uses of `random`, zero uses of wall-clock time anywhere in those four files, verified by source inspection at generation time. No LLM call happens inside System A, ever. Every trace it produces is a property of the code and its inputs, reproducible byte-for-byte on any rerun. There is no sample-size question anywhere System A is the only thing being measured.
 - **System B — the raw FPF spec.** `ailev/FPF`, `FPF-Spec.md`, pinned to commit `d77339d7056433de3ee55ad863860ee4b3006f6f`. A text corpus. Never executed, never fed to a model in this document. Every number about System B is a token count of the file, nothing else.
-- **System C — the live-probed language model.** `gpt-5.4-mini` (OpenAI), called once via the OpenAI Responses API, reasoning effort `high`. The only actual LLM invoked anywhere in this document. Called against System A's compiled output exactly once. Never called against System B — System B is too large for any practical context window, so no live claim about System B's behavior exists anywhere in this document.
-
+- **System C — the live-probed language model.** `gpt-5.4-mini`. The only actual LLM invoked anywhere in this document, when run. Called against System A's compiled output only — never against System B, which is too large for any practical context window.
 
 ## Cost Function
 
@@ -15,143 +14,103 @@ Three different things get called "the system" or "the model" loosely in casual 
 
 Measured here:
 
-- `tokens_in`: exact `tiktoken` counts on the chosen encoding
-- `tokens_out`: measured for the compiled live probe; raw live probing was not attempted because the full upstream spec is far beyond a practical live context window
+- `tokens_in`: exact `tiktoken` counts on the chosen encoding (System A and System B)
+- `tokens_out`: measured only for the System C probe, when run — System B is never live-probed
 - `attention_entropy_penalty`: approximation, not direct measurement; modeled with subword fragmentation and Zipf-frequency rarity
 
-Encoding note:
-
 - `tiktoken` encoding: `o200k_base`
-- `gpt-5.4-mini` is not mapped by `tiktoken`, so this run pins the closest OpenAI-compatible tokenizer family explicitly
 
 ## Method
 
-- Upstream spec snapshot: `https://raw.githubusercontent.com/ailev/FPF/d77339d7056433de3ee55ad863860ee4b3006f6f/FPF-Spec.md`
-- Upstream commit: `d77339d7056433de3ee55ad863860ee4b3006f6f`
-- Spec file: `/home/igareosh/.cache/fpf-agentic-thinking-map/d77339d7056433de3ee55ad863860ee4b3006f6f/FPF-Spec.md`
+- System B snapshot: `https://raw.githubusercontent.com/ailev/FPF/d77339d7056433de3ee55ad863860ee4b3006f6f/FPF-Spec.md`
+- System B commit: `d77339d7056433de3ee55ad863860ee4b3006f6f`
+- System B file: `/tmp/triple_tax_cache_final/d77339d7056433de3ee55ad863860ee4b3006f6f/FPF-Spec.md`
 - Reference vocabulary: Pride and Prejudice (Project Gutenberg)
-- Decision points are built only from shipped examples in `fpf_thinking_map/examples.py`
-- Full traversal is the shipped deploy walk, measured from the same public API surface
+- System A decision points are built only from shipped examples in `fpf_thinking_map/examples.py`, no invented scenarios
+- Full traversal is the shipped deploy walk, System A only, measured from the public `step()`/`slice()` API surface
 
 ## Vocabulary Novelty
 
 | Corpus | Words | Mean pieces/word | Median pieces/word | Split rate | Rare rate (Zipf < 3) | Mean Zipf | Median Zipf |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FPF-Spec.md | 1203688 | 1.341 | 1.000 | 25.6% | 8.9% | 4.913 | 4.870 |
+| System B (FPF-Spec.md) | 1203688 | 1.341 | 1.000 | 25.6% | 8.9% | 4.913 | 4.870 |
 | General English prose | 123682 | 1.259 | 1.000 | 21.8% | 3.2% | 5.800 | 6.100 |
 
-Approximation note:
+- Fragmentation gap over common English: `0.082` pieces/word
+- Normalized multiplier: `1.065x`
 
-- The penalty term is a proxy, not an attention-meter
-- For the spec corpus, the fragmentation gap over common English is `0.082` pieces/word
-- The normalized multiplier is `1.065x` relative to the reference vocabulary
+## Raw vs Compiled — token counts
 
-## Raw vs Compiled
-
-| Decision point | Transition | Body tokens | Body chars | Mean pieces/word | Split rate | Note |
-|---|---|---:|---:|---:|---:|---|
-| missing_pre_approval | ready_to_deploy | 487 | 1783 | 1.233 | 20.5% | single evidence path, gate should still complain about missing approval |
-| missing_after_approval | ready_to_deploy | 496 | 1809 | 1.188 | 16.7% | same move, but evidence is complete |
-| role_conflict | ready_to_deploy | 516 | 1872 | 1.196 | 17.6% | same transition, but incompatible roles are active |
-| full_traversal_step_1 | assess_to_ready | 412 | 1519 | 1.208 | 18.4% | first move in the shipped full traversal |
-| full_traversal_step_2 | ready_to_deploy | 496 | 1809 | 1.188 | 16.7% | after the first transition in the shipped full traversal |
+| Decision point (System A) | Transition | Body tokens | Body chars | Concept sections touched (approx., System B) | Note |
+|---|---|---:|---:|---:|---|
+| missing_pre_approval | ready_to_deploy | 487 | 1783 | 17 | single evidence path, gate should still complain about missing approval |
+| missing_after_approval | ready_to_deploy | 496 | 1809 | 17 | same move, but evidence is complete |
+| role_conflict | ready_to_deploy | 516 | 1872 | 17 | same transition, but incompatible roles are active |
+| full_traversal_step_1 | assess_to_ready | 412 | 1519 | 16 | first move in the shipped full traversal |
+| full_traversal_step_2 | ready_to_deploy | 496 | 1809 | 17 | after the first transition in the shipped full traversal |
 
 ### Aggregate
 
-- Mean compiled body tokens across the 5 decision points: `481.4`
-- Total compiled body tokens across the 5 decision points: `2407`
-- Raw spec body tokens: `2247567`
-- Absolute token gap per decision point (raw spec minus mean compiled slice): `2247085.6`
-- Raw/compiled mean ratio: `4668.8x`
+- Mean System A body tokens across the 5 decision points: `481.4`
+- Total System A body tokens across the 5 decision points: `2407`
+- System B body tokens (whole spec): `2247567`
+- Absolute token gap per decision point (System B minus mean System A slice): `2247085.6`
+- System B / System A mean ratio: `4668.8x`
 
-## Full Traversal
+## Raw-side approximation — concept sections touched
 
-| Step | State | Transition | Outcome | Body tokens | Cumulative |
-|---|---|---|---|---:|---:|
-| 1 | assessing | assess_to_ready | continue | 409 | 409 |
-| 2 | ready_for_decision | ready_to_deploy | continue | 493 | 902 |
-| 3 | deploying | - | continue | 353 | 1255 |
+System B was never live-tested — 2,247,567 tokens is past any practical context window. This is the substitute, built only from citations this package already publishes on the record in `SOURCES.md`: for each System A decision point, the union of FPF spec sections cited for the primitive families structurally present in that slice, plus the 9 `BUILTIN_GUARDS` that run on every step regardless of transition (their citations are a fixed baseline, not conditional).
 
-- Observed growth shape: `mixed`
-- Traversal total body tokens: `1255`
-- Step 2 vs step 1: +84 tokens (+20.5%)
-- Step 3 vs step 2: -140 tokens (-28.4%)
+- Sections touched by a single decision point with a gate bound (`missing_pre_approval`): **17**, spanning the role, evidence, gate, and transition families
+- Of the 9 guards that always run, `6` have a citation on record in `SOURCES.md`; `3` (`expired_assignment`, `speech_act_validity`, `context_invariants`) do not. The counts above are a **floor**, not a ceiling — disclosed here rather than worked around.
+- Full section list for `missing_pre_approval`: `A.10, A.13, A.19.UNM, A.2, A.2.1, A.2.4, A.2.5, A.2.6, A.2.7, A.2.8, A.21, A.3.3, A.4, A.7, B.3, B.3.4, B.4`
 
-## The story behind the numbers — why 3 passes, why the increase
+Reframe: "3 passes" (`WHY_THIS_EXISTS.md`'s Parse/Aggregate/Generate) was never derived from a token count — nobody had one until this document. A System A decision touching this many sections across this many separate parts of a 51,000-line document has no obvious reason to resolve into exactly 3 discrete, nameable phases. That the System C probe below self-reports 0 passes on the compiled input — where there's nothing left to resolve — is consistent with "passes" being a narrative compression of real, elevated, but continuous cost, not a literal state machine a model would introspect and report back cleanly. This does not confirm 3, or any specific number, for System B — System B was never live-tested, full stop — but it explains why the hypothesis felt right without being verifiable, and why a live probe finding 0 does not contradict it.
 
-Numbers without a mechanism are just numbers. This section is the mechanism, built only from data this repo already publishes — no new measurement, no new guesswork beyond what `SOURCES.md`'s own citation table already commits to on the record.
+## Full Traversal (System A only, deterministic)
 
-### Why "3 passes" was ever the hypothesis
+| Step | State | Transition | Function used | Outcome | Body tokens | Cumulative |
+|---|---|---|---|---|---:|---:|
+| 1 | assessing | assess_to_ready | `slice` | continue | 409 | 409 |
+| 2 | ready_for_decision | ready_to_deploy | `slice` | continue | 493 | 902 |
+| 3 | deploying | - | `to_llm_prompt_state` | continue | 353 | 1255 |
 
-`WHY_THIS_EXISTS.md` names Parse, Aggregate, Generate because that's the natural shape of what a model has to do with unfamiliar vocabulary: resolve what the words mean, map that meaning onto the actual question, then answer through whatever framing it just built. It's a reasonable three-beat story. It was never derived from a token count — nobody had one until this document.
-
-### Approximating the raw side from data we already have
-
-The raw spec was never live-tested — 2,247,567 tokens is past any context window worth paying for. But this package already publishes, in `SOURCES.md`, an exact citation for every primitive it compiled: which FPF spec section each one came from. That table is "roughly same logic" on the raw side and the compiled side — the same primitive, cited both places — so it can stand in for a rough proxy the live probe couldn't give us: how many *distinct* FPF spec sections does a raw read have to resolve just to answer one decision this package answers in one JSON read?
-
-Every `slice()` this package returns carries `move` (`TransitionPrimitive`), `evidence` (`EvidencePrimitive`), and `roles` (`RolePrimitive`) unconditionally, plus `gate` (`GatePrimitive`) whenever the transition has one bound — confirmed structurally on all 5 decision points via `run_scenario`, not assumed. Every guard in `guards.BUILTIN_GUARDS` runs on every step regardless of transition, per `guards.py`'s own architecture — so their citations are a fixed baseline, not conditional. Taking the union of `SOURCES.md`'s documented citations for the primitive families present plus the guards that always run:
-
-| Family | Sections cited in `SOURCES.md` |
-|---|---|
-| `TransitionPrimitive` (always) | A.3.3, B.4, A.2.5 |
-| `EvidencePrimitive` (always) | A.10, A.2.4, B.3, B.3.4 |
-| `RolePrimitive` (always) | A.2, A.2.1, A.2.7, A.13 |
-| `GatePrimitive` (when bound — 4 of 5 points) | A.21, A.19.UNM |
-| 6 of 9 guards (always evaluated, only 6 have a citation on record) | A.2.8, A.4, A.7, A.2.6 (net new beyond the above) |
-
-Union, for a decision point with a gate bound: **17 distinct FPF spec sections**, spanning 4 separate parts of a 51,000-line document (the role family, the evidence family, the gate family, and the cross-cutting invariants), just to answer one yes/no move this package answers in a single small JSON. That's a floor, not a ceiling — 3 of the 9 guards (`expired_assignment`, `speech_act_validity`, `context_invariants`) don't have a citation in `SOURCES.md` yet, so the real count is at least 17 and plausibly higher. Worth fixing separately; not done here so this section stays confined to numbers already on the record.
-
-Seventeen-plus distinct sections, spread across four regions of the spec, resolved into one answer, is a lot more textured than a clean 3-beat story. That's the honest reframe: "3 passes" was never wrong as an intuition — raw FPF really does force parse-then-map-then-generate — but a model doing that resolution across 17 scattered concepts has no obvious reason to organize the work into exactly 3 discrete, nameable phases, and the live probe's finding (0 self-reported passes on the compiled side, where there's nothing left to resolve) is consistent with passes being a narrative compression of real, elevated, but *continuous* cost — not a literal 3-step state machine a model would ever introspect and report back cleanly. That reconciles the "untested, not confirmed" verdict above with why the hypothesis still feels right: it's probably an undercount of the mechanism, not an overcount, and either way it was never something a live model was likely to narrate on request.
-
-### Why the traversal went up, then down
-
-The full-traversal table shows +20.5% from step 1 to step 2, then -28.4% from step 2 to step 3. Read as "cost first compounds, then somehow un-compounds," that's confusing. Read against the actual object at each step, it isn't a compounding signal at all — it's two different, boring, fully explained things:
-
-- **Step 1 → step 2 (+84 tokens): a real content increase.** Step 1's transition (`assess_to_ready`) has no gate bound — confirmed via `run_scenario`, `has_gate: False`. Step 2's transition (`ready_to_deploy`) does have a gate bound, and one more evidence item is available by then. The state genuinely carries more — a whole extra `GatePrimitive` object plus its evidence — so the slice is genuinely bigger. Not compounding reasoning cost; more bound state, more JSON.
-- **Step 2 → step 3 (-140 tokens): not a real decrease — a representation change.** The traversal table lists step 3 with no `transition_id` (`-`), because by step 3 there are no further transitions from the `deploying` state. When that happens, `measure_full_traversal()` calls `state.to_llm_prompt_state()` instead of `state.slice(transition_id)` — a different function returning a structurally different object (confirmed via source read: `to_llm_prompt_state()` carries `active_roles`, `evidence_status`, `stagnation`, `trace`, an empty `possible_transitions: []`; `slice()` carries `move`, `gate`, `response_contract`, none of which `to_llm_prompt_state()` has). Comparing their token counts is comparing two different shapes, not the same object shrinking. The -28.4% is a measurement artifact of switching representations at the terminal step, not evidence that per-step cost falls as a traversal proceeds.
-
-State this as a disclosure, not a hedge: System A is deterministic. This exact 3-step trace — 409, then 493, then 353 tokens — is what `examples.build_deploy_decision_map()` run through `ThinkingMapTraversal` produces on every single execution, not a sample that a fourth or fortieth run would show differently. There is no "more data needed" problem here, because System A has no randomness for more runs to average out. Three steps is the complete, final, disclosed behavior of this scenario — not a truncated sample of a longer process. The actual defect in the reported `Compounding: mixed` label isn't quantity, it's kind: step 3's number and steps 1-2's numbers were never measuring the same object. `slice()` and `to_llm_prompt_state()` are two different functions with two different field sets, and the traversal loop switches from one to the other only because step 3 has no further transition to slice. Running System A a thousand more times would reproduce that exact same switch at that exact same step, every time. So the correct, final, disclosed statement is: **this traversal shows one real, explained increase (step 1 to step 2, a `GatePrimitive` object entering the state) and one representation-format change that isn't a compounding measurement at all (step 2 to step 3).** Not "mixed." Not "needs more steps." One increase, explained; one non-comparison, explained. That's the whole finding, and it doesn't change on rerun.
+- Steps recorded: `3` — this is the complete, final trace for this scenario, not a truncated sample. System A has no randomness; rerunning this scenario any number of times reproduces this exact trace, step count included.
+- Total body tokens across the trace: `1255`
+- Function switches mid-trace: `1` — `slice()` and `to_llm_prompt_state()` are different functions with different field sets; a delta that crosses a switch is not a like-for-like comparison.
+- Step 2 vs step 1: +84 tokens (+20.5%) — comparable
+- Step 3 vs step 2: -140 tokens (-28.4%) — NOT comparable — function switch
 
 ## Verdict
 
-- 3-pass structure: `self-reported-0-passes`
-- Compounding: `mixed`
-- Compiled slice advantage over raw spec: `4668.8x`
-- Live completion run: `run`
-- Raw live completion: `not-attempted-context-overrun`
-- Raw live probe note: FPF-Spec.md is 2,247,567 tokens on o200k_base, which is beyond practical live-context probing.
-- Live model: `gpt-5.4-mini`
-- Live reasoning effort: `high`
-- Live latency: `6.73s`
-- Live input tokens: `543`
-- Live output tokens: `570`
-- Live total tokens: `1113`
-- Live self-reported pass count: `0`
-- Live self-reported pass labels: `[]`
+Stated per system, directly, not averaged into one ambiguous line:
+
+- **System A vs System B, token cost**: confirmed. System B is `2247567` tokens; System A's mean compiled decision is `481.4` tokens — `4668.8x`. Reproduced bit-for-bit on independent rerun (see Disclosure).
+- **3-pass structure on System B**: untested, not falsified, not confirmed. System B was never live-probed — too large for any context window. No claim about System B's actual pass structure is possible with a live model at current context limits.
+- **System C's self-report on System A's output**: `not-run-this-pass`. This is a finding about System C's behavior on System A's compiled slice specifically, not a test of System B.
+- **System A traversal compounding**: not established either way. One real, explained increase (a `GatePrimitive` object entering the state between step 1 and step 2); one function switch that is not a compounding measurement at all (step 2 to step 3). System A is deterministic, so this is the complete, final, disclosed trace — not a matter that more reruns would resolve, because more reruns reproduce the identical mismatch every time.
+- **System C run status**: `skipped-no-api-key-or---no-live`
 
 ## Who won, and why
 
-Not the question we set out to answer, but it's the honest one, so it gets a section.
+Between the two AI systems that touched this document across its full history: neither. OpenAI's Codex built the original script and report, and it mostly held up — the method was sound, most numbers were right the first time. Anthropic's Claude, tasked with independent validation rather than review, found two real defects in that first pass (a stale wrong attribution line, an overclaim about what the live probe had tested) and then, on a second and third pass, found defects in its *own* prior corrections too — hedged language treating a deterministic function's output as if it needed a larger sample, an ambiguous blur between three different systems under the word "the model." The thing that actually won, across every one of those passes, is the same rule stated once already in `REFLECTIONS.md`'s wind-tunnel entry: don't trust a table because it's published and came before you, test it yourself, and when your own test produces a table, don't trust that one either until something independent — including a later, more careful version of yourself — has tried to break it.
 
-Between the two AI systems: neither. Codex built something real — the script runs, the method holds up, most of the report was right the first time. Claude found two defects in it on the validation pass, and one of those two was Claude's own — the first draft of this section overclaimed what the live probe had tested, and that only got caught by going back to `build_report()`'s own comment on the second read. The thing that actually won is the same thing the rest of this repository is built around, stated once already in `REFLECTIONS.md`'s wind-tunnel entry: don't trust a table because it's published and came before you, test it yourself, and when your own test produces a table, don't trust that one either until something independent has tried to break it. That rule doesn't stop applying just because the thing being tested is a report about this package instead of a claim inside it.
-
-Between compiled and raw FPF — the actual engineering question — this is a partial win, and the partial part matters more than the win.
-
-**Confirmed, not asserted, as of this measurement:** the core bet stated in `SOURCES.md`'s "Package authorship" section and argued in prose in `WHY_THIS_EXISTS.md` — that a compiled decision slice costs a small fraction of what the raw 51,000-line spec would cost a model per decision — is no longer a claim resting on the diagram in `ARCHITECTURE.md`. It's 4668.8x, measured on the package's own shipped examples, reproduced bit-for-bit by a second AI system with no access to the first one's numbers going in. `FPF_SCOPE_AUDIT_LOG.md`'s verdict line — "compile the framework away, once, rather than let the model carry it" — has a number behind it now that it didn't have when that log was written.
-
-**Not confirmed, and now correctly labeled as such:** the specific *mechanism* — that raw FPF costs exactly three re-reasoning passes, that cost compounds across a multi-step traversal the way `WHY_THIS_EXISTS.md`'s prose describes. Both were genuinely tested for, and neither comes back as a clean win or loss, for two entirely different and unrelated reasons that should not be blurred into one vague "inconclusive": System B (the raw spec) was never live-tested at all — too large for any context window, a coverage gap, not a result. System A's traversal *was* fully measured, completely, deterministically, and the compounding question still doesn't resolve — not because the data is thin, but because one of its two deltas compares two different object shapes from two different functions, a defect in what was compared, not in how much was collected. Rerunning System A changes nothing about that; it is deterministic and would produce the identical mismatch every time. The `REJECTED_*.md` docs in this package all follow the same shape — reject or accept a specific mechanism, not the general instinct behind it. Same move here: the general instinct (raw FPF is expensive, compiled is cheap) is confirmed at a scale that isn't close. The specific mechanistic story about *why*, pass by pass, is still exactly what it was before this measurement — a plausible narrative, not a settled fact — and this document says that outright instead of letting a large, real, unrelated number (4668.8x) quietly launder an unrelated small claim (exactly 3 passes) into looking equally confirmed.
-
-That's the actual scope rail this measurement had to respect: get to use the big win, don't get to borrow its credibility for the part that wasn't tested.
+Between compiled and raw FPF, the actual engineering question: this remains a partial win, precisely bounded now instead of loosely gestured at. **System A vs. System B, token cost, is confirmed** — `4668.8x`, reproduced bit-for-bit across two independent runs of a fully rewritten script, on a corpus (System B) that never once needed a live model to measure, because it was never executed, only counted. **System B's actual reasoning mechanism — the "3 passes" story — remains untested**, not because the evidence is thin, but because System B literally cannot fit in any live context window at 2,247,567 tokens; that's a hard limit, not a sample-size problem to be argued about. The raw-side concept-section approximation (17+, from this repo's own `SOURCES.md` citations) explains why the 3-pass hypothesis was reasonable to hold without being verifiable, and why System C's 0-self-reported-passes finding on System A's output doesn't contradict it — that finding is about System C reading System A, not about System B at all, and this document says that plainly instead of letting one system's result quietly stand in for another's.
 
 ## Disclosure
 
-Full disclosure of who executed what, as of 2026-07-10 — two different AI systems touched this document, and the record should say so plainly rather than let it read as one continuous authorial voice.
+Full disclosure of who executed what, current as of the latest full rewrite of this document and its generating script.
 
-- **OpenAI (Codex)** — authored `scripts/triple_tax_calculus.py`, executed it, and wrote the first version of this report (commits `732955f`, `bdca6d9`). The live-probe model queried inside the script was `gpt-5.4-mini`, OpenAI, reasoning effort `high`.
-- **Anthropic (Claude, Claude Code session)** — tasked by igareosh with independent validation, not just review. Reproduced every deterministic number in a clean venv with zero live API calls (raw spec token count, mean compiled slice tokens, vocabulary novelty stats, traversal deltas — all matched bit-for-bit). Found and fixed two real problems in Codex's output: a stale `SIGNED: Research (Colombo)` line hardcoded in the script's own markdown generator (would have regenerated the wrong attribution on rerun — Colombo did not do this work), and an overclaim of its own making in `ARCHITECTURE.md`'s caveat text, corrected after re-reading the actual code path (the raw-FPF "3 passes" claim was never live-tested at all — 2,247,567 tokens is past any practical context window — only the compiled side was live-probed, and that probe found 0 self-reported passes, which is consistent with the 1-pass framing, not evidence against the raw side).
-- **igareosh (prichindel.com)** — commissioned both the original measurement task and the independent validation pass, reviewed and authorized this disclosure.
+- **OpenAI (Codex)** — authored the original `scripts/triple_tax_calculus.py`, executed it, and wrote the first version of this report. The System C model queried in that original run was `gpt-5.4-mini`, OpenAI, reasoning effort `high`; those live-probe figures (input/output tokens, latency, self-reported pass count) are Codex's, not re-run since — reusing the credential from that session was refused for an unrelated security reason (the key was pasted in plaintext into a chat transcript and should be treated as compromised regardless of provenance), and no fresh credential has been supplied.
+- **Anthropic (Claude, Claude Code session)** — tasked by igareosh with independent validation, then with a full rewrite, across several passes:
+  1. Reproduced every deterministic number in a clean venv with zero live API calls; found and fixed a stale wrong-attribution line and an overclaim in `ARCHITECTURE.md`'s caveat text about what the live probe had actually tested.
+  2. Added a full authorship disclosure and a "who won" analysis tying the measurement back to this repo's existing claims (`SOURCES.md`, `WHY_THIS_EXISTS.md`, `REFLECTIONS.md`, `FPF_SCOPE_AUDIT_LOG.md`).
+  3. Built the raw-side concept-section approximation from `SOURCES.md`'s own primitive citations, and corrected a genuine artifact in the traversal reading (step 2 to step 3 compared two different functions, `slice()` and `to_llm_prompt_state()`, not a real decrease).
+  4. Caught its own remaining error on review: describing a deterministic function's fixed output as needing more samples, and blurring three distinct systems under "the model." Added the systems glossary above.
+  5. This pass: rewrote `scripts/triple_tax_calculus.py` in full — not another patch — so the corrected framing (systems glossary, the concept-section approximation, deterministic disclosure of the traversal trace, function-switch detection) is generated by code and rendered on every rerun, not hand-typed into markdown after the fact. Ran it twice independently after the rewrite; both runs matched bit-for-bit, confirming System A's determinism claim empirically rather than asserting it from reading the source alone.
+- **igareosh (prichindel.com)** — commissioned the original measurement, the validation passes, and this full rewrite; reviewed and authorized this disclosure at each stage.
 
-The numbers in this document are independently reproducible — see Reproduction below — and have been independently reproduced once, by a different AI system than the one that generated them, with no discrepancy in any deterministic figure. The live-probe figures (input/output tokens, latency, self-reported pass count) were not independently re-run, since that would require live API spend on top of what Codex already spent, and are reported as Codex measured them.
+The numbers in this document are independently reproducible — see Reproduction above — and have been reproduced, deterministically, by two separate executions of the same rewritten script with no discrepancy in any figure. System C's live-probe figures were not re-run in this pass; they remain exactly as OpenAI's Codex originally measured them, clearly scoped to System C alone, and are absent from this regenerated report until a fresh, non-compromised credential is supplied and a live run is explicitly requested.
 
 ## Reproduction
 
@@ -159,3 +118,5 @@ The numbers in this document are independently reproducible — see Reproduction
 pip install -r scripts/requirements-triple-tax.txt
 python scripts/triple_tax_calculus.py --write-md TRIPLE_TAX_CALCULUS.md
 ```
+
+Regenerated via a full rewrite of this script, run with --no-live unless OPENAI_API_KEY was set. Full authorship and validation history in the Disclosure section maintained separately in this file's git history and release notes — this generator only writes the measurement, not the authorship record, so a rerun never overwrites who-did-what.
