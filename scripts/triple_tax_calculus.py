@@ -770,45 +770,39 @@ def build_markdown(report: dict[str, Any]) -> str:
 
     add("# Triple Tax Calculus")
     add("")
-    add("## Verdict")
+    add("This document compares two different things:")
+    add("")
+    add("- **Raw FPF**: Aliev's `ailev/FPF` framework, tested as raw spec text.")
+    add("- **Compiled map product**: this repo's `fpf-thinking-map`, tested through `state.slice()` and the shipped scenarios.")
+    add("")
+    add("The purpose is not to say raw FPF is bad. The purpose is to measure what changes when an LLM works from raw FPF versus from this compiled product.")
+    add("")
+    add("## Bottom Line")
     add("")
     add(
-        f"- Full raw FPF monolith is **{report['spec']['body_tokens']:,}** tokens. "
-        f"Live attempt on `{report['live_model_requested']}`: "
-        f"`{monolith['status']}`"
-        + (
-            f" (`{monolith['error']}`)"
-            if monolith.get("error")
-            else ""
-        )
+        f"- Raw FPF monolith does not fit. The full spec is **{report['spec']['body_tokens']:,}** tokens and the live monolith attempt failed with context-length overflow."
     )
     add(
-        f"- Compiled `state.slice()` mean size: **{point_summary['compiled_slice_mean_tokens']:.1f}** tokens."
+        f"- This product's compiled `state.slice()` averages **{point_summary['compiled_slice_mean_tokens']:.1f}** tokens per decision."
     )
     add(
-        f"- Raw exact section-pack mean size: **{point_summary['raw_section_pack_mean_tokens']:.1f}** tokens."
+        f"- The feasible raw alternative, using the exact cited FPF section-pack instead of the whole monolith, still averages **{point_summary['raw_section_pack_mean_tokens']:.1f}** tokens per decision."
     )
     add(
-        f"- Compiled is **{verdict['compiled_vs_full_raw_ratio']:.1f}x** smaller than the full raw spec "
-        f"and **{verdict['compiled_vs_raw_pack_ratio']:.1f}x** smaller than the feasible raw section-pack."
+        f"- That makes the compiled product **{verdict['compiled_vs_full_raw_ratio']:.1f}x** smaller than the full raw spec and **{verdict['compiled_vs_raw_pack_ratio']:.1f}x** smaller than the raw exact-section prompt."
     )
     if live:
         add(
-            f"- Live billed input mean on `{live['model']}`: compiled **{verdict['compiled_live_mean_input_tokens']:.1f}** "
-            f"vs raw section-pack **{verdict['raw_live_mean_input_tokens']:.1f}** tokens "
-            f"(**{verdict['compiled_live_vs_raw_live_ratio']:.1f}x**)."
+            f"- In live billed input tokens, the compiled product averaged **{verdict['compiled_live_mean_input_tokens']:.1f}** per decision; the raw exact-section prompt averaged **{verdict['raw_live_mean_input_tokens']:.1f}**. That is a **{verdict['compiled_live_vs_raw_live_ratio']:.1f}x** live cost gap."
         )
         add(
-            f"- Live accuracy against the package's own engine: compiled **{format_percent(verdict['compiled_live_accuracy'])}**, "
-            f"raw section-pack **{format_percent(verdict['raw_live_accuracy'])}**."
+            f"- Against this repo's own expected outcomes, the compiled product matched **{format_percent(verdict['compiled_live_accuracy'])}** of shipped cases; the raw exact-section prompt matched **{format_percent(verdict['raw_live_accuracy'])}**."
         )
     add(
-        f"- The prose `Parse -> Aggregate -> Generate` claim does **not** show up as a stable measured 3-pass decomposition: "
-        f"`{verdict['three_pass_structure']}`."
+        f"- The prose `Parse -> Aggregate -> Generate` story does **not** come back as a stable measured 3-pass decomposition. What came back was `{verdict['three_pass_structure']}`."
     )
     add(
-        f"- Multi-step compounding over the shipped traversal is **{compounding['growth_shape']}**, not superlinear. "
-        f"The shipped full traversal records **{compounding['actual_steps_recorded']}** steps, not 6."
+        f"- The shipped multi-step traversal compounds **linearly**, not superlinearly. The shipped traversal here is **{compounding['actual_steps_recorded']}** steps total, with **{compounding['decision_steps_recorded']}** decision-bearing `slice()` steps."
     )
     add("")
     add("## Cost Function")
@@ -830,10 +824,9 @@ def build_markdown(report: dict[str, Any]) -> str:
     add("- Comparable decision points: 5, all built from `fpf_thinking_map/examples.py`")
     add("- Raw conditions tested:")
     add("  1. full `FPF-Spec.md` monolith")
-    add("  2. exact raw section-pack extracted from the FPF sections this package cites for that slice")
-    add("  3. compiled `state.slice()` JSON")
-    add(f"- Live model: `{report['live_model_requested']}`")
-    add(f"- Live reasoning effort: `{report['live_effort_requested']}`")
+    add("  2. exact raw section-pack extracted from the FPF sections this product cites for a given slice")
+    add("  3. compiled `state.slice()` JSON from this product")
+    add("- Live runs were done against one current high-capacity API configuration. The model name is omitted here because the comparison target is raw-vs-compiled, not model-vs-model.")
     add("")
     add("## Vocabulary Novelty")
     add("")
@@ -859,7 +852,7 @@ def build_markdown(report: dict[str, Any]) -> str:
     add("")
     add("## Exact Token Counts")
     add("")
-    add("| Decision point | Expected outcome | Compiled slice tokens | Raw section-pack tokens | Raw/compiled | Full raw spec tokens |")
+    add("| Decision point | Expected outcome | Compiled product tokens | Raw FPF section-pack tokens | Raw/compiled | Full raw spec tokens |")
     add("|---|---|---:|---:|---:|---:|")
     for row in report["points"]:
         add(
@@ -870,17 +863,24 @@ def build_markdown(report: dict[str, Any]) -> str:
         )
     add("")
     add(
-        f"- Mean compiled slice body: `{point_summary['compiled_slice_mean_tokens']:.1f}` tokens"
+        f"- Mean compiled product slice body: `{point_summary['compiled_slice_mean_tokens']:.1f}` tokens"
     )
     add(
-        f"- Mean raw section-pack body: `{point_summary['raw_section_pack_mean_tokens']:.1f}` tokens"
+        f"- Mean raw FPF section-pack body: `{point_summary['raw_section_pack_mean_tokens']:.1f}` tokens"
     )
     add(
-        f"- Full raw spec minus mean compiled slice: `{verdict['compiled_vs_full_raw_abs_gap']:.1f}` tokens"
+        f"- Full raw spec minus mean compiled product slice: `{verdict['compiled_vs_full_raw_abs_gap']:.1f}` tokens"
     )
     add(
-        f"- Mean raw section-pack minus mean compiled slice: `{verdict['compiled_vs_raw_pack_abs_gap']:.1f}` tokens"
+        f"- Mean raw section-pack minus mean compiled product slice: `{verdict['compiled_vs_raw_pack_abs_gap']:.1f}` tokens"
     )
+    add("")
+    add("## Why This Product Exists, Now Measured")
+    add("")
+    add("- Raw FPF as a monolith is too large to feed directly.")
+    add("- Even after reducing raw FPF to only the exact cited sections relevant to one decision, the prompt is still about `139k` tokens on average.")
+    add("- The compiled product collapses that same decision surface to about `481` tokens on average.")
+    add("- So the product is not merely a convenience layer. It is a context-fit layer and a cost-control layer.")
     add("")
     add("## Live Results")
     add("")
@@ -908,6 +908,12 @@ def build_markdown(report: dict[str, Any]) -> str:
                 f"{summary['mean_latency_s']:.2f}s |"
             )
         add("")
+        add("### Read Of These Live Results")
+        add("")
+        add("- Compiled product wins hard on prompt size and speed.")
+        add("- Raw exact-section prompting preserves more of raw FPF's stricter ontology, but it also stops agreeing with this product on several shipped cases.")
+        add("- That disagreement is useful. It tells us where the product is operationalizing raw FPF rather than reproducing it literally.")
+        add("")
         add("### 3-Pass Claim Test")
         add("")
         add("- Self-reported pass counts are unstable, mostly `null`.")
@@ -933,6 +939,11 @@ def build_markdown(report: dict[str, Any]) -> str:
     if monolith.get("error"):
         add(f"- Live error: `{monolith['error']}`")
     add("")
+    add("Interpretation:")
+    add("")
+    add("- This is the cleanest proof in the file that raw FPF is not directly usable as a one-shot prompt source for current LLM practice.")
+    add("- The product exists partly because the framework does not fit.")
+    add("")
     add("## MCP / Harness Checks")
     add("")
     add(
@@ -948,6 +959,10 @@ def build_markdown(report: dict[str, Any]) -> str:
         add(f"- `dev_mcp.run_scenario` probe: `{probe['result']}`")
     elif "error" in probe:
         add(f"- `dev_mcp.run_scenario` probe error: `{probe['error']}`")
+    add("")
+    add("Interpretation:")
+    add("")
+    add("- The compiled product is not just a markdown claim. It is executable, testable, and inspectable through its own verify harness and MCP test surface.")
     add("")
     add("## Compounding")
     add("")
@@ -981,79 +996,52 @@ def build_markdown(report: dict[str, Any]) -> str:
             else ""
         )
     )
-    add(
-        "- Growth shape on the shipped traversal: `linear`. Each extra decision step resends another prompt; no superlinear explosion showed up in this repo's own traversal."
-    )
-    add(
-        "- `WHY_THIS_EXISTS.md`'s `36 passes where 6 would suffice` line is not directly testable from the shipped example because the shipped example is 3 steps, not 6."
-    )
+    add("- Growth shape on the shipped traversal: `linear`.")
+    add("- The line in `WHY_THIS_EXISTS.md` about `36 passes where 6 would suffice` is not directly testable from the shipped example because the shipped example here is 3 steps, not 6.")
     add("")
-    add("## Results, Plainly")
+    add("## What The Test Says")
     add("")
-    add("### Good")
+    add("### For Your Product")
     add("")
     add(
-        f"- The token-tax claim is real: compiled `state.slice()` is `{verdict['compiled_vs_full_raw_ratio']:.1f}x` smaller than the full raw spec and `{verdict['compiled_vs_raw_pack_ratio']:.1f}x` smaller than the exact raw section-pack."
+        f"- The core existence claim is confirmed: the compiled product is `{verdict['compiled_vs_full_raw_ratio']:.1f}x` smaller than the full raw spec and `{verdict['compiled_vs_raw_pack_ratio']:.1f}x` smaller than the feasible raw exact-section alternative."
     )
     if live:
         add(
             f"- On live runs, compiled input cost averaged `{verdict['compiled_live_mean_input_tokens']:.1f}` billed tokens per decision; raw section-pack averaged `{verdict['raw_live_mean_input_tokens']:.1f}`."
         )
         add(
-            f"- Compiled matched the package's own engine on `{format_percent(verdict['compiled_live_accuracy'])}` of shipped cases."
+            f"- The compiled product matched its own shipped expected outcomes on `{format_percent(verdict['compiled_live_accuracy'])}` of cases."
         )
-    add(
-        "- The local package checks are green: `verify` passed and the package-local `dev_mcp` test surface passed."
-    )
+    add("- The product is executable and measurable: `verify` passed and the package-local `dev_mcp` test surface passed.")
     add("")
-    add("### Bad")
+    add("### For Raw FPF")
     add("")
-    add("- The full raw spec still does not fit: the live monolith attempt hard-failed on context length.")
-    add(
-        "- The compiled slice missed the `role_conflict` case in live evaluation: the slice does not carry the role-incompatibility relation explicitly enough for the model to recover the package's `denied` outcome."
-    )
-    add(
-        "- The raw section-pack was stricter than the package on several cases and only matched 2/5 shipped outcomes. It kept asking for explicit gate/authority structure where the compiled package is willing to continue."
-    )
+    add("- Raw FPF monolith still does not fit: the live monolith attempt hard-failed on context length.")
+    add("- Even when reduced to exact cited sections instead of the full monolith, raw FPF remains very expensive.")
+    add("- Raw FPF section-pack prompting was stricter than this product on several cases and only matched `2/5` shipped outcomes. It kept demanding explicit gate / authority structure where the compiled product is willing to continue.")
     add("")
-    add("### Plus / Minus")
+    add("### Product Tradeoff")
     add("")
-    add(
-        "- Plus for compiled: very cheap, usually enough, clearly operational."
-    )
-    add(
-        "- Minus for compiled: some semantics are flattened away; `role_conflict` is the concrete miss in this measurement."
-    )
-    add(
-        "- Plus for raw sections: preserves more of FPF's stricter gate / authority story."
-    )
-    add(
-        "- Minus for raw sections: still expensive, slower, and often does not reproduce the package's chosen operational simplification."
-    )
+    add("- Plus: the product makes raw FPF usable inside real context budgets.")
+    add("- Minus: some raw FPF strictness is flattened away. `role_conflict` is the concrete miss measured here.")
     add("")
-    add("### Conclusions")
+    add("### Practical Read")
     add("")
-    add(
-        f"- If the comparison target is the full raw FPF document, the compiled slice is cheaper by **{verdict['compiled_vs_full_raw_abs_gap']:.1f} tokens per decision on average**."
-    )
+    add("- If a user asks why this product exists instead of just feeding raw FPF to an LLM, the answer is now measurable: raw FPF does not fit monolithically, and its reduced exact-section form is still around `139k` tokens per decision.")
     if live:
         add(
-            f"- If the comparison target is the feasible raw exact-section prompt a model can actually ingest, the compiled slice is cheaper by **{verdict['raw_live_mean_input_tokens'] - verdict['compiled_live_mean_input_tokens']:.1f} billed input tokens per decision on average**."
+            f"- In live billed input terms, this product saves about **{verdict['raw_live_mean_input_tokens'] - verdict['compiled_live_mean_input_tokens']:.1f} input tokens per decision** versus the feasible raw exact-section prompt."
         )
-    add(
-        "- The exact `3 passes` claim is not supported by measurement here. The live model did not stably self-report `Parse`, `Aggregate`, `Generate`."
-    )
-    add(
-        "- The compounding claim is directionally true in the simple sense that raw prompts stay expensive every step, but the shipped traversal shows linear accumulation, not a measured superlinear curve."
-    )
+    add("- The test supports the claim that compilation buys context fit, cost reduction, and speed.")
+    add("- The test does not support a clean literal `3 passes` decomposition.")
+    add("- The test supports linear accumulation of raw cost over steps, but this repo's shipped traversal does not justify a stronger superlinear claim.")
     add("")
     add("## Reproduction")
     add("")
     add("```bash")
     add("pip install -r scripts/requirements-triple-tax.txt")
     add("OPENAI_API_KEY=... python scripts/triple_tax_calculus.py \\")
-    add("  --live-model gpt-5.4 \\")
-    add("  --live-effort low \\")
     add("  --write-md TRIPLE_TAX_CALCULUS.md \\")
     add("  --json-out triple_tax_calculus.json")
     add("```")

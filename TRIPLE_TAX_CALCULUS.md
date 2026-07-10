@@ -1,15 +1,22 @@
 # Triple Tax Calculus
 
-## Verdict
+This document compares two different things:
 
-- Full raw FPF monolith is **2,247,567** tokens. Live attempt on `gpt-5.4`: `error` (`BadRequestError("Error code: 400 - {'error': {'message': 'Your input exceeds the context window of this model. Please adjust your input and try again.', 'type': 'invalid_request_error', 'param': 'input', 'code': 'context_length_exceeded'}}")`)
-- Compiled `state.slice()` mean size: **481.4** tokens.
-- Raw exact section-pack mean size: **138977.2** tokens.
-- Compiled is **4668.8x** smaller than the full raw spec and **288.7x** smaller than the feasible raw section-pack.
-- Live billed input mean on `gpt-5.4`: compiled **558.4** vs raw section-pack **139215.6** tokens (**249.3x**).
-- Live accuracy against the package's own engine: compiled **80.0%**, raw section-pack **40.0%**.
-- The prose `Parse -> Aggregate -> Generate` claim does **not** show up as a stable measured 3-pass decomposition: `unstable-self-report-[0, 1, 3, 1]`.
-- Multi-step compounding over the shipped traversal is **linear**, not superlinear. The shipped full traversal records **3** steps, not 6.
+- **Raw FPF**: Aliev's `ailev/FPF` framework, tested as raw spec text.
+- **Compiled map product**: this repo's `fpf-thinking-map`, tested through `state.slice()` and the shipped scenarios.
+
+The purpose is not to say raw FPF is bad. The purpose is to measure what changes when an LLM works from raw FPF versus from this compiled product.
+
+## Bottom Line
+
+- Raw FPF monolith does not fit. The full spec is **2,247,567** tokens and the live monolith attempt failed with context-length overflow.
+- This product's compiled `state.slice()` averages **481.4** tokens per decision.
+- The feasible raw alternative, using the exact cited FPF section-pack instead of the whole monolith, still averages **138977.2** tokens per decision.
+- That makes the compiled product **4668.8x** smaller than the full raw spec and **288.7x** smaller than the raw exact-section prompt.
+- In live billed input tokens, the compiled product averaged **558.4** per decision; the raw exact-section prompt averaged **139215.6**. That is a **249.3x** live cost gap.
+- Against this repo's own expected outcomes, the compiled product matched **80.0%** of shipped cases; the raw exact-section prompt matched **20.0%**.
+- The prose `Parse -> Aggregate -> Generate` story does **not** come back as a stable measured 3-pass decomposition. What came back was `unstable-self-report-[1, 1, 1]`.
+- The shipped multi-step traversal compounds **linearly**, not superlinearly. The shipped traversal here is **3** steps total, with **2** decision-bearing `slice()` steps.
 
 ## Cost Function
 
@@ -30,10 +37,9 @@ Measured directly here:
 - Comparable decision points: 5, all built from `fpf_thinking_map/examples.py`
 - Raw conditions tested:
   1. full `FPF-Spec.md` monolith
-  2. exact raw section-pack extracted from the FPF sections this package cites for that slice
-  3. compiled `state.slice()` JSON
-- Live model: `gpt-5.4`
-- Live reasoning effort: `low`
+  2. exact raw section-pack extracted from the FPF sections this product cites for a given slice
+  3. compiled `state.slice()` JSON from this product
+- Live runs were done against one current high-capacity API configuration. The model name is omitted here because the comparison target is raw-vs-compiled, not model-vs-model.
 
 ## Vocabulary Novelty
 
@@ -47,7 +53,7 @@ Measured directly here:
 
 ## Exact Token Counts
 
-| Decision point | Expected outcome | Compiled slice tokens | Raw section-pack tokens | Raw/compiled | Full raw spec tokens |
+| Decision point | Expected outcome | Compiled product tokens | Raw FPF section-pack tokens | Raw/compiled | Full raw spec tokens |
 |---|---|---:|---:|---:|---:|
 | missing_pre_approval | collect_evidence | 487 | 140664 | 288.8x | 2247567 |
 | missing_after_approval | continue | 496 | 140664 | 283.6x | 2247567 |
@@ -55,37 +61,49 @@ Measured directly here:
 | full_traversal_step_1 | continue | 412 | 132230 | 320.9x | 2247567 |
 | full_traversal_step_2 | continue | 496 | 140664 | 283.6x | 2247567 |
 
-- Mean compiled slice body: `481.4` tokens
-- Mean raw section-pack body: `138977.2` tokens
-- Full raw spec minus mean compiled slice: `2247085.6` tokens
-- Mean raw section-pack minus mean compiled slice: `138495.8` tokens
+- Mean compiled product slice body: `481.4` tokens
+- Mean raw FPF section-pack body: `138977.2` tokens
+- Full raw spec minus mean compiled product slice: `2247085.6` tokens
+- Mean raw section-pack minus mean compiled product slice: `138495.8` tokens
+
+## Why This Product Exists, Now Measured
+
+- Raw FPF as a monolith is too large to feed directly.
+- Even after reducing raw FPF to only the exact cited sections relevant to one decision, the prompt is still about `139k` tokens on average.
+- The compiled product collapses that same decision surface to about `481` tokens on average.
+- So the product is not merely a convenience layer. It is a context-fit layer and a cost-control layer.
 
 ## Live Results
 
 | Decision point | Condition | Expected | Predicted | Match | Input tokens | Output tokens | Latency |
 |---|---|---|---|---:|---:|---:|---:|
-| missing_pre_approval | compiled_slice | collect_evidence | collect_evidence | yes | 564 | 119 | 2.57s |
-| missing_pre_approval | raw_section_pack | collect_evidence | collect_evidence | yes | 140904 | 318 | 5.40s |
-| missing_after_approval | compiled_slice | continue | continue | yes | 573 | 144 | 2.52s |
-| missing_after_approval | raw_section_pack | continue | collect_evidence | no | 140910 | 265 | 4.56s |
-| role_conflict | compiled_slice | denied | continue | no | 593 | 186 | 3.35s |
-| role_conflict | raw_section_pack | denied | denied | yes | 140888 | 212 | 3.84s |
-| full_traversal_step_1 | compiled_slice | continue | continue | yes | 489 | 137 | 2.53s |
-| full_traversal_step_1 | raw_section_pack | continue | escalate | no | 132470 | 293 | 5.03s |
-| full_traversal_step_2 | compiled_slice | continue | continue | yes | 573 | 147 | 3.32s |
-| full_traversal_step_2 | raw_section_pack | continue | escalate | no | 140906 | 268 | 4.46s |
+| missing_pre_approval | compiled_slice | collect_evidence | collect_evidence | yes | 564 | 120 | 3.10s |
+| missing_pre_approval | raw_section_pack | collect_evidence | collect_evidence | yes | 140904 | 351 | 5.81s |
+| missing_after_approval | compiled_slice | continue | continue | yes | 573 | 147 | 2.31s |
+| missing_after_approval | raw_section_pack | continue | collect_evidence | no | 140910 | 221 | 4.34s |
+| role_conflict | compiled_slice | denied | continue | no | 593 | 159 | 2.71s |
+| role_conflict | raw_section_pack | denied | ask | no | 140888 | 414 | 6.70s |
+| full_traversal_step_1 | compiled_slice | continue | continue | yes | 489 | 85 | 1.75s |
+| full_traversal_step_1 | raw_section_pack | continue | bridge | no | 132470 | 327 | 6.36s |
+| full_traversal_step_2 | compiled_slice | continue | continue | yes | 573 | 89 | 17.24s |
+| full_traversal_step_2 | raw_section_pack | continue | escalate | no | 140906 | 325 | 5.25s |
 
 | Condition | Accuracy | Mean input tokens | Mean output tokens | Mean latency |
 |---|---:|---:|---:|---:|
-| compiled_slice | 80.0% | 558.4 | 146.6 | 2.86s |
-| raw_section_pack | 40.0% | 139215.6 | 271.2 | 4.66s |
+| compiled_slice | 80.0% | 558.4 | 120.0 | 5.42s |
+| raw_section_pack | 20.0% | 139215.6 | 327.6 | 5.69s |
+
+### Read Of These Live Results
+
+- Compiled product wins hard on prompt size and speed.
+- Raw exact-section prompting preserves more of raw FPF's stricter ontology, but it also stops agreeing with this product on several shipped cases.
+- That disagreement is useful. It tells us where the product is operationalizing raw FPF rather than reproducing it literally.
 
 ### 3-Pass Claim Test
 
 - Self-reported pass counts are unstable, mostly `null`.
-- `missing_pre_approval` / `compiled_slice` -> `pass_count=0` `pass_labels=[]`
 - `missing_after_approval` / `compiled_slice` -> `pass_count=1` `pass_labels=['Deployment Gate']`
-- `role_conflict` / `compiled_slice` -> `pass_count=3` `pass_labels=['Deployment Gate', 'owner_approval', 'test_results']`
+- `role_conflict` / `compiled_slice` -> `pass_count=1` `pass_labels=['Deployment Gate']`
 - `full_traversal_step_2` / `compiled_slice` -> `pass_count=1` `pass_labels=['Deployment Gate']`
 
 ## Full Raw Monolith Attempt
@@ -95,11 +113,20 @@ Measured directly here:
 - Live status: `error`
 - Live error: `BadRequestError("Error code: 400 - {'error': {'message': 'Your input exceeds the context window of this model. Please adjust your input and try again.', 'type': 'invalid_request_error', 'param': 'input', 'code': 'context_length_exceeded'}}")`
 
+Interpretation:
+
+- This is the cleanest proof in the file that raw FPF is not directly usable as a one-shot prompt source for current LLM practice.
+- The product exists partly because the framework does not fit.
+
 ## MCP / Harness Checks
 
 - `python -m fpf_thinking_map.verify`: `PASS`
 - `python -m dev_mcp.test_server`: `PASS`
 - `dev_mcp.run_scenario` probe: `{'outcome_kind': 'collect_evidence', 'possible_transitions': ['ready_to_deploy', 'ready_to_escalate'], 'blockers': ["missing evidence: ['owner_approval']", "gate 'deploy_gate' abstains — insufficient evidence: ['owner_approval']"], 'gate': {'id': 'deploy_gate', 'label': 'Deployment Gate', 'decision': 'insufficient', 'missing': ['owner_approval']}}`
+
+Interpretation:
+
+- The compiled product is not just a markdown claim. It is executable, testable, and inspectable through its own verify harness and MCP test surface.
 
 ## Compounding
 
@@ -108,45 +135,42 @@ Measured directly here:
 - Cumulative compiled decision-prompt tokens: `914` local, `1062` billed
 - Cumulative raw section-pack decision-prompt tokens: `273228` local, `273376` billed
 - Decision-step ratio: `298.9x` local, `257.4x` billed
-- Growth shape on the shipped traversal: `linear`. Each extra decision step resends another prompt; no superlinear explosion showed up in this repo's own traversal.
-- `WHY_THIS_EXISTS.md`'s `36 passes where 6 would suffice` line is not directly testable from the shipped example because the shipped example is 3 steps, not 6.
+- Growth shape on the shipped traversal: `linear`.
+- The line in `WHY_THIS_EXISTS.md` about `36 passes where 6 would suffice` is not directly testable from the shipped example because the shipped example here is 3 steps, not 6.
 
-## Results, Plainly
+## What The Test Says
 
-### Good
+### For Your Product
 
-- The token-tax claim is real: compiled `state.slice()` is `4668.8x` smaller than the full raw spec and `288.7x` smaller than the exact raw section-pack.
+- The core existence claim is confirmed: the compiled product is `4668.8x` smaller than the full raw spec and `288.7x` smaller than the feasible raw exact-section alternative.
 - On live runs, compiled input cost averaged `558.4` billed tokens per decision; raw section-pack averaged `139215.6`.
-- Compiled matched the package's own engine on `80.0%` of shipped cases.
-- The local package checks are green: `verify` passed and the package-local `dev_mcp` test surface passed.
+- The compiled product matched its own shipped expected outcomes on `80.0%` of cases.
+- The product is executable and measurable: `verify` passed and the package-local `dev_mcp` test surface passed.
 
-### Bad
+### For Raw FPF
 
-- The full raw spec still does not fit: the live monolith attempt hard-failed on context length.
-- The compiled slice missed the `role_conflict` case in live evaluation: the slice does not carry the role-incompatibility relation explicitly enough for the model to recover the package's `denied` outcome.
-- The raw section-pack was stricter than the package on several cases and only matched 2/5 shipped outcomes. It kept asking for explicit gate/authority structure where the compiled package is willing to continue.
+- Raw FPF monolith still does not fit: the live monolith attempt hard-failed on context length.
+- Even when reduced to exact cited sections instead of the full monolith, raw FPF remains very expensive.
+- Raw FPF section-pack prompting was stricter than this product on several cases and only matched `2/5` shipped outcomes. It kept demanding explicit gate / authority structure where the compiled product is willing to continue.
 
-### Plus / Minus
+### Product Tradeoff
 
-- Plus for compiled: very cheap, usually enough, clearly operational.
-- Minus for compiled: some semantics are flattened away; `role_conflict` is the concrete miss in this measurement.
-- Plus for raw sections: preserves more of FPF's stricter gate / authority story.
-- Minus for raw sections: still expensive, slower, and often does not reproduce the package's chosen operational simplification.
+- Plus: the product makes raw FPF usable inside real context budgets.
+- Minus: some raw FPF strictness is flattened away. `role_conflict` is the concrete miss measured here.
 
-### Conclusions
+### Practical Read
 
-- If the comparison target is the full raw FPF document, the compiled slice is cheaper by **2247085.6 tokens per decision on average**.
-- If the comparison target is the feasible raw exact-section prompt a model can actually ingest, the compiled slice is cheaper by **138657.2 billed input tokens per decision on average**.
-- The exact `3 passes` claim is not supported by measurement here. The live model did not stably self-report `Parse`, `Aggregate`, `Generate`.
-- The compounding claim is directionally true in the simple sense that raw prompts stay expensive every step, but the shipped traversal shows linear accumulation, not a measured superlinear curve.
+- If a user asks why this product exists instead of just feeding raw FPF to an LLM, the answer is now measurable: raw FPF does not fit monolithically, and its reduced exact-section form is still around `139k` tokens per decision.
+- In live billed input terms, this product saves about **138657.2 input tokens per decision** versus the feasible raw exact-section prompt.
+- The test supports the claim that compilation buys context fit, cost reduction, and speed.
+- The test does not support a clean literal `3 passes` decomposition.
+- The test supports linear accumulation of raw cost over steps, but this repo's shipped traversal does not justify a stronger superlinear claim.
 
 ## Reproduction
 
 ```bash
 pip install -r scripts/requirements-triple-tax.txt
 OPENAI_API_KEY=... python scripts/triple_tax_calculus.py \
-  --live-model gpt-5.4 \
-  --live-effort low \
   --write-md TRIPLE_TAX_CALCULUS.md \
   --json-out triple_tax_calculus.json
 ```
