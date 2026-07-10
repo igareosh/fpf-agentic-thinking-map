@@ -592,7 +592,7 @@ def measure_monolith_raw_attempt(
         model=model,
         prompt=prompt,
         instructions=(
-            "Return JSON only with keys outcome_kind, blockers, pass_count, pass_labels, notes."
+            "Return JSON only with keys outcome_kind, blockers, notes."
         ),
         effort=effort,
         max_output_tokens=max_output_tokens,
@@ -613,9 +613,8 @@ def measure_live_matrix(
         return None
 
     instructions = (
-        "Return JSON only with keys outcome_kind, blockers, pass_count, pass_labels, notes. "
+        "Return JSON only with keys outcome_kind, blockers, notes. "
         f"Allowed outcome_kind: {', '.join(ALLOWED_OUTCOMES)}. "
-        "If you cannot introspect passes, set pass_count null and pass_labels []. "
         "Keep blockers and notes short."
     )
     rows: list[dict[str, Any]] = []
@@ -645,8 +644,7 @@ def measure_live_matrix(
                     "input_tokens_api": live.get("input_tokens"),
                     "output_tokens_api": live.get("output_tokens"),
                     "latency_s": live.get("latency_s"),
-                    "pass_count": parsed.get("pass_count"),
-                    "pass_labels": parsed.get("pass_labels"),
+                    "llm_call_count": 1,
                     "parsed_complete": live.get("parsed_complete"),
                     "blockers": parsed.get("blockers"),
                     "error": live.get("error"),
@@ -671,7 +669,7 @@ def measure_live_matrix(
             "mean_latency_s": statistics.fmean(
                 row["latency_s"] for row in subset if row["latency_s"] is not None
             ),
-            "pass_counts": [row["pass_count"] for row in subset],
+            "llm_call_count_total": sum(row["llm_call_count"] for row in subset),
         }
     return {
         "model": model,
@@ -726,7 +724,10 @@ def summarize_verdict(report: dict[str, Any]) -> dict[str, Any]:
         "compiled_vs_raw_pack_ratio": point_summary["raw_section_pack_mean_tokens"] / point_summary["compiled_slice_mean_tokens"],
         "compiled_vs_raw_pack_abs_gap": point_summary["raw_section_pack_mean_tokens"] - point_summary["compiled_slice_mean_tokens"],
         "full_raw_live_status": monolith["status"],
-        "three_pass_structure": "not-measured",
+        # Fact, not inference: measure_live_json makes exactly one API call
+        # per (point, condition) row. There is no multi-pass instrumentation
+        # in this harness, so no claim about internal pass structure is made.
+        "llm_calls_per_row": 1,
     }
     if live and "compiled_slice" in live["summary"] and "raw_section_pack" in live["summary"]:
         verdict["compiled_live_accuracy"] = live["summary"]["compiled_slice"]["accuracy"]
@@ -739,19 +740,6 @@ def summarize_verdict(report: dict[str, Any]) -> dict[str, Any]:
             live["summary"]["raw_section_pack"]["mean_input_tokens_api"]
             / live["summary"]["compiled_slice"]["mean_input_tokens_api"]
         )
-        pass_counts = [
-            row["pass_count"]
-            for row in live["rows"]
-            if row["condition"] == "compiled_slice" and row["pass_count"] is not None
-        ] + [
-            row["pass_count"]
-            for row in live["rows"]
-            if row["condition"] == "raw_section_pack" and row["pass_count"] is not None
-        ]
-        if pass_counts:
-            verdict["three_pass_structure"] = f"unstable-self-report-{pass_counts}"
-        else:
-            verdict["three_pass_structure"] = "no-stable-3-pass-self-report"
     return verdict
 
 
@@ -791,15 +779,17 @@ def build_markdown(report: dict[str, Any]) -> str:
     add(
         f"- That makes the compiled product **{verdict['compiled_vs_full_raw_ratio']:.1f}x** smaller than the full raw spec and **{verdict['compiled_vs_raw_pack_ratio']:.1f}x** smaller than the raw exact-section prompt."
     )
-    if live:
+    if "compiled_live_mean_input_tokens" in verdict:
         add(
             f"- In live billed input tokens, the compiled product averaged **{verdict['compiled_live_mean_input_tokens']:.1f}** per decision; the raw exact-section prompt averaged **{verdict['raw_live_mean_input_tokens']:.1f}**. That is a **{verdict['compiled_live_vs_raw_live_ratio']:.1f}x** live cost gap."
         )
         add(
             f"- Against this repo's own expected outcomes, the compiled product matched **{format_percent(verdict['compiled_live_accuracy'])}** of shipped cases; the raw exact-section prompt matched **{format_percent(verdict['raw_live_accuracy'])}**."
         )
+    elif live:
+        add("- Live run attempted but every call errored (see per-condition `error` fields in `--json-out`); no live cost/accuracy numbers to report.")
     add(
-        f"- The prose `Parse -> Aggregate -> Generate` story does **not** come back as a stable measured 3-pass decomposition. What came back was `{verdict['three_pass_structure']}`."
+        f"- The prose `Parse -> Aggregate -> Generate` story is not measured by this harness: it makes exactly `{verdict['llm_calls_per_row']}` LLM call per row, by construction. No self-reported pass count is collected or trusted."
     )
     add(
         f"- The shipped multi-step traversal compounds **linearly**, not superlinearly. The shipped traversal here is **{compounding['actual_steps_recorded']}** steps total, with **{compounding['decision_steps_recorded']}** decision-bearing `slice()` steps."
@@ -900,7 +890,10 @@ def build_markdown(report: dict[str, Any]) -> str:
         add("| Condition | Accuracy | Mean input tokens | Mean output tokens | Mean latency |")
         add("|---|---:|---:|---:|---:|")
         for condition in ("compiled_slice", "raw_section_pack"):
-            summary = live["summary"][condition]
+            summary = live["summary"].get(condition)
+            if summary is None:
+                add(f"| {condition} | all calls errored | - | - | - |")
+                continue
             add(
                 f"| {condition} | {format_percent(summary['accuracy'])} | "
                 f"{summary['mean_input_tokens_api']:.1f} | "
@@ -914,20 +907,18 @@ def build_markdown(report: dict[str, Any]) -> str:
         add("- Raw exact-section prompting preserves more of raw FPF's stricter ontology, but it also stops agreeing with this product on several shipped cases.")
         add("- That disagreement is useful. It tells us where the product is operationalizing raw FPF rather than reproducing it literally.")
         add("")
-        add("### 3-Pass Claim Test")
+        add("### Pass Count")
         add("")
-        add("- Self-reported pass counts are unstable, mostly `null`.")
-        three_rows = [
-            row for row in live["rows"] if row["pass_count"] is not None or row["pass_labels"]
-        ]
-        if three_rows:
-            for row in three_rows:
-                add(
-                    f"- `{row['point']}` / `{row['condition']}` -> `pass_count={row['pass_count']}` "
-                    f"`pass_labels={row['pass_labels']}`"
-                )
-        else:
-            add("- No row produced a stable explicit 3-pass self-report.")
+        add(
+            "- Not measured by introspection. This harness makes exactly "
+            "`1` LLM call per (point, condition) row, by construction "
+            "(see `measure_live_json` — one `client.responses.create` per row)."
+        )
+        add(
+            "- No claim is made about how many reasoning passes happen "
+            "inside that one call. Any \"N-pass\" claim requires N separate, "
+            "counted calls with distinct prompts — not a self-reported field."
+        )
     else:
         add("- Live runs skipped: `OPENAI_API_KEY` not set or `--no-live` used.")
     add("")

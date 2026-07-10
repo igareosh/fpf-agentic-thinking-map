@@ -13,9 +13,9 @@ The purpose is not to say raw FPF is bad. The purpose is to measure what changes
 - This product's compiled `state.slice()` averages **481.4** tokens per decision.
 - The feasible raw alternative, using the exact cited FPF section-pack instead of the whole monolith, still averages **138977.2** tokens per decision.
 - That makes the compiled product **4668.8x** smaller than the full raw spec and **288.7x** smaller than the raw exact-section prompt.
-- In live billed input tokens, the compiled product averaged **558.4** per decision; the raw exact-section prompt averaged **139215.6**. That is a **249.3x** live cost gap.
-- Against this repo's own expected outcomes, the compiled product matched **80.0%** of shipped cases; the raw exact-section prompt matched **20.0%**.
-- The prose `Parse -> Aggregate -> Generate` story does **not** come back as a stable measured 3-pass decomposition. What came back was `unstable-self-report-[1, 1, 1]`.
+- In live billed input tokens, the compiled product averaged **537.4** per decision; the raw exact-section prompt averaged **139194.6**. That is a **259.0x** live cost gap.
+- Against this repo's own expected outcomes, the compiled product matched **80.0%** of shipped cases; the raw exact-section prompt matched **40.0%**.
+- The prose `Parse -> Aggregate -> Generate` story is not measured by this harness: it makes exactly `1` LLM call per row, by construction. No self-reported pass count is collected or trusted.
 - The shipped multi-step traversal compounds **linearly**, not superlinearly. The shipped traversal here is **3** steps total, with **2** decision-bearing `slice()` steps.
 
 ## Cost Function
@@ -77,21 +77,21 @@ Measured directly here:
 
 | Decision point | Condition | Expected | Predicted | Match | Input tokens | Output tokens | Latency |
 |---|---|---|---|---:|---:|---:|---:|
-| missing_pre_approval | compiled_slice | collect_evidence | collect_evidence | yes | 564 | 120 | 3.10s |
-| missing_pre_approval | raw_section_pack | collect_evidence | collect_evidence | yes | 140904 | 351 | 5.81s |
-| missing_after_approval | compiled_slice | continue | continue | yes | 573 | 147 | 2.31s |
-| missing_after_approval | raw_section_pack | continue | collect_evidence | no | 140910 | 221 | 4.34s |
-| role_conflict | compiled_slice | denied | continue | no | 593 | 159 | 2.71s |
-| role_conflict | raw_section_pack | denied | ask | no | 140888 | 414 | 6.70s |
-| full_traversal_step_1 | compiled_slice | continue | continue | yes | 489 | 85 | 1.75s |
-| full_traversal_step_1 | raw_section_pack | continue | bridge | no | 132470 | 327 | 6.36s |
-| full_traversal_step_2 | compiled_slice | continue | continue | yes | 573 | 89 | 17.24s |
-| full_traversal_step_2 | raw_section_pack | continue | escalate | no | 140906 | 325 | 5.25s |
+| missing_pre_approval | compiled_slice | collect_evidence | collect_evidence | yes | 543 | 84 | 2.51s |
+| missing_pre_approval | raw_section_pack | collect_evidence | collect_evidence | yes | 140883 | 170 | 4.12s |
+| missing_after_approval | compiled_slice | continue | continue | yes | 552 | 113 | 2.78s |
+| missing_after_approval | raw_section_pack | continue | collect_evidence | no | 140889 | 226 | 3.90s |
+| role_conflict | compiled_slice | denied | continue | no | 572 | 98 | 2.26s |
+| role_conflict | raw_section_pack | denied | escalate | no | 140867 | 224 | 4.51s |
+| full_traversal_step_1 | compiled_slice | continue | continue | yes | 468 | 79 | 1.54s |
+| full_traversal_step_1 | raw_section_pack | continue | continue | yes | 132449 | 233 | 6.93s |
+| full_traversal_step_2 | compiled_slice | continue | continue | yes | 552 | 134 | 3.97s |
+| full_traversal_step_2 | raw_section_pack | continue | escalate | no | 140885 | 230 | 7.36s |
 
 | Condition | Accuracy | Mean input tokens | Mean output tokens | Mean latency |
 |---|---:|---:|---:|---:|
-| compiled_slice | 80.0% | 558.4 | 120.0 | 5.42s |
-| raw_section_pack | 20.0% | 139215.6 | 327.6 | 5.69s |
+| compiled_slice | 80.0% | 537.4 | 101.6 | 2.61s |
+| raw_section_pack | 40.0% | 139194.6 | 216.6 | 5.36s |
 
 ### Read Of These Live Results
 
@@ -99,12 +99,10 @@ Measured directly here:
 - Raw exact-section prompting preserves more of raw FPF's stricter ontology, but it also stops agreeing with this product on several shipped cases.
 - That disagreement is useful. It tells us where the product is operationalizing raw FPF rather than reproducing it literally.
 
-### 3-Pass Claim Test
+### Pass Count
 
-- Self-reported pass counts are unstable, mostly `null`.
-- `missing_after_approval` / `compiled_slice` -> `pass_count=1` `pass_labels=['Deployment Gate']`
-- `role_conflict` / `compiled_slice` -> `pass_count=1` `pass_labels=['Deployment Gate']`
-- `full_traversal_step_2` / `compiled_slice` -> `pass_count=1` `pass_labels=['Deployment Gate']`
+- Not measured by introspection. This harness makes exactly `1` LLM call per (point, condition) row, by construction (see `measure_live_json` — one `client.responses.create` per row).
+- No claim is made about how many reasoning passes happen inside that one call. Any "N-pass" claim requires N separate, counted calls with distinct prompts — not a self-reported field.
 
 ## Full Raw Monolith Attempt
 
@@ -132,9 +130,9 @@ Interpretation:
 
 - Shipped full traversal records `3` total steps.
 - Decision-bearing `slice()` steps inside that traversal: `2`.
-- Cumulative compiled decision-prompt tokens: `914` local, `1062` billed
-- Cumulative raw section-pack decision-prompt tokens: `273228` local, `273376` billed
-- Decision-step ratio: `298.9x` local, `257.4x` billed
+- Cumulative compiled decision-prompt tokens: `914` local, `1020` billed
+- Cumulative raw section-pack decision-prompt tokens: `273228` local, `273334` billed
+- Decision-step ratio: `298.9x` local, `268.0x` billed
 - Growth shape on the shipped traversal: `linear`.
 - The line in `WHY_THIS_EXISTS.md` about `36 passes where 6 would suffice` is not directly testable from the shipped example because the shipped example here is 3 steps, not 6.
 
@@ -143,7 +141,7 @@ Interpretation:
 ### For Your Product
 
 - The core existence claim is confirmed: the compiled product is `4668.8x` smaller than the full raw spec and `288.7x` smaller than the feasible raw exact-section alternative.
-- On live runs, compiled input cost averaged `558.4` billed tokens per decision; raw section-pack averaged `139215.6`.
+- On live runs, compiled input cost averaged `537.4` billed tokens per decision; raw section-pack averaged `139194.6`.
 - The compiled product matched its own shipped expected outcomes on `80.0%` of cases.
 - The product is executable and measurable: `verify` passed and the package-local `dev_mcp` test surface passed.
 
