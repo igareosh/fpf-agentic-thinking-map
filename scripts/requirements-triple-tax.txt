@@ -4,3 +4,4 @@
 tiktoken
 wordfreq
 openai
+mcp[cli]>=1.0,<3
