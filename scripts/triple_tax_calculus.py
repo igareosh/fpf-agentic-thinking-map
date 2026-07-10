@@ -761,9 +761,9 @@ def build_markdown(report: dict[str, Any]) -> str:
     add("This document compares two different things:")
     add("")
     add("- **Raw FPF**: Aliev's `ailev/FPF` framework, tested as raw spec text.")
-    add("- **Compiled map product**: this repo's `fpf-thinking-map`, tested through `state.slice()` and the shipped scenarios.")
+    add("- **fpf-thinking-map**: this repo's compiled map, tested through `state.slice()` and the shipped scenarios.")
     add("")
-    add("The purpose is not to say raw FPF is bad. The purpose is to measure what changes when an LLM works from raw FPF versus from this compiled product.")
+    add("The purpose is not to say raw FPF is bad. The purpose is to measure what changes when an LLM works from raw FPF versus from fpf-thinking-map.")
     add("")
     add("## Bottom Line")
     add("")
@@ -771,20 +771,20 @@ def build_markdown(report: dict[str, Any]) -> str:
         f"- Raw FPF monolith does not fit. The full spec is **{report['spec']['body_tokens']:,}** tokens and the live monolith attempt failed with context-length overflow."
     )
     add(
-        f"- This product's compiled `state.slice()` averages **{point_summary['compiled_slice_mean_tokens']:.1f}** tokens per decision."
+        f"- fpf-thinking-map's compiled `state.slice()` averages **{point_summary['compiled_slice_mean_tokens']:.1f}** tokens per decision."
     )
     add(
         f"- The feasible raw alternative, using the exact cited FPF section-pack instead of the whole monolith, still averages **{point_summary['raw_section_pack_mean_tokens']:.1f}** tokens per decision."
     )
     add(
-        f"- That makes the compiled product **{verdict['compiled_vs_full_raw_ratio']:.1f}x** smaller than the full raw spec and **{verdict['compiled_vs_raw_pack_ratio']:.1f}x** smaller than the raw exact-section prompt."
+        f"- That makes fpf-thinking-map **{verdict['compiled_vs_full_raw_ratio']:.1f}x** smaller than the full raw spec and **{verdict['compiled_vs_raw_pack_ratio']:.1f}x** smaller than the raw exact-section prompt."
     )
     if "compiled_live_mean_input_tokens" in verdict:
         add(
-            f"- In live billed input tokens, the compiled product averaged **{verdict['compiled_live_mean_input_tokens']:.1f}** per decision; the raw exact-section prompt averaged **{verdict['raw_live_mean_input_tokens']:.1f}**. That is a **{verdict['compiled_live_vs_raw_live_ratio']:.1f}x** live cost gap."
+            f"- In live billed input tokens, fpf-thinking-map averaged **{verdict['compiled_live_mean_input_tokens']:.1f}** per decision; the raw exact-section prompt averaged **{verdict['raw_live_mean_input_tokens']:.1f}**. That is a **{verdict['compiled_live_vs_raw_live_ratio']:.1f}x** live cost gap."
         )
         add(
-            f"- Against this repo's own expected outcomes, the compiled product matched **{format_percent(verdict['compiled_live_accuracy'])}** of shipped cases; the raw exact-section prompt matched **{format_percent(verdict['raw_live_accuracy'])}**."
+            f"- Against this repo's own expected outcomes, fpf-thinking-map matched **{format_percent(verdict['compiled_live_accuracy'])}** of shipped cases; the raw exact-section prompt matched **{format_percent(verdict['raw_live_accuracy'])}**."
         )
     elif live:
         add("- Live run attempted but every call errored (see per-condition `error` fields in `--json-out`); no live cost/accuracy numbers to report.")
@@ -814,8 +814,8 @@ def build_markdown(report: dict[str, Any]) -> str:
     add("- Comparable decision points: 5, all built from `fpf_thinking_map/examples.py`")
     add("- Raw conditions tested:")
     add("  1. full `FPF-Spec.md` monolith")
-    add("  2. exact raw section-pack extracted from the FPF sections this product cites for a given slice")
-    add("  3. compiled `state.slice()` JSON from this product")
+    add("  2. exact raw section-pack extracted from the FPF sections fpf-thinking-map cites for a given slice")
+    add("  3. compiled `state.slice()` JSON from fpf-thinking-map")
     add("- Live runs were done against one current high-capacity API configuration. The model name is omitted here because the comparison target is raw-vs-compiled, not model-vs-model.")
     add("")
     add("## Vocabulary Novelty")
@@ -842,7 +842,7 @@ def build_markdown(report: dict[str, Any]) -> str:
     add("")
     add("## Exact Token Counts")
     add("")
-    add("| Decision point | Expected outcome | Compiled product tokens | Raw FPF section-pack tokens | Raw/compiled | Full raw spec tokens |")
+    add("| Decision point | Expected outcome | fpf-thinking-map tokens | Raw FPF section-pack tokens | Raw/compiled | Full raw spec tokens |")
     add("|---|---|---:|---:|---:|---:|")
     for row in report["points"]:
         add(
@@ -853,24 +853,24 @@ def build_markdown(report: dict[str, Any]) -> str:
         )
     add("")
     add(
-        f"- Mean compiled product slice body: `{point_summary['compiled_slice_mean_tokens']:.1f}` tokens"
+        f"- Mean fpf-thinking-map slice body: `{point_summary['compiled_slice_mean_tokens']:.1f}` tokens"
     )
     add(
         f"- Mean raw FPF section-pack body: `{point_summary['raw_section_pack_mean_tokens']:.1f}` tokens"
     )
     add(
-        f"- Full raw spec minus mean compiled product slice: `{verdict['compiled_vs_full_raw_abs_gap']:.1f}` tokens"
+        f"- Full raw spec minus mean fpf-thinking-map slice: `{verdict['compiled_vs_full_raw_abs_gap']:.1f}` tokens"
     )
     add(
-        f"- Mean raw section-pack minus mean compiled product slice: `{verdict['compiled_vs_raw_pack_abs_gap']:.1f}` tokens"
+        f"- Mean raw section-pack minus mean fpf-thinking-map slice: `{verdict['compiled_vs_raw_pack_abs_gap']:.1f}` tokens"
     )
     add("")
-    add("## Why This Product Exists, Now Measured")
+    add("## Why fpf-thinking-map Exists, Now Measured")
     add("")
     add("- Raw FPF as a monolith is too large to feed directly.")
     add("- Even after reducing raw FPF to only the exact cited sections relevant to one decision, the prompt is still about `139k` tokens on average.")
-    add("- The compiled product collapses that same decision surface to about `481` tokens on average.")
-    add("- So the product is not merely a convenience layer. It is a context-fit layer and a cost-control layer.")
+    add("- fpf-thinking-map collapses that same decision surface to about `481` tokens on average.")
+    add("- So fpf-thinking-map is not merely a convenience layer. It is a context-fit layer and a cost-control layer.")
     add("")
     add("## Live Results")
     add("")
@@ -903,9 +903,9 @@ def build_markdown(report: dict[str, Any]) -> str:
         add("")
         add("### Read Of These Live Results")
         add("")
-        add("- Compiled product wins hard on prompt size and speed.")
-        add("- Raw exact-section prompting preserves more of raw FPF's stricter ontology, but it also stops agreeing with this product on several shipped cases.")
-        add("- That disagreement is useful. It tells us where the product is operationalizing raw FPF rather than reproducing it literally.")
+        add("- fpf-thinking-map wins hard on prompt size and speed.")
+        add("- Raw exact-section prompting preserves more of raw FPF's stricter ontology, but it also stops agreeing with fpf-thinking-map on several shipped cases.")
+        add("- That disagreement is useful. It tells us where fpf-thinking-map is operationalizing raw FPF rather than reproducing it literally.")
         add("")
         add("### Pass Count")
         add("")
@@ -933,7 +933,7 @@ def build_markdown(report: dict[str, Any]) -> str:
     add("Interpretation:")
     add("")
     add("- This is the cleanest proof in the file that raw FPF is not directly usable as a one-shot prompt source for current LLM practice.")
-    add("- The product exists partly because the framework does not fit.")
+    add("- fpf-thinking-map exists partly because the framework does not fit.")
     add("")
     add("## MCP / Harness Checks")
     add("")
@@ -953,7 +953,7 @@ def build_markdown(report: dict[str, Any]) -> str:
     add("")
     add("Interpretation:")
     add("")
-    add("- The compiled product is not just a markdown claim. It is executable, testable, and inspectable through its own verify harness and MCP test surface.")
+    add("- fpf-thinking-map is not just a markdown claim. It is executable, testable, and inspectable through its own verify harness and MCP test surface.")
     add("")
     add("## Compounding")
     add("")
@@ -988,41 +988,41 @@ def build_markdown(report: dict[str, Any]) -> str:
         )
     )
     add("- Growth shape on the shipped traversal: `linear`.")
-    add("- The line in `WHY_THIS_EXISTS.md` about `36 passes where 6 would suffice` is not directly testable from the shipped example because the shipped example here is 3 steps, not 6.")
+    add("- The line in `WHY_THIS_EXISTS.md` about `36 passes where 6 would suffice` is not directly testable from the shipped example because the shipped example here is 3 steps, not 6. See [Verification](fpf_thinking_map/WHY_THIS_EXISTS.md#verification) in that file for the full audit.")
     add("")
     add("## What The Test Says")
     add("")
-    add("### For Your Product")
+    add("### For fpf-thinking-map")
     add("")
     add(
-        f"- The core existence claim is confirmed: the compiled product is `{verdict['compiled_vs_full_raw_ratio']:.1f}x` smaller than the full raw spec and `{verdict['compiled_vs_raw_pack_ratio']:.1f}x` smaller than the feasible raw exact-section alternative."
+        f"- The core existence claim is confirmed: fpf-thinking-map is `{verdict['compiled_vs_full_raw_ratio']:.1f}x` smaller than the full raw spec and `{verdict['compiled_vs_raw_pack_ratio']:.1f}x` smaller than the feasible raw exact-section alternative."
     )
-    if live:
+    if "compiled_live_mean_input_tokens" in verdict:
         add(
             f"- On live runs, compiled input cost averaged `{verdict['compiled_live_mean_input_tokens']:.1f}` billed tokens per decision; raw section-pack averaged `{verdict['raw_live_mean_input_tokens']:.1f}`."
         )
         add(
-            f"- The compiled product matched its own shipped expected outcomes on `{format_percent(verdict['compiled_live_accuracy'])}` of cases."
+            f"- fpf-thinking-map matched its own shipped expected outcomes on `{format_percent(verdict['compiled_live_accuracy'])}` of cases."
         )
-    add("- The product is executable and measurable: `verify` passed and the package-local `dev_mcp` test surface passed.")
+    add("- fpf-thinking-map is executable and measurable: `verify` passed and the package-local `dev_mcp` test surface passed.")
     add("")
     add("### For Raw FPF")
     add("")
     add("- Raw FPF monolith still does not fit: the live monolith attempt hard-failed on context length.")
     add("- Even when reduced to exact cited sections instead of the full monolith, raw FPF remains very expensive.")
-    add("- Raw FPF section-pack prompting was stricter than this product on several cases and only matched `2/5` shipped outcomes. It kept demanding explicit gate / authority structure where the compiled product is willing to continue.")
+    add("- Raw FPF section-pack prompting was stricter than fpf-thinking-map on several cases and only matched `2/5` shipped outcomes. It kept demanding explicit gate / authority structure where fpf-thinking-map is willing to continue.")
     add("")
-    add("### Product Tradeoff")
+    add("### fpf-thinking-map Tradeoff")
     add("")
-    add("- Plus: the product makes raw FPF usable inside real context budgets.")
+    add("- Plus: fpf-thinking-map makes raw FPF usable inside real context budgets.")
     add("- Minus: some raw FPF strictness is flattened away. `role_conflict` is the concrete miss measured here.")
     add("")
     add("### Practical Read")
     add("")
-    add("- If a user asks why this product exists instead of just feeding raw FPF to an LLM, the answer is now measurable: raw FPF does not fit monolithically, and its reduced exact-section form is still around `139k` tokens per decision.")
-    if live:
+    add("- If a user asks why fpf-thinking-map exists instead of just feeding raw FPF to an LLM, the answer is now measurable: raw FPF does not fit monolithically, and its reduced exact-section form is still around `139k` tokens per decision.")
+    if "compiled_live_mean_input_tokens" in verdict:
         add(
-            f"- In live billed input terms, this product saves about **{verdict['raw_live_mean_input_tokens'] - verdict['compiled_live_mean_input_tokens']:.1f} input tokens per decision** versus the feasible raw exact-section prompt."
+            f"- In live billed input terms, fpf-thinking-map saves about **{verdict['raw_live_mean_input_tokens'] - verdict['compiled_live_mean_input_tokens']:.1f} input tokens per decision** versus the feasible raw exact-section prompt."
         )
     add("- The test supports the claim that compilation buys context fit, cost reduction, and speed.")
     add("- The test does not support a clean literal `3 passes` decomposition.")

@@ -3,18 +3,18 @@
 This document compares two different things:
 
 - **Raw FPF**: Aliev's `ailev/FPF` framework, tested as raw spec text.
-- **Compiled map product**: this repo's `fpf-thinking-map`, tested through `state.slice()` and the shipped scenarios.
+- **fpf-thinking-map**: this repo's compiled map, tested through `state.slice()` and the shipped scenarios.
 
-The purpose is not to say raw FPF is bad. The purpose is to measure what changes when an LLM works from raw FPF versus from this compiled product.
+The purpose is not to say raw FPF is bad. The purpose is to measure what changes when an LLM works from raw FPF versus from fpf-thinking-map.
 
 ## Bottom Line
 
 - Raw FPF monolith does not fit. The full spec is **2,247,567** tokens and the live monolith attempt failed with context-length overflow.
-- This product's compiled `state.slice()` averages **481.4** tokens per decision.
+- fpf-thinking-map's compiled `state.slice()` averages **481.4** tokens per decision.
 - The feasible raw alternative, using the exact cited FPF section-pack instead of the whole monolith, still averages **138977.2** tokens per decision.
-- That makes the compiled product **4668.8x** smaller than the full raw spec and **288.7x** smaller than the raw exact-section prompt.
-- In live billed input tokens, the compiled product averaged **537.4** per decision; the raw exact-section prompt averaged **139194.6**. That is a **259.0x** live cost gap.
-- Against this repo's own expected outcomes, the compiled product matched **80.0%** of shipped cases; the raw exact-section prompt matched **40.0%**.
+- That makes fpf-thinking-map **4668.8x** smaller than the full raw spec and **288.7x** smaller than the raw exact-section prompt.
+- In live billed input tokens, fpf-thinking-map averaged **537.4** per decision; the raw exact-section prompt averaged **139194.6**. That is a **259.0x** live cost gap.
+- Against this repo's own expected outcomes, fpf-thinking-map matched **80.0%** of shipped cases; the raw exact-section prompt matched **40.0%**.
 - The prose `Parse -> Aggregate -> Generate` story is not measured by this harness: it makes exactly `1` LLM call per row, by construction. No self-reported pass count is collected or trusted.
 - The shipped multi-step traversal compounds **linearly**, not superlinearly. The shipped traversal here is **3** steps total, with **2** decision-bearing `slice()` steps.
 
@@ -37,8 +37,8 @@ Measured directly here:
 - Comparable decision points: 5, all built from `fpf_thinking_map/examples.py`
 - Raw conditions tested:
   1. full `FPF-Spec.md` monolith
-  2. exact raw section-pack extracted from the FPF sections this product cites for a given slice
-  3. compiled `state.slice()` JSON from this product
+  2. exact raw section-pack extracted from the FPF sections fpf-thinking-map cites for a given slice
+  3. compiled `state.slice()` JSON from fpf-thinking-map
 - Live runs were done against one current high-capacity API configuration. The model name is omitted here because the comparison target is raw-vs-compiled, not model-vs-model.
 
 ## Vocabulary Novelty
@@ -53,7 +53,7 @@ Measured directly here:
 
 ## Exact Token Counts
 
-| Decision point | Expected outcome | Compiled product tokens | Raw FPF section-pack tokens | Raw/compiled | Full raw spec tokens |
+| Decision point | Expected outcome | fpf-thinking-map tokens | Raw FPF section-pack tokens | Raw/compiled | Full raw spec tokens |
 |---|---|---:|---:|---:|---:|
 | missing_pre_approval | collect_evidence | 487 | 140664 | 288.8x | 2247567 |
 | missing_after_approval | continue | 496 | 140664 | 283.6x | 2247567 |
@@ -61,17 +61,17 @@ Measured directly here:
 | full_traversal_step_1 | continue | 412 | 132230 | 320.9x | 2247567 |
 | full_traversal_step_2 | continue | 496 | 140664 | 283.6x | 2247567 |
 
-- Mean compiled product slice body: `481.4` tokens
+- Mean fpf-thinking-map slice body: `481.4` tokens
 - Mean raw FPF section-pack body: `138977.2` tokens
-- Full raw spec minus mean compiled product slice: `2247085.6` tokens
-- Mean raw section-pack minus mean compiled product slice: `138495.8` tokens
+- Full raw spec minus mean fpf-thinking-map slice: `2247085.6` tokens
+- Mean raw section-pack minus mean fpf-thinking-map slice: `138495.8` tokens
 
-## Why This Product Exists, Now Measured
+## Why fpf-thinking-map Exists, Now Measured
 
 - Raw FPF as a monolith is too large to feed directly.
 - Even after reducing raw FPF to only the exact cited sections relevant to one decision, the prompt is still about `139k` tokens on average.
-- The compiled product collapses that same decision surface to about `481` tokens on average.
-- So the product is not merely a convenience layer. It is a context-fit layer and a cost-control layer.
+- fpf-thinking-map collapses that same decision surface to about `481` tokens on average.
+- So fpf-thinking-map is not merely a convenience layer. It is a context-fit layer and a cost-control layer.
 
 ## Live Results
 
@@ -95,9 +95,9 @@ Measured directly here:
 
 ### Read Of These Live Results
 
-- Compiled product wins hard on prompt size and speed.
-- Raw exact-section prompting preserves more of raw FPF's stricter ontology, but it also stops agreeing with this product on several shipped cases.
-- That disagreement is useful. It tells us where the product is operationalizing raw FPF rather than reproducing it literally.
+- fpf-thinking-map wins hard on prompt size and speed.
+- Raw exact-section prompting preserves more of raw FPF's stricter ontology, but it also stops agreeing with fpf-thinking-map on several shipped cases.
+- That disagreement is useful. It tells us where fpf-thinking-map is operationalizing raw FPF rather than reproducing it literally.
 
 ### Pass Count
 
@@ -114,7 +114,7 @@ Measured directly here:
 Interpretation:
 
 - This is the cleanest proof in the file that raw FPF is not directly usable as a one-shot prompt source for current LLM practice.
-- The product exists partly because the framework does not fit.
+- fpf-thinking-map exists partly because the framework does not fit.
 
 ## MCP / Harness Checks
 
@@ -124,7 +124,7 @@ Interpretation:
 
 Interpretation:
 
-- The compiled product is not just a markdown claim. It is executable, testable, and inspectable through its own verify harness and MCP test surface.
+- fpf-thinking-map is not just a markdown claim. It is executable, testable, and inspectable through its own verify harness and MCP test surface.
 
 ## Compounding
 
@@ -134,32 +134,32 @@ Interpretation:
 - Cumulative raw section-pack decision-prompt tokens: `273228` local, `273334` billed
 - Decision-step ratio: `298.9x` local, `268.0x` billed
 - Growth shape on the shipped traversal: `linear`.
-- The line in `WHY_THIS_EXISTS.md` about `36 passes where 6 would suffice` is not directly testable from the shipped example because the shipped example here is 3 steps, not 6.
+- The line in `WHY_THIS_EXISTS.md` about `36 passes where 6 would suffice` is not directly testable from the shipped example because the shipped example here is 3 steps, not 6. See [Verification](fpf_thinking_map/WHY_THIS_EXISTS.md#verification) in that file for the full audit.
 
 ## What The Test Says
 
-### For Your Product
+### For fpf-thinking-map
 
-- The core existence claim is confirmed: the compiled product is `4668.8x` smaller than the full raw spec and `288.7x` smaller than the feasible raw exact-section alternative.
+- The core existence claim is confirmed: fpf-thinking-map is `4668.8x` smaller than the full raw spec and `288.7x` smaller than the feasible raw exact-section alternative.
 - On live runs, compiled input cost averaged `537.4` billed tokens per decision; raw section-pack averaged `139194.6`.
-- The compiled product matched its own shipped expected outcomes on `80.0%` of cases.
-- The product is executable and measurable: `verify` passed and the package-local `dev_mcp` test surface passed.
+- fpf-thinking-map matched its own shipped expected outcomes on `80.0%` of cases.
+- fpf-thinking-map is executable and measurable: `verify` passed and the package-local `dev_mcp` test surface passed.
 
 ### For Raw FPF
 
 - Raw FPF monolith still does not fit: the live monolith attempt hard-failed on context length.
 - Even when reduced to exact cited sections instead of the full monolith, raw FPF remains very expensive.
-- Raw FPF section-pack prompting was stricter than this product on several cases and only matched `2/5` shipped outcomes. It kept demanding explicit gate / authority structure where the compiled product is willing to continue.
+- Raw FPF section-pack prompting was stricter than fpf-thinking-map on several cases and only matched `2/5` shipped outcomes. It kept demanding explicit gate / authority structure where fpf-thinking-map is willing to continue.
 
-### Product Tradeoff
+### fpf-thinking-map Tradeoff
 
-- Plus: the product makes raw FPF usable inside real context budgets.
+- Plus: fpf-thinking-map makes raw FPF usable inside real context budgets.
 - Minus: some raw FPF strictness is flattened away. `role_conflict` is the concrete miss measured here.
 
 ### Practical Read
 
-- If a user asks why this product exists instead of just feeding raw FPF to an LLM, the answer is now measurable: raw FPF does not fit monolithically, and its reduced exact-section form is still around `139k` tokens per decision.
-- In live billed input terms, this product saves about **138657.2 input tokens per decision** versus the feasible raw exact-section prompt.
+- If a user asks why fpf-thinking-map exists instead of just feeding raw FPF to an LLM, the answer is now measurable: raw FPF does not fit monolithically, and its reduced exact-section form is still around `139k` tokens per decision.
+- In live billed input terms, fpf-thinking-map saves about **138657.2 input tokens per decision** versus the feasible raw exact-section prompt.
 - The test supports the claim that compilation buys context fit, cost reduction, and speed.
 - The test does not support a clean literal `3 passes` decomposition.
 - The test supports linear accumulation of raw cost over steps, but this repo's shipped traversal does not justify a stronger superlinear claim.

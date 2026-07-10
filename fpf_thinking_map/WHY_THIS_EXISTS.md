@@ -10,7 +10,7 @@ We are not trying to turn FPF into another giant AI stack. We took what was usef
 
 The original product intuition was that when you give a language model the raw FPF specification text and ask it to make a decision, it is forced through three kinds of work: parsing framework vocabulary, mapping framework vocabulary onto the task, and then answering through that lens.
 
-`TRIPLE_TAX_CALCULUS.md` confirmed the token/cost side of that diagnosis very strongly. It did **not** confirm a stable literal measured `3-pass` internal sequence. Read the sections below as product intuition about where the tax comes from, not as a measured introspection trace.
+[`TRIPLE_TAX_CALCULUS.md`](../TRIPLE_TAX_CALCULUS.md) confirmed the token/cost side of that diagnosis very strongly. It did **not** confirm a stable literal measured `3-pass` internal sequence. Read the sections below as product intuition about where the tax comes from, not as a measured introspection trace — see [Verification](#verification) below for what was and wasn't actually tested.
 
 ### Pass 1 — Parse
 
@@ -62,7 +62,7 @@ That smallness matters. It gives the model a simple operating surface for self-a
 
 ### 1. It makes the model re-reason N times
 
-Once per FPF concept layer (context → role → commitment → gate → evidence → transition). Each layer is a re-reasoning pass because the model has to carry forward all prior layers. On a 6-step traversal with 6 concept layers, the model performs 36 reasoning passes where 6 would suffice (one per step, each reading a pre-computed slice).
+Once per FPF concept layer (context → role → commitment → gate → evidence → transition). Each layer is a re-reasoning pass because the model has to carry forward all prior layers. Illustrative math, not a measured result: if a traversal had N steps and raw FPF were re-read per concept layer, that is N × 6 re-reads against the 1 pre-computed slice-read per step this package's compiled traversal actually needs. No traversal of that shape has been run or instrumented — see [Verification](#verification).
 
 ### 2. It feeds the model biased activations
 
@@ -94,6 +94,19 @@ FPF as raw input to a language model: triple tax.
 FPF compiled into a thinking map with precomputed state: what this package does.
 
 This is also why we release it publicly. The value is not private magic. The value is that other people building agents can stop overfeeding models with giant conceptual blobs and start giving them smaller, inspectable decision surfaces instead.
+
+## Verification
+
+The pass-count claims above were audited against this repo's own measurement harness (`scripts/triple_tax_calculus.py`), not taken on faith. Full numbers and method: [`TRIPLE_TAX_CALCULUS.md`](../TRIPLE_TAX_CALCULUS.md).
+
+**The "36 passes" claim has no code backing it.**
+
+- The shipped example is a 3-step traversal, not 6. `build_compounding_summary` — the only place in this repo that counts traversal steps against real, executed data — records `actual_steps_recorded: 3`, `decision_steps_recorded: 2` for the shipped `full_traversal_step_1`/`step_2` scenario in `fpf_thinking_map/examples.py`. There is no shipped 6-step traversal.
+- `grep -rn "concept layer" scripts/ fpf_thinking_map/*.py` finds no code that runs a 6-step traversal or counts per-layer passes. `36` is `6 × 6` done in prose, not a measured number — and per the harness's own design, exactly `1` API call is made per row regardless of how many concept layers a decision touches.
+- This is the same shape of problem as a self-reported `pass_count` field the harness used to collect and print uncritically (removed — see git history on `scripts/triple_tax_calculus.py`): a precise-sounding number with no call trace behind it. `SPEC_RUN_PROPOSALS_TRIPLE_TAX_LANGUAGE.md` in the repo root forbids presenting numbers like this as measured fact in future proposals.
+- See `TRIPLE_TAX_CALCULUS.md`'s [Compounding](../TRIPLE_TAX_CALCULUS.md#compounding) section for the exact measured figures this document should be read alongside.
+
+**A related harness bug was found and fixed while verifying this.** `build_markdown` in `scripts/triple_tax_calculus.py` assumed live API summary data always exists once any live run was attempted. When every live call errors (bad key, rate limit), that assumption caused a `KeyError`/`NameError` crash instead of an honest "all calls errored" report — silently blocking regeneration of this evidence rather than surfacing the failure. Fixed to degrade gracefully and report the failure explicitly.
 
 ---
 
