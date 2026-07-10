@@ -6,11 +6,11 @@ Visual scheme of the thinking map — how the pieces connect.
 
 ```mermaid
 graph LR
-    P[primitives.py<br/>10 objects + 5 floors]
+    P[primitives.py<br/>12 primitives + 5 floors]
     S[state.py<br/>binding + active state + slice]
     G[guards.py<br/>9 hard constraints]
     L[logic.py<br/>6 operators + rules]
-    T[traversal.py<br/>step engine + 10 outcomes]
+    T[traversal.py<br/>step engine + 10 declared outcomes]
     E[examples.py<br/>5 scenarios]
     V[verify.py<br/>22 checks]
 
@@ -42,32 +42,32 @@ graph LR
 
 ## How a step works
 
+`step()` is the focused, operational path — it can return 6 of the 10 declared outcomes. `ESCALATE` only comes from `attempt_bridge()` (below). `ASK`, `PUBLISH`, and `REVISE_PLAN` are declared in `OutcomeKind` and named in the module docstring, but no code path returns them yet — reserved, not implemented.
+
 ```mermaid
 flowchart TD
     START([step called]) --> INC[step_count++<br/>drives TTL decay]
     INC --> CTX{active<br/>context?}
     CTX -->|no| CF[CHANGE_FRAME]
-    CTX -->|yes| XCTX{cross-context<br/>transition?}
-    XCTX -->|yes| DENIED1[DENIED]
-    XCTX -->|no| LOGIC[evaluate logic rules]
+    CTX -->|yes| XCTX{focused mode:<br/>transition in<br/>active context?}
+    XCTX -->|no, mismatch| ABSTAIN[ABSTAIN]
+    XCTX -->|yes| LOGIC["evaluate logic rules<br/>(6-operator composition,<br/>see next section)"]
     LOGIC --> CONSIST{consistent?}
-    CONSIST -->|contradiction| DENIED2[DENIED]
+    CONSIST -->|contradiction| ABSTAIN
     CONSIST -->|ok| GUARDS[run 9 guards]
     GUARDS --> GPASS{all<br/>allow?}
     GPASS -->|deny + evidence path| CE1[COLLECT_EVIDENCE]
-    GPASS -->|deny + no path| DENIED3[DENIED]
+    GPASS -->|deny + no path| ABSTAIN
     GPASS -->|allow| EVCHECK{evidence<br/>gaps?}
     EVCHECK -->|gaps| CE2[COLLECT_EVIDENCE]
     EVCHECK -->|complete| TRANS{transitions<br/>available?}
     TRANS -->|yes| CONTINUE[CONTINUE<br/>+ slice + contract]
     TRANS -->|no + actions| CONTINUE2[CONTINUE]
-    TRANS -->|no + bridges| BRIDGE[BRIDGE<br/>+ target contexts]
+    TRANS -->|no + bridges| BRIDGE[BRIDGE<br/>+ target contexts, advisory only]
     TRANS -->|nothing| IDLE[IDLE<br/>at rest]
 
     style CF fill:#8b6914,color:#fff
-    style DENIED1 fill:#8b1a1a,color:#fff
-    style DENIED2 fill:#8b1a1a,color:#fff
-    style DENIED3 fill:#8b1a1a,color:#fff
+    style ABSTAIN fill:#8b1a1a,color:#fff
     style CE1 fill:#4a3728,color:#fff
     style CE2 fill:#4a3728,color:#fff
     style CONTINUE fill:#2d5016,color:#fff
@@ -75,6 +75,115 @@ flowchart TD
     style BRIDGE fill:#1a3a5c,color:#fff
     style IDLE fill:#3a3a3a,color:#fff
 ```
+
+`step()` only *advertises* a bridge as available (`BRIDGE`, advisory metadata). Enacting one is a separate call:
+
+```mermaid
+flowchart LR
+    BR([attempt_bridge<br/>called]) --> LIC{fidelity contract:<br/>substitution_license<br/>vs. risk_level}
+    LIC -->|unlicensed +<br/>high/critical risk| ESC[ESCALATE]
+    LIC -->|refused, other reason| AB2[ABSTAIN]
+    LIC -->|licensed| CROSS[cross_bridge<br/>state mutates]
+    CROSS --> CONT3[CONTINUE]
+
+    style ESC fill:#8b6914,color:#fff
+    style AB2 fill:#8b1a1a,color:#fff
+    style CONT3 fill:#2d5016,color:#fff
+```
+
+`attempt_transition()` (enacting an advertised move) is narrower still: `ABSTAIN` (not found, wrong context, wrong state, gate blocks, guards deny), `COLLECT_EVIDENCE` (missing evidence or gate abstains), or `CONTINUE` (transitioned).
+
+## Logic layer — how the 6 operators compose
+
+Not one atom per rule — every rule in the shipped example (`examples.build_deploy_rules()`) fans multiple atomic facts through one or more operators before it becomes a `DecisionRule`. This is the real ruleset, not an illustration:
+
+```mermaid
+graph TB
+    subgraph ATOMS["Atomic props — facts read off ActiveState"]
+        ETF["EvidenceFresh<br/>test_results"]
+        EAF["EvidenceFresh<br/>owner_approval"]
+        EA["EvidencePresent<br/>owner_approval"]
+        ET["EvidencePresent<br/>test_results"]
+        GD["GatePasses<br/>deploy_gate"]
+        GB["GateBlocked<br/>deploy_gate"]
+        HG["HasMissingEvidence"]
+        RA["RoleActive<br/>analyst"]
+        RP["RoleActive<br/>approver"]
+        ER["EvidencePresent<br/>rollback_plan"]
+        TD["TransitionAvailable<br/>ready_to_deploy"]
+        RDY["InState<br/>ready_for_decision"]
+        HR["RiskAbove<br/>high"]
+    end
+
+    ETF --> A1{AND}
+    EAF --> A1
+    A1 --> A2{AND}
+    GD --> A2
+    A2 --> R1["deploy_readiness — ROUTE<br/>proceed_to_deploy / not_ready<br/>excludes: block_transition"]
+
+    GB --> I1{IMPLIES}
+    HG --> I1
+    I1 --> R2["gate_blocked_implies_collect — HINT<br/>collect_evidence"]
+
+    EA --> N1{NOT}
+    N1 --> R3["evidence_gap_detected — WARN<br/>request_approval"]
+
+    ET --> A3{AND}
+    ETF --> N2{NOT}
+    N2 --> A3
+    A3 --> R4["evidence_decay_warning — WARN<br/>evidence_stale_refresh_needed"]
+
+    RA --> X1{XOR}
+    RP --> X1
+    X1 --> R5["role_separation — BLOCK<br/>valid_role_assignment / role_conflict"]
+
+    ER --> O1{OR}
+    TD --> N3{NOT}
+    N3 --> O1
+    O1 --> R6["recovery_path_exists — WARN<br/>safe_to_proceed / no_safety_net"]
+
+    RDY --> F1{IFF}
+    GD --> F1
+    F1 --> R7["readiness_equivalence — HINT<br/>state_gate_aligned / state_gate_mismatch"]
+
+    HR --> A4{AND}
+    HG --> A4
+    A4 --> I2{IMPLIES}
+    I2 --> R8["risk_escalation — ROUTE, risk-sensitive<br/>escalate_if_risky"]
+
+    R1 --> LAYER["LogicLayer.evaluate_for(tags)"]
+    R2 --> LAYER
+    R3 --> LAYER
+    R4 --> LAYER
+    R5 --> LAYER
+    R6 --> LAYER
+    R7 --> LAYER
+    R8 --> LAYER
+
+    LAYER --> FACTS["facts<br/>HINT + WARN rules"]
+    LAYER --> ACTIONS["actions<br/>ROUTE + BLOCK rules"]
+    ACTIONS --> CONS["consistency_check()<br/>exclusive_with contradictions"]
+
+    CONS -->|contradiction found| AB4["step(): ABSTAIN"]
+    CONS -->|consistent| PROCEED["step(): proceed to guards"]
+
+    style ATOMS fill:#0d1117,color:#fff
+    style R1 fill:#1a4a4a,color:#fff
+    style R2 fill:#4a3728,color:#fff
+    style R3 fill:#4a3728,color:#fff
+    style R4 fill:#4a3728,color:#fff
+    style R5 fill:#5c1a1a,color:#fff
+    style R6 fill:#4a3728,color:#fff
+    style R7 fill:#4a3728,color:#fff
+    style R8 fill:#1a4a4a,color:#fff
+    style LAYER fill:#1a3a5c,color:#fff
+    style AB4 fill:#8b1a1a,color:#fff
+    style PROCEED fill:#2d5016,color:#fff
+```
+
+All 6 operators appear in real, currently-shipped rules — not one demo per operator in isolation, but genuine multi-atom compositions: `deploy_readiness` alone chains two `AND`s across three atoms before it's a rule. `risk_escalation` nests `AND` inside `IMPLIES`. `HasMissingEvidence` (`HG`) and `GatePasses` (`GD`) each feed two different rules — the same atom is reused across compound expressions, not one-to-one.
+
+Two rule kinds don't reach `consistency_check()`: `HINT` and `WARN` rules land in `facts`, informational only. Only `ROUTE` and `BLOCK` rules land in `actions`, and only those are checked against each other's `exclusive_with` list. `deploy_readiness` (ROUTE) excludes `block_transition` — if some other active rule's action is literally the string `"block_transition"` while `deploy_readiness` is also satisfied, `consistency_check()` flags a contradiction and `step()` returns `ABSTAIN` before guards ever run.
 
 ## Semantic floors and TTL decay
 
@@ -159,6 +268,8 @@ graph TD
     style MODEL fill:#1a3a5c,color:#fff
 ```
 
+`gate.decision` is the enum's `.value` string, not its name — `GateDecision.ABSTAIN` serializes as `"insufficient"`, `GateDecision.DEGRADE` as `"partial"`. The model reads the JSON string, never the Python name.
+
 ## The triple tax — raw FPF vs compiled
 
 ```mermaid
@@ -218,6 +329,25 @@ sequenceDiagram
     end
 ```
 
+## What's declared vs. what's reachable
+
+The module docstring in `traversal.py` lists all 10 `OutcomeKind` values as if equally live. Checked against the actual code (via `run_scenario`/`run_verify`, not just reading), 7 are reachable and 3 are dead enum values with no producing code path:
+
+| Outcome | Reachable from | Status |
+|---|---|---|
+| `CONTINUE` | `step()`, `attempt_transition()`, `attempt_bridge()` | live |
+| `ABSTAIN` | `step()`, `attempt_transition()`, `attempt_bridge()` | live |
+| `COLLECT_EVIDENCE` | `step()`, `attempt_transition()` | live |
+| `CHANGE_FRAME` | `step()` | live |
+| `IDLE` | `step()` | live |
+| `BRIDGE` | `step()` | live (advisory only) |
+| `ESCALATE` | `attempt_bridge()` | live |
+| `ASK` | — | declared, unreachable |
+| `PUBLISH` | — | declared, unreachable |
+| `REVISE_PLAN` | — | declared, unreachable |
+
+Not a bug — `PublicationPrimitive`/`WorkPlanPrimitive` exist and are floor-tagged, so the primitives these outcomes would attach to are already modeled; the traversal-side wiring to actually emit `PUBLISH` on a publish move or `REVISE_PLAN` on a plan-revision move just isn't built yet. Recorded here instead of left implicit, same reason `SOURCES.md` now says what it invented instead of staying silent about it.
+
 ---
 
-**prichindel.com** — v1.4.4
+**prichindel.com** — v1.4.15
