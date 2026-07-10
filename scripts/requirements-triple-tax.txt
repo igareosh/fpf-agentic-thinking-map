@@ -1,0 +1,6 @@
+# Deps for scripts/triple_tax_calculus.py — not part of the package's own
+# requirements (fpf_thinking_map has none). tiktoken and wordfreq are
+# required; openai is only imported if OPENAI_API_KEY is set (live probe).
+tiktoken
+wordfreq
+openai
