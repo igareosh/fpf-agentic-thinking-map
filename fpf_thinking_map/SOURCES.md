@@ -77,7 +77,7 @@ We applied the same pattern:
 
 ## External references
 
-Short notes, not incorporated into the package — background reading around FPF and adjacent efforts. Full categorized log (awareness / inspected / rejected / concluded, one verdict per item) in `FPF_SCOPE_AUDIT_LOG.md`.
+Short notes, not incorporated into the package — background reading around FPF and adjacent efforts. Full categorized log (awareness / inspected / rejected / concluded, one verdict per item) in `FPF_SCOPE_AUDIT_LOG.md`. Empirical token-cost measurement (2026-07-10, dual-AI-executed — OpenAI Codex generated it, Claude Code independently reproduced the deterministic numbers, full disclosure of who did what in the doc's own Disclosure section) in `TRIPLE_TAX_CALCULUS.md` at the repo root.
 
 - [fpf.sh/generated/patterns/E.4.FPF](https://fpf.sh/generated/patterns/E.4.FPF) — normative pattern distinguishing the FPF framework edition from its carriers (publication formats, skill packs, MCP services).
 - [fpf.sh/work-packets](https://fpf.sh/work-packets) — FPF's own official method for agent use: bounded MCP retrieval of 3-8 pattern IDs per task, not compilation.
