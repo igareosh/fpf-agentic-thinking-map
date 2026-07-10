@@ -298,6 +298,8 @@ graph LR
     style OUT2 fill:#2d5016,color:#fff
 ```
 
+This diagram was a diagnosis, unmeasured, for over a year of this package's life. `TRIPLE_TAX_CALCULUS.md` measures it: real token counts on 5 shipped decision points put the compiled slice at a 4668.8x reduction against the raw spec's 2,247,567 tokens. Two parts of the diagram above did **not** survive measurement as drawn — reported here rather than quietly fixed, same reason `SOURCES.md` says what it invented instead of staying silent: the live pass-labeling probe self-reported 0 passes, not the 3 shown above, so the "3 passes" framing is unconfirmed as an actual model behavior rather than a plausible narrative; and cost growth across a multi-step traversal came back `mixed` (+20.5% then -28.4%), not the monotonic compounding `WHY_THIS_EXISTS.md` describes. The token-count advantage is real and large. The specific pass-by-pass mechanism is a hypothesis that hasn't been confirmed yet, not a settled fact.
+
 ## Deploy scenario — full flow
 
 ```mermaid
