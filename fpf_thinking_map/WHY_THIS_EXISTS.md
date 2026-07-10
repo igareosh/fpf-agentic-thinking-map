@@ -6,9 +6,11 @@ This is not a critique of FPF itself. As a human-readable transdisciplinary fram
 
 We are not trying to turn FPF into another giant AI stack. We took what was useful for bounded traversal, compiled it, and kept the result intentionally small. That is the product choice here: publish a practical instrument, not an empire.
 
-## The triple tax: what happens when a model reads raw FPF
+## The triple tax: the original product intuition
 
-When you give a language model the FPF specification text and ask it to make a decision, three things happen in sequence. Each one costs tokens, time, and accuracy.
+The original product intuition was that when you give a language model the raw FPF specification text and ask it to make a decision, it is forced through three kinds of work: parsing framework vocabulary, mapping framework vocabulary onto the task, and then answering through that lens.
+
+`TRIPLE_TAX_CALCULUS.md` confirmed the token/cost side of that diagnosis very strongly. It did **not** confirm a stable literal measured `3-pass` internal sequence. Read the sections below as product intuition about where the tax comes from, not as a measured introspection trace.
 
 ### Pass 1 — Parse
 
