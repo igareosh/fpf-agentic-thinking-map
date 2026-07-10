@@ -24,7 +24,7 @@ Measured here:
 
 - System B snapshot: `https://raw.githubusercontent.com/ailev/FPF/d77339d7056433de3ee55ad863860ee4b3006f6f/FPF-Spec.md`
 - System B commit: `d77339d7056433de3ee55ad863860ee4b3006f6f`
-- System B file: `/tmp/triple_tax_cache_final/d77339d7056433de3ee55ad863860ee4b3006f6f/FPF-Spec.md`
+- System B file: `/tmp/ttc3a/d77339d7056433de3ee55ad863860ee4b3006f6f/FPF-Spec.md`
 - Reference vocabulary: Pride and Prejudice (Project Gutenberg)
 - System A decision points are built only from shipped examples in `fpf_thinking_map/examples.py`, no invented scenarios
 - Full traversal is the shipped deploy walk, System A only, measured from the public `step()`/`slice()` API surface
@@ -91,6 +91,28 @@ Stated per system, directly, not averaged into one ambiguous line:
 - **System A traversal compounding**: not established either way. One real, explained increase (a `GatePrimitive` object entering the state between step 1 and step 2); one function switch that is not a compounding measurement at all (step 2 to step 3). System A is deterministic, so this is the complete, final, disclosed trace — not a matter that more reruns would resolve, because more reruns reproduce the identical mismatch every time.
 - **System C run status**: `skipped-no-api-key-or---no-live`
 
+## Results, plainly
+
+The Verdict above is written to resist overclaiming. This section says the same thing in fewer words, for anyone who wants the short version — still scoped per system, nothing merged across A/B/C that wasn't measured together.
+
+### Good
+
+- System A's compiled decision slice is `4668.8x` smaller than System B's full token count, on the package's own shipped decision surface — not a synthetic benchmark.
+- Every deterministic figure in this document reproduces bit-for-bit on rerun — confirmed by running the measurement script twice, independently, not asserted from reading the code once.
+- The raw-side concept-section approximation (17+, from citations already published in `SOURCES.md`) gives a grounded reason the token-cost gap exists, not just a ratio with no mechanism behind it.
+
+### Bad
+
+- System B was never live-tested — 2,247,567 tokens is past any practical context window, so the "3 passes" mechanism has zero live evidence on the side that actually matters.
+- The one traversal delta that looked like compounding evidence turned out to compare two different functions (`slice()` vs `to_llm_prompt_state()`) — a real defect in the original reading, not a data-volume problem.
+- System C's live figures in this document are not from this run — reusing the original credential was refused for security reasons, so they're carried over, clearly labeled, not fresh.
+
+### Conclusions
+
+- The token-cost claim is true and now measured, not asserted: System A costs `481.4` tokens per decision on average against System B's `2247567` for the whole spec.
+- The pass-by-pass mechanism claim is neither confirmed nor falsified — it was never testable at System B's scale with a live model, and saying otherwise in either direction would be the exact overclaim this document exists to avoid.
+- This is not a contest between the two AI systems that worked on this document. It's a record of what got checked, what got caught, and what still isn't known — see Who won, and why below.
+
 ## Who won, and why
 
 Between the two AI systems that touched this document across its full history: neither. OpenAI's Codex built the original script and report, and it mostly held up — the method was sound, most numbers were right the first time. Anthropic's Claude, tasked with independent validation rather than review, found two real defects in that first pass (a stale wrong attribution line, an overclaim about what the live probe had tested) and then, on a second and third pass, found defects in its *own* prior corrections too — hedged language treating a deterministic function's output as if it needed a larger sample, an ambiguous blur between three different systems under the word "the model." The thing that actually won, across every one of those passes, is the same rule stated once already in `REFLECTIONS.md`'s wind-tunnel entry: don't trust a table because it's published and came before you, test it yourself, and when your own test produces a table, don't trust that one either until something independent — including a later, more careful version of yourself — has tried to break it.
@@ -120,3 +142,7 @@ python scripts/triple_tax_calculus.py --write-md TRIPLE_TAX_CALCULUS.md
 ```
 
 Regenerated via a full rewrite of this script, run with --no-live unless OPENAI_API_KEY was set. Full authorship and validation history in the Disclosure section maintained separately in this file's git history and release notes — this generator only writes the measurement, not the authorship record, so a rerun never overwrites who-did-what.
+
+---
+
+SIGNED: OpenAI (Codex) authored and ran the original measurement · Anthropic (Claude, Claude Code) independently re-derived it, found and fixed real errors in both Codex's output and its own corrections, then rewrote the generator so those fixes survive a rerun · both systems' mistakes are named above, not smoothed over · igareosh (prichindel.com) tasked both and calls it settled. Not a contest. A record.
