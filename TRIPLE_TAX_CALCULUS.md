@@ -68,6 +68,39 @@ Approximation note:
 - Step 2 vs step 1: +84 tokens (+20.5%)
 - Step 3 vs step 2: -140 tokens (-28.4%)
 
+## The story behind the numbers — why 3 passes, why the increase
+
+Numbers without a mechanism are just numbers. This section is the mechanism, built only from data this repo already publishes — no new measurement, no new guesswork beyond what `SOURCES.md`'s own citation table already commits to on the record.
+
+### Why "3 passes" was ever the hypothesis
+
+`WHY_THIS_EXISTS.md` names Parse, Aggregate, Generate because that's the natural shape of what a model has to do with unfamiliar vocabulary: resolve what the words mean, map that meaning onto the actual question, then answer through whatever framing it just built. It's a reasonable three-beat story. It was never derived from a token count — nobody had one until this document.
+
+### Approximating the raw side from data we already have
+
+The raw spec was never live-tested — 2,247,567 tokens is past any context window worth paying for. But this package already publishes, in `SOURCES.md`, an exact citation for every primitive it compiled: which FPF spec section each one came from. That table is "roughly same logic" on the raw side and the compiled side — the same primitive, cited both places — so it can stand in for a rough proxy the live probe couldn't give us: how many *distinct* FPF spec sections does a raw read have to resolve just to answer one decision this package answers in one JSON read?
+
+Every `slice()` this package returns carries `move` (`TransitionPrimitive`), `evidence` (`EvidencePrimitive`), and `roles` (`RolePrimitive`) unconditionally, plus `gate` (`GatePrimitive`) whenever the transition has one bound — confirmed structurally on all 5 decision points via `run_scenario`, not assumed. Every guard in `guards.BUILTIN_GUARDS` runs on every step regardless of transition, per `guards.py`'s own architecture — so their citations are a fixed baseline, not conditional. Taking the union of `SOURCES.md`'s documented citations for the primitive families present plus the guards that always run:
+
+| Family | Sections cited in `SOURCES.md` |
+|---|---|
+| `TransitionPrimitive` (always) | A.3.3, B.4, A.2.5 |
+| `EvidencePrimitive` (always) | A.10, A.2.4, B.3, B.3.4 |
+| `RolePrimitive` (always) | A.2, A.2.1, A.2.7, A.13 |
+| `GatePrimitive` (when bound — 4 of 5 points) | A.21, A.19.UNM |
+| 6 of 9 guards (always evaluated, only 6 have a citation on record) | A.2.8, A.4, A.7, A.2.6 (net new beyond the above) |
+
+Union, for a decision point with a gate bound: **17 distinct FPF spec sections**, spanning 4 separate parts of a 51,000-line document (the role family, the evidence family, the gate family, and the cross-cutting invariants), just to answer one yes/no move this package answers in a single small JSON. That's a floor, not a ceiling — 3 of the 9 guards (`expired_assignment`, `speech_act_validity`, `context_invariants`) don't have a citation in `SOURCES.md` yet, so the real count is at least 17 and plausibly higher. Worth fixing separately; not done here so this section stays confined to numbers already on the record.
+
+Seventeen-plus distinct sections, spread across four regions of the spec, resolved into one answer, is a lot more textured than a clean 3-beat story. That's the honest reframe: "3 passes" was never wrong as an intuition — raw FPF really does force parse-then-map-then-generate — but a model doing that resolution across 17 scattered concepts has no obvious reason to organize the work into exactly 3 discrete, nameable phases, and the live probe's finding (0 self-reported passes on the compiled side, where there's nothing left to resolve) is consistent with passes being a narrative compression of real, elevated, but *continuous* cost — not a literal 3-step state machine a model would ever introspect and report back cleanly. That reconciles the "untested, not confirmed" verdict above with why the hypothesis still feels right: it's probably an undercount of the mechanism, not an overcount, and either way it was never something a live model was likely to narrate on request.
+
+### Why the traversal went up, then down
+
+The full-traversal table shows +20.5% from step 1 to step 2, then -28.4% from step 2 to step 3. Read as "cost first compounds, then somehow un-compounds," that's confusing. Read against the actual object at each step, it isn't a compounding signal at all — it's two different, boring, fully explained things:
+
+- **Step 1 → step 2 (+84 tokens): a real content increase.** Step 1's transition (`assess_to_ready`) has no gate bound — confirmed via `run_scenario`, `has_gate: False`. Step 2's transition (`ready_to_deploy`) does have a gate bound, and one more evidence item is available by then. The state genuinely carries more — a whole extra `GatePrimitive` object plus its evidence — so the slice is genuinely bigger. Not compounding reasoning cost; more bound state, more JSON.
+- **Step 2 → step 3 (-140 tokens): not a real decrease — a representation change.** The traversal table lists step 3 with no `transition_id` (`-`), because by step 3 there are no further transitions from the `deploying` state. When that happens, `measure_full_traversal()` calls `state.to_llm_prompt_state()` instead of `state.slice(transition_id)` — a different function returning a structurally different object (confirmed via source read: `to_llm_prompt_state()` carries `active_roles`, `evidence_status`, `stagnation`, `trace`, an empty `possible_transitions: []`; `slice()` carries `move`, `gate`, `response_contract`, none of which `to_llm_prompt_state()` has). Comparing their token counts is comparing two different shapes, not the same object shrinking. The -28.4% is a measurement artifact of switching representations at the terminal step, not evidence that per-step cost falls as a traversal proceeds. `Compounding: mixed` in the Verdict above is the right label for what was actually measured, but "mixed" undersells it — the correct statement is closer to "not measured cleanly enough to compound or not," since one of the two data points isn't a like-for-like comparison at all.
+
 ## Verdict
 
 - 3-pass structure: `self-reported-0-passes`
