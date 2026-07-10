@@ -75,6 +75,8 @@ Short notes, not incorporated into the package — background reading around FPF
 - [ailev.livejournal.com/1770224.html](https://ailev.livejournal.com/1770224.html) — FPF author's own writeup: FPF vs. classical upper ontologies, normative "what to think about" vs. descriptive "what exists."
 - [github.com/miltonian/principles](https://github.com/miltonian/principles) — unrelated independent first-principles agent framework; see `RELATED_WORK_MILTONIAN_PRINCIPLES.md`.
 - [community.openai.com — Principles Framework writeup](https://community.openai.com/t/principles-framework-generate-ai-agents-using-first-principles-reasoning/1045890) — author's own announcement of the above.
+- [fpf.sh/generated/patterns/F.17](https://fpf.sh/generated/patterns/F.17) — Unified Term Sheet; evaluated and rejected, see `REJECTED_F17_UNIFIED_TERM_SHEET.md`.
+- [fpf.sh/generated/patterns/I.2](https://fpf.sh/generated/patterns/I.2) — entry-point disambiguation annex; validates this package's design bet (compile the FPF-pattern-selection work once, by a human, instead of asking the model to disambiguate at runtime).
 
 ## Package authorship
 
