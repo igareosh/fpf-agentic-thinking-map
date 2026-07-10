@@ -11,6 +11,7 @@ A transdisciplinary specification for reasoning, assurance, and evolution — an
 - **Spec**: `FPF-Spec.md` (~51,000 lines) — not included in this repository; see the original repo
 - **Status**: Normative kernel, "eternal alpha" — used in working projects
 - **Prior Python model**: `py-fpf` in the original repo (basic graph model with CSV artifacts — not used directly, but informed the design)
+- **Carrier vs. framework**: [E.4.FPF — Form and Publication-or-Access Carrier Assembly](https://fpf.sh/generated/patterns/E.4.FPF) — the normative pattern distinguishing the FPF framework edition from its carriers (publication formats, skill packs, MCP services, retrieval routes). This package is a carrier under that definition, not an alternate edition of FPF.
 
 ### What we took from FPF and where it is in the spec
 
