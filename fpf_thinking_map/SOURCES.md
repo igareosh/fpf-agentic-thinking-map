@@ -86,6 +86,7 @@ Short notes, not incorporated into the package — background reading around FPF
 - [community.openai.com — Principles Framework writeup](https://community.openai.com/t/principles-framework-generate-ai-agents-using-first-principles-reasoning/1045890) — author's own announcement of the above.
 - [fpf.sh/generated/patterns/F.17](https://fpf.sh/generated/patterns/F.17) — Unified Term Sheet; evaluated and rejected, see `REJECTED_F17_UNIFIED_TERM_SHEET.md`.
 - [fpf.sh/generated/patterns/I.2](https://fpf.sh/generated/patterns/I.2) — entry-point disambiguation annex; validates this package's design bet (compile the FPF-pattern-selection work once, by a human, instead of asking the model to disambiguate at runtime).
+- [fpf.sh/generated/patterns/E.23](https://fpf.sh/generated/patterns/E.23) — Quality Improvement Loop Method: disciplines agentic retry loops (re-evaluation, cost/risk, stop conditions). Not needed here — `step()` runs once per call with zero LLM calls inside the package; there is no loop in the runtime path for E.23's discipline to attach to.
 
 ## Package authorship
 
