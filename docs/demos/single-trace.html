@@ -1,0 +1,802 @@
+<!--
+  step() engine — single continuous trace, generated for fpf-agentic-thinking-map.
+  Same three runs as three-runs.html (fail / loop / succeed), laid end to
+  end on one shared timeline with tinted run bands, instead of stacked
+  rows with prose. A denser, more purely visual read of the same engine
+  flow documented in ../../ARCHITECTURE.md.
+
+  Copyright (c) 2026 prichindel.com (igareosh), built with Claude Code
+  (Anthropic claude-sonnet-5). MIT License — see ../../LICENSE.
+-->
+<title>step() — Single Trace</title>
+<style>
+  :root{
+    color-scheme: dark;
+    --bg: #0a0d10;
+    --bg-panel: #10151a;
+    --bg-raised: #161c22;
+    --grid-line: #1f2830;
+    --grid-line-strong: #2a3540;
+    --ink: #e9e4d8;
+    --ink-dim: #7f8991;
+    --ink-faint: #4d565e;
+    --amber: #ffb454;
+    --rose: #ff6f82;
+    --bone: #f2ede0;
+    --rule: rgba(233,228,216,0.09);
+  }
+  :root[data-theme="light"]{
+    /* deliberate single-world instrument panel: stays dark regardless of OS/toggle */
+    color-scheme: dark;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: radial-gradient(120% 140% at 15% -10%, #121820 0%, var(--bg) 45%, #060809 100%);
+    color: var(--ink);
+    font-family: ui-sans-serif, "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: clamp(16px, 3vw, 40px);
+  }
+  .panel{
+    width: 100%;
+    max-width: 1260px;
+    background: linear-gradient(180deg, var(--bg-panel), #0d1116 90%);
+    border: 1px solid var(--grid-line-strong);
+    border-radius: 14px;
+    box-shadow: 0 40px 100px -40px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.03);
+    overflow: hidden;
+  }
+
+  /* ---------- header ---------- */
+  header{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 22px 26px 18px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .title-block .eyebrow{
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin: 0 0 6px;
+  }
+  h1{
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: clamp(20px, 2.4vw, 26px);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+    text-wrap: balance;
+    color: var(--bone);
+  }
+  .title-block p{
+    margin: 0;
+    font-size: 13px;
+    color: var(--ink-dim);
+    max-width: 58ch;
+  }
+
+  .readout{
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    text-align: right;
+    min-width: 260px;
+  }
+  .readout .clock{
+    font-size: 30px;
+    font-variant-numeric: tabular-nums;
+    color: var(--amber);
+    line-height: 1;
+    text-shadow: 0 0 18px rgba(255,180,84,0.35);
+  }
+  .readout .clock span{ font-size: 15px; color: var(--ink-faint); }
+  .readout .now{
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--ink-dim);
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    align-items: center;
+    min-height: 18px;
+  }
+  .now .dot{ width:7px; height:7px; border-radius:50%; background: var(--ink-faint); flex-shrink:0; transition: background 0.2s; }
+  .now.live .dot{ background: var(--cat-color, var(--amber)); box-shadow: 0 0 8px var(--cat-color, var(--amber)); }
+  .now.weighing .dot{ animation: think-pulse 0.6s ease-in-out infinite; background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+  @keyframes think-pulse{ 0%,100%{ opacity: 0.4; } 50%{ opacity: 1; } }
+
+  /* ---------- legend + controls row ---------- */
+  .toolbar{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 26px;
+    background: rgba(255,255,255,0.015);
+    border-bottom: 1px solid var(--rule);
+    font-size: 12px;
+  }
+  .legend{ display: flex; flex-wrap: wrap; gap: 13px; }
+  .legend .item{ display: flex; align-items: center; gap: 6px; color: var(--ink-dim); white-space: nowrap; }
+  .legend .swatch{ width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+  .legend .swatch.rejected{ background: transparent; border: 1.5px dashed var(--ink-faint); border-radius: 50%; }
+  .legend .swatch.chosenring{ background: transparent; border: 1.5px solid var(--amber); border-radius: 50%; box-shadow: 0 0 4px rgba(255,180,84,0.5); }
+  .legend .swatch.dead{ background: transparent; border: 1.5px dashed var(--ink-faint); border-radius: 2px; opacity: 0.6; }
+
+  .controls{ display: flex; align-items: center; gap: 8px; }
+  .controls button{
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--ink);
+    background: var(--bg-raised);
+    border: 1px solid var(--grid-line-strong);
+    border-radius: 6px;
+    padding: 6px 11px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .controls button:hover{ border-color: var(--amber); color: var(--amber); }
+  .controls button:focus-visible{ outline: 2px solid var(--amber); outline-offset: 2px; }
+  .controls button.active{ background: var(--amber); border-color: var(--amber); color: #1a1204; }
+  .speed-group{ display:flex; gap:2px; background: var(--bg-raised); padding: 3px; border-radius: 7px; border: 1px solid var(--grid-line-strong); }
+  .speed-group button{ background: transparent; border: none; padding: 4px 8px; }
+  .speed-group button.active{ background: var(--amber); color: #1a1204; border-radius: 4px; }
+
+  /* ---------- chart ---------- */
+  .chart-wrap{ padding: 8px 10px 4px; }
+  svg{ display: block; width: 100%; height: auto; }
+
+  .grid-line{ stroke: var(--grid-line); stroke-width: 1; }
+  .grid-line.strong{ stroke: var(--grid-line-strong); }
+  .axis-label{ fill: var(--ink-faint); font-size: 10px; font-family: ui-monospace, "SF Mono", Consolas, monospace; }
+  .axis-title{ fill: var(--ink-dim); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; font-family: ui-sans-serif, sans-serif; }
+  .lane-label{ fill: var(--ink-faint); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; font-family: ui-sans-serif, sans-serif; }
+  .lane-rule{ stroke: var(--grid-line); stroke-width: 1; }
+
+  .run-band{ opacity: 0.05; }
+  .run-divider{ stroke: var(--grid-line-strong); stroke-width: 1; stroke-dasharray: 4 4; }
+  .run-caption{ font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 10.5px; letter-spacing: 0.05em; }
+  .run-caption .tag{ font-size: 9px; }
+
+  .edge{ fill: none; stroke-width: 2.1; transition: stroke-width 0.3s, opacity 0.3s; }
+  .edge.eval-line{ stroke-width: 1.2; }
+  .edge.rejected-edge{ stroke-dasharray: 3 4 !important; opacity: 0.30 !important; }
+
+  .node-group{ cursor: default; }
+  .node-halo{ opacity: 0; transition: opacity 0.5s ease; }
+  .node-group.active .node-halo{ opacity: 0.35; }
+  .node-group.active.rejected .node-halo{ opacity: 0.12; }
+  .node-core{ transition: transform 0.35s cubic-bezier(.2,1.4,.4,1), opacity 0.35s ease, filter 0.35s ease; opacity: 0; transform-box: fill-box; transform-origin: center; transform: scale(0.2); }
+  .node-group.active .node-core{ opacity: 1; transform: scale(1); }
+  .node-group.active.rejected .node-core{ opacity: 0.55; filter: grayscale(35%); transform: scale(0.8); }
+  .node-group.active.rejected:hover .node-core{ opacity: 1; filter: grayscale(0%); transform: scale(1.05); }
+  .node-group.active.rejected:hover .node-halo{ opacity: 0.3; }
+  .node-group.considering .node-core{ animation: consider-pulse 0.5s ease-in-out infinite; }
+  @keyframes consider-pulse{ 0%,100%{ filter: drop-shadow(0 0 0 transparent); } 50%{ filter: drop-shadow(0 0 6px currentColor); } }
+  .chosen-ring{ fill: none; stroke: var(--amber); stroke-width: 1.4; stroke-dasharray: 2.5 2.5; opacity: 0; transition: opacity 0.4s ease 0.15s; }
+  .node-group.active.chosen .chosen-ring{ opacity: 0.9; }
+  .leader{ stroke: var(--ink-faint); stroke-width: 0.75; opacity: 0; transition: opacity 0.4s ease; }
+  .node-group.active .leader{ opacity: 0.4; }
+  .node-group.active.rejected .leader{ opacity: 0.18; }
+  .node-label{ font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 9.5px; opacity: 0; transition: opacity 0.4s ease 0.1s; }
+  .node-group.active .node-label{ opacity: 1; }
+  .node-group.active.rejected .node-label{ opacity: 0.5; }
+  .node-group.active.rejected:hover .node-label{ opacity: 1; }
+
+  .playhead-line{ stroke: var(--amber); stroke-width: 1.4; filter: drop-shadow(0 0 6px rgba(255,180,84,0.65)); }
+  .playhead-cap{ fill: var(--amber); filter: drop-shadow(0 0 8px rgba(255,180,84,0.8)); }
+
+  .score-bar{ transition: opacity 0.3s ease; }
+  .score-bar.rejected{ opacity: 0.4; }
+  .score-label{ font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 8.5px; fill: var(--ink-dim); opacity: 0; transition: opacity 0.3s ease; }
+  .score-label.shown{ opacity: 1; }
+  .score-label.chosen{ fill: var(--amber); }
+
+  .activity-path{ fill: none; stroke: var(--amber); stroke-width: 1.3; opacity: 0.55; filter: drop-shadow(0 0 2px rgba(255,180,84,0.3)); }
+  .activity-path.weighing{ stroke: var(--rose); opacity: 0.9; stroke-width: 1.6; filter: drop-shadow(0 0 5px rgba(255,111,130,0.55)); }
+  .activity-tip{ fill: var(--amber); filter: drop-shadow(0 0 6px rgba(255,180,84,0.7)); }
+  .activity-tip.weighing{ fill: var(--rose); filter: drop-shadow(0 0 6px rgba(255,111,130,0.7)); }
+
+  .dead-chip rect{ fill: none; stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 2.5 2.5; opacity: 0.55; }
+  .dead-chip text{ fill: var(--ink-faint); font-size: 9px; font-family: ui-monospace, "SF Mono", Consolas, monospace; text-decoration: line-through; opacity: 0.75; }
+  .dead-chip:hover rect, .dead-chip:hover text{ opacity: 1; }
+  .dead-caption{ fill: var(--ink-faint); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; font-family: ui-sans-serif, sans-serif; }
+
+  footer{
+    padding: 12px 26px 20px;
+    font-size: 11px;
+    color: var(--ink-faint);
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .node-core, .node-halo, .node-label, .leader{ transition: none !important; }
+    .node-group.considering .node-core{ animation: none !important; }
+    .now.weighing .dot{ animation: none !important; }
+  }
+</style>
+
+<div class="panel">
+  <header>
+    <div class="title-block">
+      <p class="eyebrow">fpf-agentic-thinking-map · engine trace, from ARCHITECTURE.md</p>
+      <h1>step() — Single Trace</h1>
+      <p>Three separate calls into the real deploy scenario, back to back — the way three actual test runs went. Run 1 aborts on a context mismatch. Run 2 loops through evidence collection three times without ever clearing. Run 3 clears every guard and ends in a deploy.</p>
+    </div>
+    <div class="readout">
+      <div class="clock" id="clock">00.0<span>s</span></div>
+      <div class="now" id="now"><span class="dot"></span><span id="nowLabel">standby</span></div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="legend" id="legend"></div>
+    <div class="controls">
+      <div class="speed-group" id="speedGroup">
+        <button data-speed="0.5">0.5×</button>
+        <button data-speed="1" class="active">1×</button>
+        <button data-speed="2">2×</button>
+      </div>
+      <button id="playBtn">Pause</button>
+      <button id="restartBtn">Restart</button>
+    </div>
+  </div>
+
+  <div class="chart-wrap">
+    <svg id="chart" viewBox="0 0 1200 610" role="img" aria-label="Timeline of three separate step() runs, showing every branch weighed, its score, the one taken, and a continuous trace of engine activity"></svg>
+  </div>
+
+  <footer>
+    <span>X — elapsed seconds across 3 separate runs &nbsp;·&nbsp; Y — position in the decision cascade &nbsp;·&nbsp; hover any node for its rationale</span>
+    <span id="progress">t = 0.0s / 48s</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var CATS = {
+    stage:       { color: "#57c7bd", label: "Engine stage" },
+    continue:    { color: "#59d18c", label: "CONTINUE" },
+    collect:     { color: "#ffb454", label: "COLLECT_EVIDENCE" },
+    abstain:     { color: "#ff6f82", label: "ABSTAIN" },
+    bridge:      { color: "#9c8cff", label: "BRIDGE (advisory)" },
+    idle:        { color: "#8b929a", label: "IDLE" },
+    changeframe: { color: "#e0b04a", label: "CHANGE_FRAME" }
+  };
+
+  var runs = [
+    { id:1, label:"RUN 1", tag:"ABSTAIN — mismatch", color:"#ff6f82", start:0,    end:6.5 },
+    { id:2, label:"RUN 2", tag:"3× COLLECT_EVIDENCE — loops", color:"#ffb454", start:7.5, end:26 },
+    { id:3, label:"RUN 3", tag:"BRIDGE → deployed", color:"#59d18c", start:27, end:48 }
+  ];
+
+  // Real step() control flow (ARCHITECTURE.md): INC -> active context? ->
+  // transition matches? -> evaluate logic rules -> consistent? -> run 9
+  // guards -> guards allow? -> evidence gaps? -> transitions available?
+  // Three independent runs of the same deploy scenario, each starting from
+  // a fresh bind() — the way three real test passes actually differed.
+  var steps = [
+    // ================= RUN 1 — fails fast on a context mismatch =================
+    { kind:"start", t:0,   y:45, tool:"bind()", cat:"stage", desc:"run 1 — fresh RuntimeBinding, no evidence yet" },
+    { kind:"node",  t:0.9, y:45, tool:"INC", cat:"stage", desc:"step_count++ — drives TTL decay" },
+    { kind:"decision", t:2.1, evalStart:1.3, options:[
+        { tool:"active?",      cat:"stage",       y:45, score:95, chosen:true,  note:"chosen — context is bound" },
+        { tool:"CHANGE_FRAME", cat:"changeframe", y:97, score:5,  chosen:false, note:"rejected — only fires with no active context" }
+      ]},
+    { kind:"decision", t:3.6, evalStart:2.8, options:[
+        { tool:"ABSTAIN", cat:"abstain", y:12, score:82, chosen:true,  kind:"terminal", note:"chosen — focused-mode transition does not match this context. Run 1 ends here: needs a fresh bind()." },
+        { tool:"matches",  cat:"stage",   y:45, score:18, chosen:false, note:"rejected — would continue if context matched" }
+      ]},
+
+    // ================= RUN 2 — clears the mismatch, then loops on evidence =================
+    { kind:"start", t:7.5,  y:45, tool:"bind()", cat:"stage", desc:"run 2 — fresh RuntimeBinding, no evidence yet" },
+    { kind:"node",  t:8.4,  y:45, tool:"INC", cat:"stage", desc:"step_count++" },
+    { kind:"decision", t:9.6, evalStart:8.8, options:[
+        { tool:"active?",      cat:"stage",       y:45, score:96, chosen:true,  note:"chosen — context is bound" },
+        { tool:"CHANGE_FRAME", cat:"changeframe", y:97, score:4,  chosen:false, note:"rejected — only fires with no active context" }
+      ]},
+    { kind:"decision", t:10.8, evalStart:10.0, options:[
+        { tool:"matches",  cat:"stage",   y:45, score:93, chosen:true,  note:"chosen — transition found in active context" },
+        { tool:"ABSTAIN",  cat:"abstain", y:12, score:7,  chosen:false, note:"rejected — no mismatch this time" }
+      ]},
+    { kind:"node", t:11.6, y:45, tool:"LOGIC", cat:"stage", desc:"evaluate_for(tags) — 6-operator rule composition" },
+    { kind:"decision", t:12.6, evalStart:11.9, options:[
+        { tool:"consistent", cat:"stage",   y:45, score:97, chosen:true,  note:"chosen — no ROUTE/BLOCK contradiction" },
+        { tool:"ABSTAIN",    cat:"abstain", y:12, score:3,  chosen:false, note:"rejected — only fires on exclusive_with conflict" }
+      ]},
+    { kind:"node", t:13.4, y:45, tool:"GUARDS", cat:"stage", desc:"9 guards run — deploy_gate checked" },
+    { kind:"decision", t:14.6, evalStart:13.8, options:[
+        { tool:"COLLECT_EVIDENCE", cat:"collect", y:32, score:80, chosen:true,  note:"cycle 1 — chosen: deploy_gate denies, evidence path open: test_results missing" },
+        { tool:"allow",            cat:"stage",   y:45, score:16, chosen:false, note:"rejected — not this call, a guard denied" },
+        { tool:"ABSTAIN",          cat:"abstain", y:12, score:22, chosen:false, note:"rejected — would need denial with no evidence path" }
+      ]},
+    { kind:"node", t:16.4, y:45, tool:"retry: INC", cat:"stage", desc:"test_results attached — re-entering step()" },
+    { kind:"node", t:17.2, y:45, tool:"GUARDS", cat:"stage", desc:"9 guards re-run with test_results" },
+    { kind:"decision", t:18.4, evalStart:17.6, options:[
+        { tool:"COLLECT_EVIDENCE", cat:"collect", y:32, score:79, chosen:true,  note:"cycle 2 — chosen: deploy_gate denies again, owner_approval still missing" },
+        { tool:"allow",            cat:"stage",   y:45, score:24, chosen:false, note:"rejected — one gap cleared, one remains" }
+      ]},
+    { kind:"node", t:20.4, y:45, tool:"retry: INC", cat:"stage", desc:"owner_approval attached — re-entering step()" },
+    { kind:"node", t:21.2, y:45, tool:"GUARDS", cat:"stage", desc:"9 guards re-run, deploy_gate now passes" },
+    { kind:"decision", t:22.4, evalStart:21.6, options:[
+        { tool:"COLLECT_EVIDENCE", cat:"collect", y:32, score:76, chosen:true, kind:"terminal", note:"cycle 3 — chosen: gate passes, but evidence check surfaces a new gap: rollback_plan missing. Run 2 ends here after 3 loops, still incomplete." },
+        { tool:"ready?",           cat:"stage",   y:45, score:24, chosen:false, note:"rejected — would continue if evidence were complete" }
+      ]},
+
+    // ================= RUN 3 — clean pass, clears every guard, deploys =================
+    { kind:"start", t:27,   y:45, tool:"bind()", cat:"stage", desc:"run 3 — fresh RuntimeBinding, all three evidence items attached upfront" },
+    { kind:"node",  t:27.9, y:45, tool:"INC", cat:"stage", desc:"step_count++" },
+    { kind:"decision", t:29.1, evalStart:28.3, options:[
+        { tool:"active?",      cat:"stage",       y:45, score:96, chosen:true,  note:"chosen — context is bound" },
+        { tool:"CHANGE_FRAME", cat:"changeframe", y:97, score:4,  chosen:false, note:"rejected — only fires with no active context" }
+      ]},
+    { kind:"decision", t:30.3, evalStart:29.5, options:[
+        { tool:"matches",  cat:"stage",   y:45, score:94, chosen:true,  note:"chosen — transition found in active context" },
+        { tool:"ABSTAIN",  cat:"abstain", y:12, score:6,  chosen:false, note:"rejected — no mismatch this run" }
+      ]},
+    { kind:"node", t:31.1, y:45, tool:"LOGIC", cat:"stage", desc:"evaluate_for(tags)" },
+    { kind:"decision", t:32.1, evalStart:31.4, options:[
+        { tool:"consistent", cat:"stage",   y:45, score:98, chosen:true,  note:"chosen — no contradiction" },
+        { tool:"ABSTAIN",    cat:"abstain", y:12, score:2,  chosen:false, note:"rejected" }
+      ]},
+    { kind:"node", t:32.9, y:45, tool:"GUARDS", cat:"stage", desc:"9 guards run, all evidence present" },
+    { kind:"decision", t:34.1, evalStart:33.3, options:[
+        { tool:"allow",            cat:"stage",   y:45, score:95, chosen:true,  note:"chosen — deploy_gate passes on the first try" },
+        { tool:"COLLECT_EVIDENCE", cat:"collect", y:32, score:5,  chosen:false, note:"rejected — nothing missing this run" },
+        { tool:"ABSTAIN",          cat:"abstain", y:12, score:3,  chosen:false, note:"rejected" }
+      ]},
+    { kind:"decision", t:35.3, evalStart:34.5, options:[
+        { tool:"ready?",           cat:"stage",  y:45, score:92, chosen:true,  note:"chosen — evidence complete" },
+        { tool:"COLLECT_EVIDENCE", cat:"collect", y:32, score:8,  chosen:false, note:"rejected — no gaps" }
+      ]},
+    { kind:"decision", t:36.7, evalStart:35.9, options:[
+        { tool:"CONTINUE", cat:"continue", y:82, score:91, chosen:true,  note:"chosen — ready_to_deploy transition available" },
+        { tool:"BRIDGE",   cat:"bridge",   y:68, score:33, chosen:false, note:"rejected — no bridge needed, a direct transition exists" },
+        { tool:"IDLE",     cat:"idle",     y:55, score:9,  chosen:false, note:"rejected — transitions exist, engine is not at rest" }
+      ]},
+    { kind:"node", t:38.5, y:45, tool:"retry: INC", cat:"stage", desc:"next call — ready_to_deploy just consumed" },
+    { kind:"node", t:39.3, y:45, tool:"GUARDS", cat:"stage", desc:"9 guards re-run, still passing" },
+    { kind:"decision", t:40.5, evalStart:39.7, options:[
+        { tool:"allow",            cat:"stage",   y:45, score:95, chosen:true,  note:"chosen — deploy_gate still passes" },
+        { tool:"COLLECT_EVIDENCE", cat:"collect", y:32, score:6,  chosen:false, note:"rejected" },
+        { tool:"ABSTAIN",          cat:"abstain", y:12, score:4,  chosen:false, note:"rejected" }
+      ]},
+    { kind:"decision", t:41.7, evalStart:40.9, options:[
+        { tool:"ready?",           cat:"stage",  y:45, score:91, chosen:true,  note:"chosen — evidence still complete" },
+        { tool:"COLLECT_EVIDENCE", cat:"collect", y:32, score:9,  chosen:false, note:"rejected" }
+      ]},
+    { kind:"decision", t:43.1, evalStart:42.3, options:[
+        { tool:"BRIDGE",   cat:"bridge",   y:68, score:73, chosen:true,  note:"chosen — no direct transition, a bridge is advertised (advisory only)" },
+        { tool:"CONTINUE", cat:"continue", y:82, score:17, chosen:false, note:"rejected — that transition is already consumed" },
+        { tool:"IDLE",     cat:"idle",     y:55, score:24, chosen:false, note:"rejected — a bridge exists, not fully at rest" }
+      ]},
+    { kind:"terminal", t:45.4, y:82, tool:"attempt_bridge() → deployed", cat:"continue", desc:"licensed, risk within contract — bridge enacted. Run 3 succeeds." }
+  ];
+
+  var DURATION = 48;
+  var pad = { l: 66, r: 34 };
+  var W = 1200;
+  var plotW = W - pad.l - pad.r;
+
+  // three stacked lanes: the decision-cascade chart, a per-branch score
+  // lane directly beneath each decision, and a continuous activity trace
+  // underneath everything so the run reads as ongoing work, not just jumps
+  var chartTop = 42, chartH = 322, chartBottom = chartTop + chartH;
+  var xAxisY = chartBottom + 17;
+  var confTop = chartBottom + 38, confH = 46, confBottom = confTop + confH;
+  var actTop = confBottom + 30, actH = 42, actBottom = actTop + actH;
+  var H = actBottom + 18;
+
+  var xScale = function(t){ return pad.l + (t / DURATION) * plotW; };
+  var yScale = function(y){ return chartTop + (1 - y / 100) * chartH; };
+
+  var svgNS = "http://www.w3.org/2000/svg";
+  var svg = document.getElementById("chart");
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  function el(tag, attrs){
+    var e = document.createElementNS(svgNS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  // ---------- run bands + dividers (drawn first, under everything) ----------
+  var runG = el("g", {});
+  runs.forEach(function(r, i){
+    var x1 = xScale(r.start), x2 = xScale(r.end);
+    runG.appendChild(el("rect", { x: x1, y: chartTop, width: x2 - x1, height: actBottom - chartTop, fill: r.color, class: "run-band" }));
+    var cap = el("text", { x: (x1 + x2) / 2, y: chartTop - 20, class: "run-caption", "text-anchor": "middle", fill: r.color });
+    cap.textContent = r.label + " — " + r.tag;
+    runG.appendChild(cap);
+    if (i > 0){
+      var divX = xScale((runs[i-1].end + r.start) / 2);
+      runG.appendChild(el("line", { x1: divX, x2: divX, y1: chartTop, y2: actBottom, class: "run-divider" }));
+    }
+  });
+  svg.appendChild(runG);
+
+  // ---------- grid ----------
+  var gridG = el("g", {});
+  for (var gy = 0; gy <= 100; gy += 25){
+    var gyPx = yScale(gy);
+    gridG.appendChild(el("line", { x1: pad.l, x2: W - pad.r, y1: gyPx, y2: gyPx, class: gy === 0 ? "grid-line strong" : "grid-line" }));
+    var lbl = el("text", { x: pad.l - 10, y: gyPx + 3, class: "axis-label", "text-anchor": "end" });
+    lbl.textContent = gy;
+    gridG.appendChild(lbl);
+  }
+  var axisTitle = el("text", { x: 14, y: chartTop + chartH/2, class: "axis-title", transform: "rotate(-90 14 " + (chartTop + chartH/2) + ")", "text-anchor": "middle" });
+  axisTitle.textContent = "cascade";
+  gridG.appendChild(axisTitle);
+  for (var gt = 0; gt <= DURATION; gt += 4){
+    var gxPx = xScale(gt);
+    gridG.appendChild(el("line", { x1: gxPx, x2: gxPx, y1: chartTop, y2: xAxisY - 6, class: "grid-line" }));
+    var tlbl = el("text", { x: gxPx, y: xAxisY + 8, class: "axis-label", "text-anchor": "middle" });
+    tlbl.textContent = gt + "s";
+    gridG.appendChild(tlbl);
+  }
+  gridG.appendChild(el("line", { x1: pad.l, x2: W - pad.r, y1: confBottom, y2: confBottom, class: "lane-rule" }));
+  var confLbl = el("text", { x: pad.l - 10, y: confTop + 8, class: "lane-label", "text-anchor": "end" });
+  confLbl.textContent = "score";
+  gridG.appendChild(confLbl);
+  gridG.appendChild(el("line", { x1: pad.l, x2: W - pad.r, y1: actTop + actH/2, y2: actTop + actH/2, class: "lane-rule" }));
+  var actLbl = el("text", { x: pad.l - 10, y: actTop + 8, class: "lane-label", "text-anchor": "end" });
+  actLbl.textContent = "activity";
+  gridG.appendChild(actLbl);
+  svg.appendChild(gridG);
+
+  // ---------- build nodes + edges from steps ----------
+  var allNodes = [];
+  var allEdges = [];
+  var decisionWindows = [];
+  var confBars = [];
+  var prevMain = null;
+
+  function makeNode(spec, isChosen, isRejected){
+    return {
+      t: spec.t, y: spec.y, tool: spec.tool, cat: spec.cat,
+      desc: spec.desc || spec.note, kind: spec.kind || "node",
+      chosen: !!isChosen, rejected: !!isRejected
+    };
+  }
+
+  steps.forEach(function(step){
+    if (step.kind === "start"){ prevMain = null; }
+    if (step.kind === "node" || step.kind === "terminal" || step.kind === "start"){
+      var n = makeNode(step, false, false);
+      allNodes.push(n);
+      if (prevMain) allEdges.push({ from: prevMain, to: n, cat: n.cat, eval:false, rejected:false });
+      prevMain = n;
+      return;
+    }
+    var n_opts = step.options.length;
+    var chosenNode = null;
+    var focusWindows = [];
+    var barNodes = [];
+    step.options.forEach(function(opt, idx){
+      var spread = (idx - (n_opts - 1) / 2) * 1.15;
+      var actualT = step.t + spread;
+      var node = makeNode({ t: actualT, y: opt.y, tool: opt.tool, cat: opt.cat, desc: opt.note, kind: opt.kind }, opt.chosen, !opt.chosen);
+      allNodes.push(node);
+      var focusStart = step.evalStart + idx * ((step.t - step.evalStart) / n_opts);
+      var focusEnd = focusStart + (step.t - step.evalStart) / n_opts * 0.85;
+      focusWindows.push({ node: node, start: focusStart, end: focusEnd });
+      allEdges.push({
+        from: prevMain, to: node, cat: node.cat,
+        eval: true, rejected: !opt.chosen,
+        t1: step.evalStart, t2: actualT
+      });
+      barNodes.push({ t: actualT, score: opt.score, chosen: opt.chosen, cat: opt.cat, tool: opt.tool });
+      if (opt.chosen) chosenNode = node;
+    });
+    decisionWindows.push({ start: step.evalStart, end: step.t, focus: focusWindows, options: step.options.map(function(o){ return o.tool; }) });
+    confBars.push({ start: step.evalStart, end: step.t, bars: barNodes });
+    prevMain = chosenNode;
+  });
+
+  // ---------- render edges ----------
+  var edgeEls = allEdges.map(function(e){
+    var x1 = xScale(e.from.t), y1 = yScale(e.from.y);
+    var x2 = xScale(e.to.t), y2 = yScale(e.to.y);
+    var cx = (x1 + x2) / 2;
+    var cy = Math.min(y1, y2) - 20;
+    var d = "M " + x1 + " " + y1 + " Q " + cx + " " + cy + " " + x2 + " " + y2;
+    var color = CATS[e.cat] ? CATS[e.cat].color : "#888";
+    var cls = "edge" + (e.eval ? " eval-line" : "") + (e.rejected ? " rejected-edge" : "");
+    var path = el("path", { d: d, class: cls, stroke: color });
+    svg.appendChild(path);
+    var len = path.getTotalLength();
+    path.setAttribute("stroke-dasharray", e.rejected ? "3 4" : len);
+    path.setAttribute("stroke-dashoffset", e.rejected ? 0 : len);
+    path.style.opacity = e.rejected ? 0 : 1;
+    var titleEl = el("title", {});
+    titleEl.textContent = e.from.tool + " → " + e.to.tool + (e.to.desc ? " — " + e.to.desc : "");
+    path.appendChild(titleEl);
+    return { path: path, len: len, t1: e.t1 !== undefined ? e.t1 : e.from.t, t2: e.t2 !== undefined ? e.t2 : e.to.t, rejected: e.rejected };
+  });
+
+  // ---------- render nodes (labels alternate rows + get a leader tick, so tight clusters don't collide) ----------
+  var nodeEls = allNodes.map(function(n, i){
+    var cx = xScale(n.t), cy = yScale(n.y);
+    var color = CATS[n.cat].color;
+    var g = el("g", { class: "node-group" + (n.rejected ? " rejected" : "") + (n.chosen ? " chosen" : "") });
+
+    var haloR = n.kind === "terminal" ? 20 : (n.rejected ? 10 : 14);
+    var halo = el("circle", { cx: cx, cy: cy, r: haloR, fill: color, class: "node-halo" });
+    g.appendChild(halo);
+
+    if (n.chosen){
+      g.appendChild(el("circle", { cx: cx, cy: cy, r: 11, class: "chosen-ring" }));
+    }
+
+    var core;
+    var r = n.kind === "terminal" ? 9 : (n.rejected ? 4.5 : 6);
+    if (n.kind === "terminal"){
+      core = el("circle", { cx: cx, cy: cy, r: r, fill: color, stroke: "#0a0d10", "stroke-width": 2, class: "node-core", style: "color:" + color });
+    } else {
+      core = el("circle", { cx: cx, cy: cy, r: r, fill: n.rejected ? color : "#0a0d10", stroke: color, "stroke-width": n.rejected ? 1 : 2, class: "node-core", style: "color:" + color });
+    }
+    g.appendChild(core);
+
+    var row = i % 3;
+    var nearOffset = n.y >= 82 ? 16 : -11;
+    var farOffset = n.y >= 82 ? 30 : -23;
+    var labelY = row === 0 ? cy + nearOffset : (row === 1 ? cy + farOffset : cy + nearOffset * 1.9);
+    var anchor = n.t > DURATION - 4 ? "end" : (n.t < 2.5 ? "start" : "middle");
+    var lx = anchor === "end" ? cx - 4 : (anchor === "start" ? cx + 4 : cx);
+
+    if (row !== 0){
+      var leaderY1 = n.y >= 82 ? cy + r + 2 : cy - r - 2;
+      var leaderY2 = n.y >= 82 ? labelY - 7 : labelY + 3;
+      g.appendChild(el("line", { x1: cx, y1: leaderY1, x2: cx, y2: leaderY2, class: "leader" }));
+    }
+
+    var label = el("text", { x: lx, y: labelY, class: "node-label", fill: color, "text-anchor": anchor });
+    label.textContent = n.tool;
+    g.appendChild(label);
+
+    var titleEl = el("title", {});
+    titleEl.textContent = "t≈" + n.t.toFixed(1) + "s · " + CATS[n.cat].label + (n.rejected ? " · considered, rejected" : n.chosen ? " · chosen" : "") + " · " + n.tool + " — " + n.desc;
+    g.appendChild(titleEl);
+
+    svg.appendChild(g);
+    return { g: g, t: n.t, cat: n.cat, tool: n.tool, rejected: n.rejected, chosen: n.chosen };
+  });
+
+  // ---------- render score bars (one cluster per decision) ----------
+  var barW = 9, barGap = 3;
+  var scoreEls = [];
+  confBars.forEach(function(cluster){
+    var n = cluster.bars.length;
+    var totalW = n * barW + (n - 1) * barGap;
+    cluster.bars.forEach(function(bar, idx){
+      var cx = xScale(bar.t);
+      var bx = cx - totalW / 2 + idx * (barW + barGap);
+      var color = CATS[bar.cat].color;
+      var rect = el("rect", {
+        x: bx, y: confBottom, width: barW, height: 0,
+        fill: color, class: "score-bar" + (bar.chosen ? " chosen" : " rejected")
+      });
+      var titleEl = el("title", {});
+      titleEl.textContent = bar.tool + " — score " + bar.score + "/100" + (bar.chosen ? " (chosen)" : " (rejected)");
+      rect.appendChild(titleEl);
+      svg.appendChild(rect);
+      var lbl = el("text", { x: bx + barW / 2, y: confTop - 4, class: "score-label" + (bar.chosen ? " chosen" : ""), "text-anchor": "middle" });
+      svg.appendChild(lbl);
+      scoreEls.push({ rect: rect, label: lbl, t: bar.t, score: bar.score, evalStart: cluster.start, evalEnd: cluster.end });
+    });
+  });
+
+  // ---------- permanent "declared, unreachable" chips ----------
+  var deadG = el("g", { class: "dead-caption-group" });
+  var deadCaption = el("text", { x: W - pad.r, y: chartTop - 22, class: "dead-caption", "text-anchor": "end" });
+  deadCaption.textContent = "declared, never reached by any code path";
+  deadG.appendChild(deadCaption);
+  ["ASK", "PUBLISH", "REVISE_PLAN"].forEach(function(name, i){
+    var cw = 74, ch = 15;
+    var cx = W - pad.r - cw;
+    var cy = chartTop - 2 + i * (ch + 4);
+    var chip = el("g", { class: "dead-chip" });
+    chip.appendChild(el("rect", { x: cx, y: cy, width: cw, height: ch, rx: 3 }));
+    var t = el("text", { x: cx + cw / 2, y: cy + ch / 2 + 3, "text-anchor": "middle" });
+    t.textContent = name;
+    chip.appendChild(t);
+    var titleEl = el("title", {});
+    titleEl.textContent = name + " — declared in traversal.py's OutcomeKind and named in the module docstring, but no code path returns it yet.";
+    chip.appendChild(titleEl);
+    deadG.appendChild(chip);
+  });
+  svg.appendChild(deadG);
+
+  // ---------- playhead ----------
+  var playheadLine = el("line", { x1: pad.l, x2: pad.l, y1: chartTop, y2: actBottom, class: "playhead-line" });
+  var playheadCap = el("circle", { cx: pad.l, cy: chartTop, r: 4, class: "playhead-cap" });
+  svg.appendChild(playheadLine);
+  svg.appendChild(playheadCap);
+
+  // ---------- activity waveform (continuous "the engine is working" trace) ----------
+  function frac(x){ return x - Math.floor(x); }
+  function pseudoRandom(t){ return frac(Math.sin(t * 127.1) * 43758.5453); }
+  function inWeighing(t){ return decisionWindows.some(function(w){ return t >= w.start && t < w.end; }); }
+  function activityAt(t){
+    var level = inWeighing(t) ? 1.5 : 0.55;
+    var wave = 0.5 * Math.sin(t * 2.4) + 0.3 * Math.sin(t * 5.3 + 1.1) + 0.25 * (pseudoRandom(t) - 0.5) * 2;
+    return Math.max(-1, Math.min(1, level * wave));
+  }
+  var activityPoints = [];
+  for (var at = 0; at <= DURATION + 0.001; at += 0.08) activityPoints.push({ t: at, amp: activityAt(at) });
+  var actMid = actTop + actH / 2, actAmp = actH / 2 - 5;
+  var activityPath = el("path", { class: "activity-path", d: "" });
+  var activityTip = el("circle", { class: "activity-tip", r: 3.5, cx: xScale(0), cy: actMid });
+  svg.appendChild(activityPath);
+  svg.appendChild(activityTip);
+  var actIndex = 0, actD = "", lastActY = actMid;
+
+  // ---------- legend ----------
+  var legend = document.getElementById("legend");
+  function legendItem(swatchHTML, text){
+    var item = document.createElement("span");
+    item.className = "item";
+    item.innerHTML = swatchHTML + "<span>" + text + "</span>";
+    legend.appendChild(item);
+  }
+  ["stage","continue","collect","abstain","bridge","idle","changeframe"].forEach(function(key){
+    var c = CATS[key];
+    legendItem('<span class="swatch" style="background:' + c.color + '"></span>', c.label);
+  });
+  legendItem('<span class="swatch chosenring"></span>', "Chosen this call");
+  legendItem('<span class="swatch rejected"></span>', "Weighed, rejected");
+  legendItem('<span class="swatch dead"></span>', "Declared, unreachable");
+
+  // ---------- playback ----------
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var TIMELINE_PER_REAL_SEC = 2.4;
+  var speed = 1;
+  var playing = !reduced;
+  var current = 0;
+  var lastFrame = null;
+
+  var clock = document.getElementById("clock");
+  var nowLabel = document.getElementById("nowLabel");
+  var nowWrap = document.getElementById("now");
+  var progress = document.getElementById("progress");
+
+  function currentRun(t){
+    for (var i = 0; i < runs.length; i++){
+      if (t < runs[i].end || i === runs.length - 1) return runs[i];
+    }
+    return runs[runs.length - 1];
+  }
+
+  function render(){
+    clock.innerHTML = current.toFixed(1) + "<span>s</span>";
+    progress.textContent = "t = " + current.toFixed(1) + "s / " + DURATION + "s";
+
+    var px = xScale(current);
+    playheadLine.setAttribute("x1", px);
+    playheadLine.setAttribute("x2", px);
+    playheadCap.setAttribute("cx", px);
+
+    var activeNode = null;
+    nodeEls.forEach(function(n){
+      var isActive = current >= n.t;
+      n.g.classList.toggle("active", isActive);
+      if (isActive && !n.rejected && (!activeNode || n.t > activeNode.t)) activeNode = n;
+    });
+
+    edgeEls.forEach(function(e){
+      if (e.rejected){
+        var appear = current >= e.t1 ? Math.min(1, (current - e.t1) / Math.max(0.3, e.t2 - e.t1)) : 0;
+        e.path.style.opacity = appear * 0.3;
+        return;
+      }
+      if (current <= e.t1){ e.path.setAttribute("stroke-dashoffset", e.len); return; }
+      if (current >= e.t2){ e.path.setAttribute("stroke-dashoffset", 0); return; }
+      var frac2 = (current - e.t1) / (e.t2 - e.t1);
+      e.path.setAttribute("stroke-dashoffset", e.len * (1 - frac2));
+    });
+
+    scoreEls.forEach(function(s){
+      var grown = current >= s.evalStart ? Math.min(1, (current - s.evalStart) / Math.max(0.4, s.evalEnd - s.evalStart)) : 0;
+      var h = grown * (s.score / 100) * confH;
+      s.rect.setAttribute("height", h);
+      s.rect.setAttribute("y", confBottom - h);
+      var shown = current >= s.t - 0.1;
+      s.label.classList.toggle("shown", shown);
+      if (shown){
+        s.label.textContent = s.score;
+        s.label.setAttribute("y", confBottom - h - 4);
+      }
+    });
+
+    var weighingNow = inWeighing(current);
+    activityPath.classList.toggle("weighing", weighingNow);
+    activityTip.classList.toggle("weighing", weighingNow);
+    while (actIndex < activityPoints.length && activityPoints[actIndex].t <= current){
+      var p = activityPoints[actIndex];
+      var ax = xScale(p.t), ay = actMid - p.amp * actAmp;
+      actD += (actIndex === 0 ? "M " : "L ") + ax + " " + ay + " ";
+      lastActY = ay;
+      actIndex++;
+    }
+    activityPath.setAttribute("d", actD);
+    activityTip.setAttribute("cx", px);
+    activityTip.setAttribute("cy", lastActY);
+
+    var run = currentRun(current);
+    var weighing = decisionWindows.find(function(w){ return current >= w.start && current < w.end; });
+    nodeEls.forEach(function(n){ n.g.classList.remove("considering"); });
+    if (weighing){
+      nowWrap.classList.add("weighing");
+      nowWrap.classList.remove("live");
+      var focus = weighing.focus.find(function(f){ return current >= f.start && current < f.end; });
+      nowLabel.textContent = "[" + run.label + "] weighing " + weighing.options.length + " branches" + (focus ? " — " + focus.node.tool : "") + " …";
+      if (focus){
+        var match = nodeEls.find(function(n){ return n.t === focus.node.t && n.tool === focus.node.tool; });
+        if (match) match.g.classList.add("considering");
+      }
+    } else {
+      nowWrap.classList.remove("weighing");
+      if (activeNode){
+        nowWrap.classList.add("live");
+        nowLabel.textContent = "[" + run.label + "] " + activeNode.tool + " · " + CATS[activeNode.cat].label;
+        nowWrap.style.setProperty("--cat-color", CATS[activeNode.cat].color);
+      } else {
+        nowWrap.classList.remove("live");
+        nowLabel.textContent = "standby";
+      }
+    }
+  }
+
+  function tick(ts){
+    if (!lastFrame) lastFrame = ts;
+    var dt = (ts - lastFrame) / 1000;
+    lastFrame = ts;
+    if (playing){
+      current = Math.min(DURATION, current + dt * TIMELINE_PER_REAL_SEC * speed);
+      render();
+      if (current >= DURATION) { playing = false; playBtn.textContent = "Replay"; }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  var playBtn = document.getElementById("playBtn");
+  var restartBtn = document.getElementById("restartBtn");
+  playBtn.addEventListener("click", function(){
+    if (current >= DURATION){ resetPlayback(); return; }
+    playing = !playing;
+    playBtn.textContent = playing ? "Pause" : "Play";
+  });
+  restartBtn.addEventListener("click", resetPlayback);
+  function resetPlayback(){
+    current = 0; actIndex = 0; actD = ""; activityPath.setAttribute("d", "");
+    playing = true; playBtn.textContent = "Pause"; render();
+  }
+  document.getElementById("speedGroup").addEventListener("click", function(e){
+    var btn = e.target.closest("button");
+    if (!btn) return;
+    speed = parseFloat(btn.getAttribute("data-speed"));
+    Array.prototype.forEach.call(this.querySelectorAll("button"), function(b){ b.classList.toggle("active", b === btn); });
+  });
+
+  if (reduced){
+    current = DURATION;
+    playBtn.textContent = "Replay";
+    render();
+  } else {
+    render();
+    requestAnimationFrame(tick);
+  }
+})();
+</script>

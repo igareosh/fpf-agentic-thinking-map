@@ -6,6 +6,8 @@ A Python package that gives a model a bounded move board instead of a giant fram
 
 **[Visual architecture →](ARCHITECTURE.md)** — module graph, step flowchart, floor map, evidence lifecycle, slice structure, deploy sequence diagram.
 
+**[Live demo →](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)** — the step() engine traced second by second across three real runs (abort, evidence loop, deploy), every branch it weighed and rejected shown alongside the one it took, for people who'd rather watch it decide than read the code.
+
 ## Why this exists
 
 FPF is valuable, but it is large at runtime and not well shaped for direct model consumption. A human can read a 51k-line framework, understand its distinctions, and apply them carefully. A model often does something narrower: it absorbs the vocabulary, mirrors the posture of rigor, and still drifts on the actual task.
