@@ -8,6 +8,10 @@ A Python package that gives a model a bounded move board instead of a giant fram
 
 **[Live demo →](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)** — the step() engine traced second by second across three real runs (abort, evidence loop, deploy), every branch it weighed and rejected shown alongside the one it took, for people who'd rather watch it decide than read the code.
 
+> **A note on scope.** This is a small library we're proud of, not a manifesto and not a rival to FPF (see below). We're developers — we build plenty of things, and this happens to be one we finished properly. Judge it by the code and by `verify.py`, not by the noise around it.
+>
+> *"All speech is vain and empty unless it be accompanied by action."* — Demosthenes
+
 ## Why this exists
 
 FPF is valuable, but it is large at runtime and not well shaped for direct model consumption. A human can read a 51k-line framework, understand its distinctions, and apply them carefully. A model often does something narrower: it absorbs the vocabulary, mirrors the posture of rigor, and still drifts on the actual task.
@@ -315,5 +319,7 @@ We release this because it is useful beyond our own stack.
 MIT. See [LICENSE](LICENSE).
 
 ---
+
+*"All speech is vain and empty unless it be accompanied by action."* — Demosthenes
 
 **prichindel.com** — v1.4.25 — 2026-07-10
