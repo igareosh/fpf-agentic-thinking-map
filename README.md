@@ -22,6 +22,8 @@ The goal is simple: give the model enough structure to behave understandably, wi
 
 We do not compete with FPF and we do not need to. FPF stays FPF: broad, ambitious, and useful as a frame. This library is the smaller usable tool for people who want the frame without carrying the whole corpus into every project.
 
+To be precise about what "compiled" means: this package does not rewrite, filter, or reason about the model's own semantics. The model stays completely free in generation and reasoning — nothing here makes it reason about its own reasoning, in either direction, for better or worse. What the map actually restricts is a single next move, checked before and after; what it takes over is bookkeeping — state, rules, evidence across steps — not meaning. We didn't build another semantic framework on top of FPF; we built a small tool that keeps semantics out of the traversal itself, so a long agentic loop doesn't leave junk behind in its own generated text while it searches for a solution. It's MIT-licensed and free for anyone to take and build on with their own team — and if you'd rather build the integration together, we're glad to take part too, as consultants or developers.
+
 ## What it does
 
 You define a domain as a semantic map: contexts, roles, gates, evidence, transitions. The model gets a per-move slice, not a theory dump. Deterministic guards handle the hard checks. Propositional logic rules (NOT, AND, OR, XOR, IMPLIES, IFF) provide explicit decision glue between the semantic primitives and the current state.
