@@ -6,6 +6,19 @@ Built from [FPF (First Principles Framework)](https://github.com/ailev/FPF) as a
 
 Python 3.12+ · MIT · zero runtime dependencies
 
+## At a glance
+
+[![PyPI version](https://img.shields.io/pypi/v/fpf-thinking-map?label=PyPI)](https://pypi.org/project/fpf-thinking-map/)
+[![Python versions](https://img.shields.io/pypi/pyversions/fpf-thinking-map?label=Python)](https://pypi.org/project/fpf-thinking-map/)
+[![License](https://img.shields.io/pypi/l/fpf-thinking-map?label=License)](LICENSE)
+[![Zero dependencies](https://img.shields.io/badge/dependencies-0-2ea44f)](pyproject.toml)
+[![Verify](https://img.shields.io/badge/verify-22%2F22%20pass-2ea44f)](fpf_thinking_map/verify.py)
+
+[![Live demo](https://img.shields.io/badge/demo-live-7c3aed)](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)
+[![Per decision](https://img.shields.io/badge/per%20decision-288.7x%20smaller-2ea44f)](docs/deep/TRIPLE_TAX_CALCULUS.md)
+[![Traversal](https://img.shields.io/badge/traversal-no%20semantic%20bloat-111827)](#what-this-is)
+[![Runtime shape](https://img.shields.io/badge/runtime-JSON%20slice%20per%20step-1f6feb)](#runtime-contract)
+
 - [Visual architecture →](ARCHITECTURE.md)
 - [Live demo →](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)
 - [Release history →](https://github.com/igareosh/fpf-agentic-thinking-map/releases)
