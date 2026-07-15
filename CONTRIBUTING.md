@@ -1,6 +1,6 @@
 # Contributing
 
-This package is maintained by **prichindel.com**.
+This package is maintained by **igareosh.com** (`@igareosh`).
 
 ## How to contribute
 
@@ -52,6 +52,7 @@ We review PRs manually. Response time varies.
 For questions about contributing: open a GitHub issue.
 
 For anything unrelated to this package: **igareosh@igareosh.com**
+GitHub / Telegram: **@igareosh**
 
 ## License
 

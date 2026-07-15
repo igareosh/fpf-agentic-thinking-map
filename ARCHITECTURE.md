@@ -369,4 +369,4 @@ This is not a bug. The underlying primitives already exist, but the traversal la
 
 ---
 
-**prichindel.com** — v1.5.0
+**igareosh.com / @igareosh** — v1.5.0

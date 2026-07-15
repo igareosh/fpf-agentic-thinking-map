@@ -1,0 +1,32 @@
+FPF Thinking Map
+================
+
+Copyright (c) 2026 igareosh.com <igareosh@igareosh.com>
+GitHub / Telegram: @igareosh
+Website: https://igareosh.com
+
+License
+-------
+
+MIT. See LICENSE.
+
+Acknowledgment
+--------------
+
+This project acknowledges FPF (First Principles Framework) and the
+`ailev/FPF` repository by Anatoly Levenchuk (`@ailev`) as inspiration
+and semantic source material.
+
+Scope and originality
+---------------------
+
+This package is an independent implementation with its own narrower
+runtime scope. It does not require FPF framework semantics as a whole.
+Where needed to preserve the package's own design boundaries, it
+intentionally omits or rejects parts of FPF rather than inheriting them
+by default.
+
+For the explicit adoption/rejection record, see:
+
+- docs/DECISIONS_REJECTIONS_ADOPTIONS.md
+- docs/deep/SOURCES.md

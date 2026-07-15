@@ -6,7 +6,10 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
 authors = [
-    {name = "prichindel.com", email = "igareosh@igareosh.com"},
+    {name = "igareosh.com (@igareosh)", email = "igareosh@igareosh.com"},
+]
+maintainers = [
+    {name = "igareosh.com (@igareosh)", email = "igareosh@igareosh.com"},
 ]
 keywords = [
     "agentic", "thinking-map", "llm", "reasoning",
@@ -31,6 +34,9 @@ Homepage = "https://github.com/igareosh/fpf-agentic-thinking-map"
 Repository = "https://github.com/igareosh/fpf-agentic-thinking-map"
 Documentation = "https://github.com/igareosh/fpf-agentic-thinking-map#readme"
 Issues = "https://github.com/igareosh/fpf-agentic-thinking-map/issues"
+Website = "https://igareosh.com"
+GitHub = "https://github.com/igareosh"
+Telegram = "https://t.me/igareosh"
 
 [build-system]
 requires = ["setuptools>=68.0"]

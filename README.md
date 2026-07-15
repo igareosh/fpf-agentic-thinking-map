@@ -192,10 +192,36 @@ The engine is domain-agnostic. You define your own contexts, evidence, gates, an
 ## Relationship to FPF
 
 Based on [ailev/FPF](https://github.com/ailev/FPF) by Anatoly Levenchuk.  
-Independent implementation, MIT-licensed, with further development rights.
+Acknowledged as inspiration and source material, not as a scope lock.
+
+This package is an independent implementation, MIT-licensed, and free to
+be used in other developments under its own copyright notice. It keeps
+its own runtime scope and, where needed to preserve that scope, omits or
+explicitly rejects parts of FPF rather than inheriting the framework as
+an inseparable whole.
 
 FPF is the broad frame.  
 This package is the compact runtime traversal tool.
+
+---
+
+## Ownership and attribution
+
+- Copyright owner: **igareosh.com**
+- Contact: **igareosh@igareosh.com**
+- GitHub / Telegram: **@igareosh**
+- Inspiration acknowledged: **Anatoly Levenchuk / `ailev/FPF`**
+
+Plain-language attribution and scope boundaries live in
+[NOTICE](NOTICE).
+
+---
+
+## Provenance
+
+Repository-wide SHA-256 fingerprints live in [SHA256SUMS](SHA256SUMS).
+They give a simple integrity proof for the tracked source state that
+ships with this repository.
 
 ---
 
@@ -229,6 +255,8 @@ Mainstream docs stay focused on runtime behavior and integration.
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+For ownership, attribution, and scope notes, see [NOTICE](NOTICE).
 
 ---
 
