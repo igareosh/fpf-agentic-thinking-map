@@ -169,7 +169,7 @@ Interpretation:
 ```bash
 pip install -r scripts/requirements-triple-tax.txt
 OPENAI_API_KEY=... python scripts/triple_tax_calculus.py \
-  --write-md TRIPLE_TAX_CALCULUS.md \
+  --write-md docs/deep/TRIPLE_TAX_CALCULUS.md \
   --json-out triple_tax_calculus.json
 ```
 

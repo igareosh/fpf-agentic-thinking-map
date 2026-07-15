@@ -24,7 +24,9 @@ Use this index when you need rationale and provenance behind design choices.
 - **Why this package exists / compile rationale:**
   - [WHY_THIS_EXISTS.md](deep/WHY_THIS_EXISTS.md)
 - **Token/cost methodology:**
-  - [TRIPLE_TAX_CALCULUS.md](../TRIPLE_TAX_CALCULUS.md)
+  - [TRIPLE_TAX_CALCULUS.md](deep/TRIPLE_TAX_CALCULUS.md)
+- **Reflections and design notes:**
+  - [REFLECTIONS.md](deep/REFLECTIONS.md)
 - **Source mapping and relation audit:**
   - [SOURCES.md](deep/SOURCES.md)
   - [FPF_SOURCE_TO_CODE_RELATION_AUDIT.md](deep/FPF_SOURCE_TO_CODE_RELATION_AUDIT.md)

@@ -1033,7 +1033,7 @@ def build_markdown(report: dict[str, Any]) -> str:
     add("```bash")
     add("pip install -r scripts/requirements-triple-tax.txt")
     add("OPENAI_API_KEY=... python scripts/triple_tax_calculus.py \\")
-    add("  --write-md TRIPLE_TAX_CALCULUS.md \\")
+    add("  --write-md docs/deep/TRIPLE_TAX_CALCULUS.md \\")
     add("  --json-out triple_tax_calculus.json")
     add("```")
     add("")
