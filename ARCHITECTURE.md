@@ -1,6 +1,6 @@
 # Architecture
 
-Visual scheme of the thinking map — how the pieces connect.
+Visual scheme of the thinking map — what each part does and how they fit together.
 
 ## Module dependency
 
@@ -42,7 +42,7 @@ graph LR
 
 ## How a step works
 
-`step()` is the focused, operational path — it can return 6 of the 10 declared outcomes. `ESCALATE` only comes from `attempt_bridge()` (below). `ASK`, `PUBLISH`, and `REVISE_PLAN` are declared in `OutcomeKind` and named in the module docstring, but no code path returns them yet — reserved, not implemented.
+`step()` is the normal runtime path. It can return 6 of the 10 declared outcomes. `ESCALATE` only comes from `attempt_bridge()` (below). `ASK`, `PUBLISH`, and `REVISE_PLAN` exist in `OutcomeKind`, but nothing returns them yet.
 
 ```mermaid
 flowchart TD
@@ -76,7 +76,7 @@ flowchart TD
     style IDLE fill:#3a3a3a,color:#fff
 ```
 
-`step()` only *advertises* a bridge as available (`BRIDGE`, advisory metadata). Enacting one is a separate call:
+`step()` does not cross a bridge by itself. It only reports that a bridge is available (`BRIDGE`). Actually crossing it is a separate call:
 
 ```mermaid
 flowchart LR
@@ -91,11 +91,15 @@ flowchart LR
     style CONT3 fill:#2d5016,color:#fff
 ```
 
-`attempt_transition()` (enacting an advertised move) is narrower still: `ABSTAIN` (not found, wrong context, wrong state, gate blocks, guards deny), `COLLECT_EVIDENCE` (missing evidence or gate abstains), or `CONTINUE` (transitioned).
+`attempt_transition()` is simpler than `step()`. It either:
+
+- returns `ABSTAIN` if the move is invalid
+- returns `COLLECT_EVIDENCE` if required evidence is missing
+- returns `CONTINUE` if the transition succeeds
 
 ## Logic layer — how the 6 operators compose
 
-Not one atom per rule — every rule in the shipped example (`examples.build_deploy_rules()`) fans multiple atomic facts through one or more operators before it becomes a `DecisionRule`. This is the real ruleset, not an illustration:
+These are real shipped rules from `examples.build_deploy_rules()`, not toy examples. A rule is usually made from several small facts combined through logic operators.
 
 ```mermaid
 graph TB
@@ -181,9 +185,9 @@ graph TB
     style PROCEED fill:#2d5016,color:#fff
 ```
 
-All 6 operators appear in real, currently-shipped rules — not one demo per operator in isolation, but genuine multi-atom compositions: `deploy_readiness` alone chains two `AND`s across three atoms before it's a rule. `risk_escalation` nests `AND` inside `IMPLIES`. `HasMissingEvidence` (`HG`) and `GatePasses` (`GD`) each feed two different rules — the same atom is reused across compound expressions, not one-to-one.
+All 6 operators are used in real rules. The main point is simple: the engine does not read one flag and jump. It combines several facts first, then decides.
 
-Two rule kinds don't reach `consistency_check()`: `HINT` and `WARN` rules land in `facts`, informational only. Only `ROUTE` and `BLOCK` rules land in `actions`, and only those are checked against each other's `exclusive_with` list. `deploy_readiness` (ROUTE) excludes `block_transition` — if some other active rule's action is literally the string `"block_transition"` while `deploy_readiness` is also satisfied, `consistency_check()` flags a contradiction and `step()` returns `ABSTAIN` before guards ever run.
+Two rule kinds never participate in contradiction checking: `HINT` and `WARN`. They are informational only. Only `ROUTE` and `BLOCK` produce actions, and only those actions are checked for conflicts. If two action rules clash, `step()` stops and returns `ABSTAIN` before guards run.
 
 ## Semantic floors and TTL decay
 
@@ -268,7 +272,7 @@ graph TD
     style MODEL fill:#1a3a5c,color:#fff
 ```
 
-`gate.decision` is the enum's `.value` string, not its name — `GateDecision.ABSTAIN` serializes as `"insufficient"`, `GateDecision.DEGRADE` as `"partial"`. The model reads the JSON string, never the Python name.
+`gate.decision` uses the JSON value, not the Python enum name. So the model sees `"insufficient"` or `"partial"`, not `GateDecision.ABSTAIN` or `GateDecision.DEGRADE`.
 
 ## The triple tax — raw FPF vs compiled
 
@@ -298,7 +302,11 @@ graph LR
     style OUT2 fill:#2d5016,color:#fff
 ```
 
-This diagram was a diagnosis, unmeasured, for over a year of this package's life. [`TRIPLE_TAX_CALCULUS.md`](docs/deep/TRIPLE_TAX_CALCULUS.md) measures the token/cost part strongly: real token counts on 5 shipped decision points put the compiled slice at a 4668.8x reduction against the raw spec's 2,247,567 tokens. One part of the diagram above genuinely wasn't confirmed, and one part is unconfirmable with a live model at all — both reported plainly rather than left implicit, same reason `SOURCES.md` says what it invented instead of staying silent. The 3-pass raw-FPF path was **never live-tested** — the raw spec is 2,247,567 tokens, past any practical context window, so only its token count was measured, not its actual reasoning behavior; the "3 passes" framing above is untested, not falsified. The live probe that *did* run on the compiled side did **not** return a stable pass structure either; self-reports were unstable and should not be treated as measured cognition phases. Separately, the shipped multi-step traversal measured linear accumulation over a 3-step example, not a strong superlinear compounding curve. The token-count advantage is real, large, and directly measured. The exact pass-by-pass mechanism remains an untested hypothesis and should stay proposal-soft unless new evidence improves it.
+Plain version: the compiled map is much smaller and cheaper to run than raw FPF in-context. That part is measured. The exact inner "pass-by-pass" story in the diagram is explanatory, not something we claim to have fully measured step by step.
+
+[`TRIPLE_TAX_CALCULUS.md`](docs/deep/TRIPLE_TAX_CALCULUS.md) measures the token/cost side directly: on 5 shipped decision points, the compiled slice was 4668.8x smaller than the full raw spec token load of 2,247,567 tokens.
+
+Important limit: the raw 3-pass path in the diagram was **not** live-tested end to end, because the raw spec is too large for any practical context window. Only token size was measured there. On the compiled side, live runs were measured, but not as a stable literal cognition trace. So the strong claim here is the runtime size/cost difference, not a precise psychological model of how the LLM "thinks."
 
 ## Deploy scenario — full flow
 
@@ -333,7 +341,7 @@ sequenceDiagram
 
 ## What's declared vs. what's reachable
 
-The module docstring in `traversal.py` lists all 10 `OutcomeKind` values as if equally live. Checked against the actual code (via `run_scenario`/`run_verify`, not just reading), 7 are reachable and 3 are dead enum values with no producing code path:
+`traversal.py` declares 10 `OutcomeKind` values, but not all of them are active in runtime today. Checked against actual code paths, 7 are reachable and 3 are currently unused:
 
 | Outcome | Reachable from | Status |
 |---|---|---|
@@ -348,7 +356,7 @@ The module docstring in `traversal.py` lists all 10 `OutcomeKind` values as if e
 | `PUBLISH` | — | declared, unreachable |
 | `REVISE_PLAN` | — | declared, unreachable |
 
-Not a bug — `PublicationPrimitive`/`WorkPlanPrimitive` exist and are floor-tagged, so the primitives these outcomes would attach to are already modeled; the traversal-side wiring to actually emit `PUBLISH` on a publish move or `REVISE_PLAN` on a plan-revision move just isn't built yet. Recorded here instead of left implicit, same reason `SOURCES.md` now says what it invented instead of staying silent about it.
+This is not a bug. The underlying primitives already exist, but the traversal layer does not emit those outcomes yet. In simple terms: the types are there, the runtime wiring is not.
 
 ---
 
