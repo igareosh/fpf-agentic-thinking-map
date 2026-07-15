@@ -1,6 +1,6 @@
 # FPF Agentic Thinking Map
 
-**v1.4.25** — a compact runtime map for LLM agents.
+**v1.5.0** — a compact runtime map for LLM agents.
 
 Built from [FPF (First Principles Framework)](https://github.com/ailev/FPF) as a bounded traversal core: explicit state, lawful next move, inspectable outcomes.
 
