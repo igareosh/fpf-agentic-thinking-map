@@ -1,39 +1,13 @@
-"""fpf-thinking-map test MCP — broad scenario testing against FPF semantics.
+"""dev_mcp server for agentic testing of fpf_thinking_map.
 
-Dev-only tool. Not shipped in the PyPI package (lives outside fpf_thinking_map/,
-excluded from the build by pyproject.toml's packages.find include list).
+Agent-first summary:
+- Run scenarios quickly: run_scenario(code, scope)
+- Run shipped verification: run_verify()
+- Read deep docs when needed: sources, gap audit, advisories
 
-verify.py proves the engine's own logic is internally consistent. It does not
-prove the compiled map covers the breadth of what the original FPF spec
-describes — examples.py has exactly one domain (deploy decision, 5 scenarios).
-This server exposes the engine's construction/traversal surface generically,
-plus the documents that already ground FPF semantics in this repo
-(SOURCES.md, FPF_SOURCE_TO_CODE_RELATION_AUDIT.md, ADVISORIES.md), so an LLM
-session can construct new scenarios ad hoc and drive them against known,
-cited gaps instead of the ~20 hand-picked fixtures already in verify.py.
-Findings that turn out to be "the library is minimal here on purpose, but
-an integrator needs to know" go into ADVISORIES.md, not the audit backlog —
-see get_advisories().
-
-Two modes, one tool, distinguished by which repo should track a finding:
-  - core           — testing fpf_thinking_map's own shipped primitives/engine.
-                      Review each result live. Use this as the publisher
-                      mode for checking the released default, alongside
-                      verify.py. Track findings in this repo.
-  - user-extension  — testing a domain map someone built on top of the
-                      shipped primitives, above the general mapping this
-                      library ships. Review each result the same way, then
-                      track findings in the integrating repo. The case where
-                      the shipped package runs in a production agent without
-                      interactive inspection is outside this server; that is
-                      ordinary `pip install fpf-thinking-map` usage.
-
-run_scenario requires scope to be set to one of the above on every call.
-Treat it as mandatory self-tagging, not as a permission gate, so a finding
-stays attached to the repo that should track it.
-
-Run: python -m dev_mcp.server  (from the repo root, with fpf_thinking_map
-installed — `pip install -e .` first)
+scope is required on run_scenario:
+- core: testing shipped library behavior
+- user-extension: testing downstream maps built on top
 """
 
 from __future__ import annotations
@@ -62,18 +36,9 @@ _VALID_SCOPES = {"core", "user-extension"}
 
 @mcp.tool(
     description=(
-        "Run arbitrary Python constructing/driving a fpf_thinking_map scenario. "
-        "All fpf_thinking_map primitives, state, guards, logic, and traversal classes "
-        "are pre-imported. Assign to `result` for it to be returned. This is the same "
-        "thing examples.py and verify.py's check_* functions do in code — this just "
-        "gives it a tool-call interface instead of an edit-and-reinstall cycle.\n\n"
-        "scope is mandatory self-tagging, not a permission gate. It records which repo "
-        "should track a finding at the source: 'core' = testing fpf_thinking_map's own "
-        "shipped primitives/engine (publisher scope — track findings in this repo, for "
-        "example in FPF_SOURCE_TO_CODE_RELATION_AUDIT.md). 'user-extension' = testing a "
-        "domain map someone built on top of the shipped primitives, above the general "
-        "mapping this library ships (consumer scope — track findings in the integrating "
-        "project, not here)."
+        "Run Python scenario code with fpf_thinking_map classes pre-imported. "
+        "Assign to `result` to return output. "
+        "scope is required: core (library behavior) or user-extension (downstream map behavior)."
     )
 )
 def run_scenario(code: str, scope: str) -> str:
@@ -121,8 +86,7 @@ def run_scenario(code: str, scope: str) -> str:
 
 @mcp.tool(
     description=(
-        "Primitive -> FPF spec section mapping (SOURCES.md). Read before constructing "
-        "a scenario meant to probe a specific FPF concept (e.g. A.2.7 role incompatibility)."
+        "Return source mapping doc (docs/deep/SOURCES.md)."
     )
 )
 def get_fpf_source_mapping() -> str:
@@ -133,10 +97,8 @@ def get_fpf_source_mapping() -> str:
 
 @mcp.tool(
     description=(
-        "50-item FPF-spec-to-code gap backlog (R01-R50), each with spec line citations "
-        "and a status: missing / partial / wrong-shape. Optional status_filter narrows "
-        "to matching rows (case-insensitive substring, e.g. 'missing'). Use this as a "
-        "menu of known, cited gaps to target with run_scenario."
+        "Return spec-to-code gap backlog (docs/deep/FPF_SOURCE_TO_CODE_RELATION_AUDIT.md). "
+        "Use status_filter to narrow rows."
     )
 )
 def get_audit_gaps(status_filter: str = "") -> str:
@@ -161,11 +123,7 @@ def get_audit_gaps(status_filter: str = "") -> str:
 
 @mcp.tool(
     description=(
-        "Publisher advisories for integrators (ADVISORIES.md, kept in repo docs/deep). "
-        "Not defects — places where the library deliberately stays minimal and leaves a real "
-        "decision to whoever builds a domain map on top of it, with what the default behavior "
-        "is, why, and exactly how to get stricter behavior if your domain needs it. Read this "
-        "before assuming default behavior matches what your domain requires."
+        "Return integrator advisories (docs/deep/ADVISORIES.md)."
     )
 )
 def get_advisories() -> str:
