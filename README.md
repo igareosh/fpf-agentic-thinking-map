@@ -9,6 +9,7 @@ Python 3.12+ · MIT · zero runtime dependencies
 - [Visual architecture →](ARCHITECTURE.md)
 - [Live demo →](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)
 - [Release history →](https://github.com/igareosh/fpf-agentic-thinking-map/releases)
+- [Deep decisions/rejections/adoptions →](docs/DECISIONS_REJECTIONS_ADOPTIONS.md)
 
 ---
 
@@ -185,6 +186,16 @@ This package is the compact runtime traversal tool.
 
 Works with model families that can read structured JSON and follow constraints.
 No model-specific prompt protocol is required by the engine itself.
+
+---
+
+## Deep technical notes (optional)
+
+If you need theory, adoption/rejection rationale, and analysis provenance, use:
+
+- [Decisions, rejections, adoptions index](docs/DECISIONS_REJECTIONS_ADOPTIONS.md)
+
+Mainstream docs stay focused on runtime behavior and integration.
 
 ---
 
