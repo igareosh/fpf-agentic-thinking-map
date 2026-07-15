@@ -988,7 +988,7 @@ def build_markdown(report: dict[str, Any]) -> str:
         )
     )
     add("- Growth shape on the shipped traversal: `linear`.")
-    add("- The line in `WHY_THIS_EXISTS.md` about `36 passes where 6 would suffice` is not directly testable from the shipped example because the shipped example here is 3 steps, not 6. See [Verification](fpf_thinking_map/WHY_THIS_EXISTS.md#verification) in that file for the full audit.")
+    add("- The line in `WHY_THIS_EXISTS.md` about `36 passes where 6 would suffice` is not directly testable from the shipped example because the shipped example here is 3 steps, not 6. See [Verification](docs/deep/WHY_THIS_EXISTS.md#verification) in that file for the full audit.")
     add("")
     add("## What The Test Says")
     add("")

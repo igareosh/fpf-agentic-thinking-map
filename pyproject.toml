@@ -40,4 +40,4 @@ build-backend = "setuptools.build_meta"
 include = ["fpf_thinking_map*"]
 
 [tool.setuptools.package-data]
-fpf_thinking_map = ["py.typed", "*.md"]
+fpf_thinking_map = ["py.typed"]

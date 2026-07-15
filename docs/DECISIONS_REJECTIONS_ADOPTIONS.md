@@ -7,34 +7,34 @@ Use this index when you need rationale and provenance behind design choices.
 ## Adoptions
 
 - **A.15.5 Work-Entry Readiness (adopted):**
-  - [FPF scope audit log](../fpf_thinking_map/FPF_SCOPE_AUDIT_LOG.md)
-  - [FPF audit response](../fpf_thinking_map/FPF_AUDIT_RESPONSE.md)
+  - [FPF scope audit log](deep/FPF_SCOPE_AUDIT_LOG.md)
+  - [FPF audit response](deep/FPF_AUDIT_RESPONSE.md)
 
 ## Rejections
 
 - **C.32 Candidate-Synthesis Logic (rejected):**
-  - [REJECTED_C32_CANDIDATE_SYNTHESIS.md](../fpf_thinking_map/REJECTED_C32_CANDIDATE_SYNTHESIS.md)
+  - [REJECTED_C32_CANDIDATE_SYNTHESIS.md](deep/REJECTED_C32_CANDIDATE_SYNTHESIS.md)
 - **NQD/OEE/Cultural Evolution family (rejected):**
-  - [REJECTED_NQD_OEE_CULTURAL_EVOLUTION.md](../fpf_thinking_map/REJECTED_NQD_OEE_CULTURAL_EVOLUTION.md)
+  - [REJECTED_NQD_OEE_CULTURAL_EVOLUTION.md](deep/REJECTED_NQD_OEE_CULTURAL_EVOLUTION.md)
 - **F.17 Unified Term Sheet (rejected):**
-  - [REJECTED_F17_UNIFIED_TERM_SHEET.md](../fpf_thinking_map/REJECTED_F17_UNIFIED_TERM_SHEET.md)
+  - [REJECTED_F17_UNIFIED_TERM_SHEET.md](deep/REJECTED_F17_UNIFIED_TERM_SHEET.md)
 
 ## Analysis and rationale
 
 - **Why this package exists / compile rationale:**
-  - [WHY_THIS_EXISTS.md](../fpf_thinking_map/WHY_THIS_EXISTS.md)
+  - [WHY_THIS_EXISTS.md](deep/WHY_THIS_EXISTS.md)
 - **Token/cost methodology:**
   - [TRIPLE_TAX_CALCULUS.md](../TRIPLE_TAX_CALCULUS.md)
 - **Source mapping and relation audit:**
-  - [SOURCES.md](../fpf_thinking_map/SOURCES.md)
-  - [FPF_SOURCE_TO_CODE_RELATION_AUDIT.md](../fpf_thinking_map/FPF_SOURCE_TO_CODE_RELATION_AUDIT.md)
+  - [SOURCES.md](deep/SOURCES.md)
+  - [FPF_SOURCE_TO_CODE_RELATION_AUDIT.md](deep/FPF_SOURCE_TO_CODE_RELATION_AUDIT.md)
 - **Integrator advisories:**
-  - [ADVISORIES.md](../fpf_thinking_map/ADVISORIES.md)
+  - [ADVISORIES.md](deep/ADVISORIES.md)
 - **Architecture-level walkthrough:**
   - [ARCHITECTURE.md](../ARCHITECTURE.md)
 - **Related work comparisons:**
-  - [RELATED_WORK_MILTONIAN_PRINCIPLES.md](../fpf_thinking_map/RELATED_WORK_MILTONIAN_PRINCIPLES.md)
-  - [RELATED_WORK_GOFLOW_FPF_SKILL.md](../fpf_thinking_map/RELATED_WORK_GOFLOW_FPF_SKILL.md)
+  - [RELATED_WORK_MILTONIAN_PRINCIPLES.md](deep/RELATED_WORK_MILTONIAN_PRINCIPLES.md)
+  - [RELATED_WORK_GOFLOW_FPF_SKILL.md](deep/RELATED_WORK_GOFLOW_FPF_SKILL.md)
 
 ## Positioning
 

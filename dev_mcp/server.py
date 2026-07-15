@@ -51,9 +51,10 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("fpf-thinking-map-test")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SOURCES_MD = REPO_ROOT / "fpf_thinking_map" / "SOURCES.md"
-AUDIT_MD = REPO_ROOT / "fpf_thinking_map" / "FPF_SOURCE_TO_CODE_RELATION_AUDIT.md"
-ADVISORIES_MD = REPO_ROOT / "fpf_thinking_map" / "ADVISORIES.md"
+DEEP_DOCS = REPO_ROOT / "docs" / "deep"
+SOURCES_MD = DEEP_DOCS / "SOURCES.md"
+AUDIT_MD = DEEP_DOCS / "FPF_SOURCE_TO_CODE_RELATION_AUDIT.md"
+ADVISORIES_MD = DEEP_DOCS / "ADVISORIES.md"
 
 
 _VALID_SCOPES = {"core", "user-extension"}
@@ -160,7 +161,7 @@ def get_audit_gaps(status_filter: str = "") -> str:
 
 @mcp.tool(
     description=(
-        "Publisher advisories for integrators (ADVISORIES.md, ships in the PyPI package). "
+        "Publisher advisories for integrators (ADVISORIES.md, kept in repo docs/deep). "
         "Not defects — places where the library deliberately stays minimal and leaves a real "
         "decision to whoever builds a domain map on top of it, with what the default behavior "
         "is, why, and exactly how to get stricter behavior if your domain needs it. Read this "

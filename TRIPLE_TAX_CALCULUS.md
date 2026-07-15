@@ -134,7 +134,7 @@ Interpretation:
 - Cumulative raw section-pack decision-prompt tokens: `273228` local, `273334` billed
 - Decision-step ratio: `298.9x` local, `268.0x` billed
 - Growth shape on the shipped traversal: `linear`.
-- The line in `WHY_THIS_EXISTS.md` about `36 passes where 6 would suffice` is not directly testable from the shipped example because the shipped example here is 3 steps, not 6. See [Verification](fpf_thinking_map/WHY_THIS_EXISTS.md#verification) in that file for the full audit.
+- The line in `WHY_THIS_EXISTS.md` about `36 passes where 6 would suffice` is not directly testable from the shipped example because the shipped example here is 3 steps, not 6. See [Verification](docs/deep/WHY_THIS_EXISTS.md#verification) in that file for the full audit.
 
 ## What The Test Says
 
