@@ -6,6 +6,9 @@ Built from [FPF (First Principles Framework)](https://github.com/ailev/FPF) as a
 
 Python 3.12+ · MIT · zero runtime dependencies
 
+Published as a small community implementation: free to use, open to inspect,
+and meant to be a practical point of discussion rather than a total framework.
+
 ## At a glance
 
 [![PyPI version](https://img.shields.io/pypi/v/fpf-thinking-map?label=PyPI)](https://pypi.org/project/fpf-thinking-map/)
@@ -194,20 +197,19 @@ The engine is domain-agnostic. You define your own contexts, evidence, gates, an
 Based on [ailev/FPF](https://github.com/ailev/FPF) by Anatoly Levenchuk.  
 Acknowledged as inspiration and source material, not as a scope lock.
 
-This package is an independent implementation, MIT-licensed, and free to
-be used in other developments under its own copyright notice. It keeps
-its own runtime scope and, where needed to preserve that scope, omits or
-explicitly rejects parts of FPF rather than inheriting the framework as
-an inseparable whole.
+This package is an independent implementation, MIT-licensed, and open to
+reuse in other developments. It keeps its own runtime scope and, where
+needed to preserve that scope, omits or explicitly rejects parts of FPF
+rather than inheriting the framework as an inseparable whole.
 
 FPF is the broad frame.  
 This package is the compact runtime traversal tool.
 
 ---
 
-## Ownership and attribution
+## Community and attribution
 
-- Copyright owner: **igareosh.com**
+- Maintained by: **igareosh.com**
 - Contact: **igareosh@igareosh.com**
 - GitHub / Telegram: **@igareosh**
 - Inspiration acknowledged: **Anatoly Levenchuk / `ailev/FPF`**
