@@ -72,6 +72,20 @@ It does not overwrite user meaning and does not replace model intelligence.
 
 ---
 
+## Measured per step
+
+This was tested on **5 shipped decision points**.
+
+- compiled `state.slice()` averaged **481.4 tokens per decision**
+- raw FPF exact-section prompt averaged **138977.2 tokens per decision**
+- that is **288.7x smaller per decision**
+- in live billed input tokens, compiled averaged **537.4** vs raw **139194.6**
+- that is a **259.0x** live per-decision input gap
+
+Full measurement: [TRIPLE_TAX_CALCULUS.md](docs/deep/TRIPLE_TAX_CALCULUS.md)
+
+---
+
 ## Scope
 
 This package is intentionally narrow.

@@ -304,7 +304,16 @@ graph LR
 
 Plain version: the compiled map is much smaller and cheaper to run than raw FPF in-context. That part is measured. The exact inner "pass-by-pass" story in the diagram is explanatory, not something we claim to have fully measured step by step.
 
-[`TRIPLE_TAX_CALCULUS.md`](docs/deep/TRIPLE_TAX_CALCULUS.md) measures the token/cost side directly: on 5 shipped decision points, the compiled slice was 4668.8x smaller than the full raw spec token load of 2,247,567 tokens.
+What was actually tested:
+
+- **5 shipped decision points**
+- compiled `state.slice()` averaged **481.4 tokens per decision**
+- raw FPF exact-section prompt averaged **138977.2 tokens per decision**
+- that is **288.7x** smaller per decision
+- in live billed input tokens, compiled averaged **537.4** vs raw **139194.6**
+- that is a **259.0x** live per-decision input gap
+
+[`TRIPLE_TAX_CALCULUS.md`](docs/deep/TRIPLE_TAX_CALCULUS.md) also shows the larger boundary case: the full raw spec token load is 2,247,567 tokens, so the compiled slice is 4668.8x smaller than the full monolith.
 
 Important limit: the raw 3-pass path in the diagram was **not** live-tested end to end, because the raw spec is too large for any practical context window. Only token size was measured there. On the compiled side, live runs were measured, but not as a stable literal cognition trace. So the strong claim here is the runtime size/cost difference, not a precise psychological model of how the LLM "thinks."
 
