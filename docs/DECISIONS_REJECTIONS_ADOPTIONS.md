@@ -18,6 +18,8 @@ Use this index when you need rationale and provenance behind design choices.
   - [REJECTED_NQD_OEE_CULTURAL_EVOLUTION.md](deep/REJECTED_NQD_OEE_CULTURAL_EVOLUTION.md)
 - **F.17 Unified Term Sheet (rejected):**
   - [REJECTED_F17_UNIFIED_TERM_SHEET.md](deep/REJECTED_F17_UNIFIED_TERM_SHEET.md)
+- **A.22.CGUS as model self-admissibility procedure (rejected as practice; pattern acknowledged):**
+  - [REJECTED_A22_CGUS_MODEL_SELF_ADMISSIBILITY.md](deep/REJECTED_A22_CGUS_MODEL_SELF_ADMISSIBILITY.md)
 
 ## Analysis and rationale
 
