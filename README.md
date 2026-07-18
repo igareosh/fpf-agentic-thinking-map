@@ -24,7 +24,17 @@ and meant to be a practical point of discussion rather than a total framework.
 [![Traversal](https://img.shields.io/badge/traversal-no%20semantic%20bloat-111827)](#what-this-is)
 [![Runtime shape](https://img.shields.io/badge/runtime-JSON%20slice%20per%20step-1f6feb)](#runtime-contract)
 
-- [Visual architecture →](ARCHITECTURE.md)
+Badges above describe the **core engine** (`fpf_thinking_map/`, what PyPI ships).
+`dev_mcp/` is separate dev-only tooling for agentic testing against that engine —
+not shipped, own test suite, own count, on purpose kept distinct rather than
+folded into the numbers above:
+
+[![dev_mcp self-test](https://img.shields.io/badge/dev__mcp%20self--test-30%2F30%20pass-1f6feb)](dev_mcp/test_server.py)
+[![dev_mcp compliance mode](https://img.shields.io/badge/dev__mcp-compliance%20mode-1a3a5c)](dev_mcp/compliance_inspector.py)
+[![dev_mcp advisories](https://img.shields.io/badge/integrator%20advisories-9-8b6914)](docs/deep/ADVISORIES.md)
+
+- [Visual architecture →](ARCHITECTURE.md) (core engine)
+- [dev_mcp visual architecture →](dev_mcp/ARCHITECTURE.md) (MCP tool layer, testing mode)
 - [Live demo →](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)
 - [Release history →](https://github.com/igareosh/fpf-agentic-thinking-map/releases)
 - [Deep decisions/rejections/adoptions →](docs/DECISIONS_REJECTIONS_ADOPTIONS.md)
