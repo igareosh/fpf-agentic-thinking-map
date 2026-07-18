@@ -84,4 +84,16 @@ Confirmed directly: a rule wired `condition=RiskAbove("critical"), action_if_tru
 
 ---
 
-*v1 — 2026-07-08 (ADV-01/02), v2 — 2026-07-08 (ADV-03..06), v3 — 2026-07-08 (ADV-07). All found by actually running scenarios through `dev_mcp` (`scope="core"`), not by inspection or guesswork. More advisories get added here the same way — dug up, not invented.*
+## ADV-08 — no persistence surface: session continuity is a harness responsibility, not an engine one
+
+**What**: `ActiveState`, `RuntimeBinding`, and `MoveTrace` are plain `@dataclass` objects with no serialization surface — no `to_dict`/`from_dict`/`__getstate__`/`asdict` anywhere in `state.py`. There is no library-supported way to persist a session and hand it back to the engine later.
+
+A harness that builds its own persistence anyway (pickling `RuntimeBinding` + `current_state`, reconstructing `ActiveState` on reload) will silently zero the stagnation counter (`#28`) on every reload. Its backing store — `_evidence_added_at`, `_state_visits`, `_state_visit_evidence` — is declared `init=False`: the dataclass constructor does not accept them as arguments. A naive rebuild produces a structurally valid `ActiveState` that has forgotten every prior visit. `visits_remaining` resets to full budget across exactly the boundary (idle resume, LLM context compaction, process restart) where a harness would most want it preserved.
+
+**Why this is the default**: same shape as `ADV-03` — the engine is stateless per call, has no session concept, and persistence is a harness-owned decision the library can't make without guessing your storage layer (in-memory dict, Redis, disk, a database row keyed by conversation id — all legitimate, none of fpf's business to pick).
+
+**How to close the gap**: this is not an engine feature to request — it's a decision for whichever harness wraps the engine (an MCP server, an agent runtime, a CLI loop). If your harness needs continuity across idle periods, LLM-side context compaction, or process restarts: persist `RuntimeBinding` + `current_state` + `trace` yourself, and if `#28`'s stagnation counter needs to survive that boundary too, reach into `_evidence_added_at`/`_state_visits`/`_state_visit_evidence` directly — not through the constructor, since they're `init=False` — and restore them explicitly. fpf's own contribution stops at keeping the re-injectable payload small enough to make this practical: `slice()` (measured ~481 tokens/decision) and `to_llm_prompt_state()` are both already scoped to the current move, not the whole map — carrying them across a persistence boundary is the harness's call to make, not fpf's to force.
+
+---
+
+*v1 — 2026-07-08 (ADV-01/02), v2 — 2026-07-08 (ADV-03..06), v3 — 2026-07-08 (ADV-07), v4 — 2026-07-18 (ADV-08). All found by actually running scenarios through `dev_mcp` (`scope="core"`) or reading the shipped source directly, not by inspection or guesswork. More advisories get added here the same way — dug up, not invented.*
