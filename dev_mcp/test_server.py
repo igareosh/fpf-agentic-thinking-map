@@ -19,6 +19,7 @@ from dev_mcp.server import (
     get_advisories,
     get_advisory_log,
     get_audit_gaps,
+    get_compliance_log,
     get_fpf_source_mapping,
     run_scenario,
     run_verify,
@@ -318,6 +319,84 @@ result = "ok"
     assert "ADV-07" in most_recent["advisories"], f"expected the just-triggered ADV-07 at the top: {most_recent}"
 
 
+# ── Compliance mode (fit/drift tally on attempt_transition/attempt_bridge, no interpretation) ──
+
+
+def check_compliance_off_by_default():
+    """Negative control: without compliance_mode=True, no "compliance" key at all."""
+    code = """
+sm = SemanticMap()
+sm.register_context(ContextPrimitive("ctx", "Test"))
+sm.register_transition(TransitionPrimitive("t1", "Go", "ctx", "start", "done"))
+engine = ThinkingMapTraversal(sm)
+state = engine.build_active_state(RuntimeBinding(active_context_id="ctx"), current_state="start")
+out = engine.attempt_transition(state, "t1")
+result = out.kind.value
+"""
+    out = json.loads(run_scenario(code, scope="core"))
+    assert "compliance" not in out, "compliance key must not appear unless compliance_mode=True"
+
+
+def check_compliance_fit_recorded():
+    code = """
+sm = SemanticMap()
+sm.register_context(ContextPrimitive("ctx", "Test"))
+sm.register_transition(TransitionPrimitive("t1", "Go", "ctx", "start", "done"))
+engine = ThinkingMapTraversal(sm)
+state = engine.build_active_state(RuntimeBinding(active_context_id="ctx"), current_state="start")
+out = engine.attempt_transition(state, "t1")
+result = out.kind.value
+"""
+    out = json.loads(run_scenario(code, scope="core", compliance_mode=True))
+    c = out["compliance"]
+    assert c == {"total_attempts": 1, "fit_map": 1, "drifted": 0, "drift_entries": []}, c
+    assert "address" not in c, "no drift, no address note needed"
+
+
+def check_compliance_drift_recorded():
+    """The map's own verdict (not our interpretation) on a move that doesn't fit."""
+    code = """
+sm = SemanticMap()
+sm.register_context(ContextPrimitive("ctx", "Test"))
+sm.register_transition(TransitionPrimitive("t1", "Go", "ctx", "start", "done"))
+engine = ThinkingMapTraversal(sm)
+state = engine.build_active_state(RuntimeBinding(active_context_id="ctx"), current_state="start")
+out = engine.attempt_transition(state, "not_a_real_transition")
+result = out.kind.value
+"""
+    out = json.loads(run_scenario(code, scope="core", compliance_mode=True))
+    c = out["compliance"]
+    assert c["total_attempts"] == 1 and c["fit_map"] == 0 and c["drifted"] == 1, c
+    entry = c["drift_entries"][0]
+    assert entry["requested"] == "not_a_real_transition", entry
+    assert entry["expected"] == ["t1"], f"map's own possible_transitions at that state: {entry}"
+    assert entry["from_state"] == "start", entry
+    assert entry["call"] == "attempt_transition", entry
+    # the outcome kind is whatever the engine itself returned — no synthesized "why"
+    assert set(entry.keys()) == {"call", "requested", "expected", "from_state", "outcome"}, entry
+    address = c["address"]
+    assert "not_a_real_transition" in address, address
+    assert "['t1']" in address, f"expected the map's own offer named in the address note: {address}"
+    assert "(1 total" not in address, "single-drift note must not carry the plural pointer"
+
+
+def check_compliance_log_persists_across_calls():
+    code = """
+sm = SemanticMap()
+sm.register_context(ContextPrimitive("ctx", "Test"))
+sm.register_transition(TransitionPrimitive("t1", "Go", "ctx", "start", "done"))
+engine = ThinkingMapTraversal(sm)
+state = engine.build_active_state(RuntimeBinding(active_context_id="ctx"), current_state="start")
+out = engine.attempt_transition(state, "still-not-real")
+result = out.kind.value
+"""
+    run_scenario(code, scope="core", compliance_mode=True)
+    out = json.loads(get_compliance_log(limit=5))
+    assert out["total_logged"] >= 1, f"expected at least one logged entry, got: {out}"
+    most_recent = out["entries"][0]
+    assert most_recent["summary"]["drifted"] == 1, most_recent
+
+
 def main() -> int:
     print("dev_mcp — self-test")
     print("=" * 55)
@@ -348,6 +427,10 @@ def main() -> int:
         ("advisories: ADV-07 no false positive on correct case", check_adv07_no_false_positive_on_correct_case),
         ("advisories: ADV-08 no persistence surface always noted", check_adv08_no_persistence_surface_always_noted),
         ("advisories: log persists across calls", check_advisory_log_persists_across_calls),
+        ("compliance: off by default", check_compliance_off_by_default),
+        ("compliance: fit recorded", check_compliance_fit_recorded),
+        ("compliance: drift recorded", check_compliance_drift_recorded),
+        ("compliance: log persists across calls", check_compliance_log_persists_across_calls),
     ]
 
     passed = sum(check(name, fn) for name, fn in checks)

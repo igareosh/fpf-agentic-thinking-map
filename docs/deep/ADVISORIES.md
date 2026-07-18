@@ -7,12 +7,27 @@ Each advisory: what the default behavior actually is, why that's the default, an
 **Read these two first if you read nothing else here: [`ADV-03`](#adv-03--active_context_id-is-self-asserted-not-verified-against-how-you-got-there) (context claims aren't verified) and [`ADV-07`](#adv-07--riskaboves-string-matching-is-case-sensitive-and-fails-silently) (a routing rule built exactly as this doc recommends can still silently do the opposite of what you intended). Both are silent — no error, no warning — and both sit directly behind paths this document itself tells you to use.**
 
 **Testing against these directly?** [`dev_mcp`](../../dev_mcp/README.md)'s
-`run_scenario` checks every one of the 8 advisories below against whatever
-`ActiveState` your scenario builds, automatically — no need to reason by
-hand about whether your test case happens to sit in one of these blind
-spots. Hits are returned inline and logged (`get_advisory_log`), so you can
-tell which of these are theoretical for your domain and which your own
-scenarios actually hit.
+`run_scenario` checks every one of the 8 auto-detected advisories below
+against whatever `ActiveState` your scenario builds, automatically — no
+need to reason by hand about whether your test case happens to sit in one
+of these blind spots. Hits are returned inline and logged
+(`get_advisory_log`), so you can tell which of these are theoretical for
+your domain and which your own scenarios actually hit. `ADV-09` isn't part
+of that automatic scan — see its own entry for why not.
+
+## Index
+
+| ID | Tag | One line |
+|----|-----|----------|
+| [`ADV-01`](#adv-01--evidence-staleness-warns-it-does-not-block) | staleness warns | Expired evidence still satisfies `required_evidence` — `WARN`, not `BLOCK` |
+| [`ADV-02`](#adv-02--risk_level-doesnt-filter-transitions-on-its-own) | risk doesn't route | `risk_level` alone changes nothing about which transitions show up |
+| [`ADV-03`](#adv-03--active_context_id-is-self-asserted-not-verified-against-how-you-got-there) | context is self-asserted | sharpest — nothing verifies you actually arrived where you claim to be |
+| [`ADV-04`](#adv-04--contradiction-detection-is-opt-in-not-inferred-from-action-names) | contradictions are opt-in | opposite actions only clash if `exclusive_with` says so |
+| [`ADV-05`](#adv-05--gate-degrade-only-distinguishes-partial-evidence-within-a-single-gatecheck) | DEGRADE needs grouping | split evidence across checks and `DEGRADE` can never fire |
+| [`ADV-06`](#adv-06--agency_level-is-descriptive-metadata-not-an-enforced-permission) | agency isn't enforced | `PASSIVE` and `DELIBERATIVE` fire the same transitions unless you gate it |
+| [`ADV-07`](#adv-07--riskaboves-string-matching-is-case-sensitive-and-fails-silently) | case-sensitive risk | sharpest — `"CRITICAL"` silently reads as `"normal"`, no error |
+| [`ADV-08`](#adv-08--no-persistence-surface-session-continuity-is-a-harness-responsibility-not-an-engine-one) | no persistence | no `to_dict`/`from_dict` anywhere — session continuity is the harness's job |
+| [`ADV-09`](#adv-09--compliance-mode-is-a-witness-not-a-fix--and-cant-be-one-without-knowing-your-domain) | **no oracles, no future seers** | compliance mode can show you drift, it cannot know your domain well enough to fix it |
 
 ---
 
@@ -104,4 +119,20 @@ A harness that builds its own persistence anyway (pickling `RuntimeBinding` + `c
 
 ---
 
-*v1 — 2026-07-08 (ADV-01/02), v2 — 2026-07-08 (ADV-03..06), v3 — 2026-07-08 (ADV-07), v4 — 2026-07-18 (ADV-08). All found by actually running scenarios through `dev_mcp` (`scope="core"`) or reading the shipped source directly, not by inspection or guesswork. More advisories get added here the same way — dug up, not invented.*
+## ADV-09 — Compliance mode is a witness, not a fix — and can't be one without knowing your domain
+
+*Tag: no oracles, no future seers.*
+
+**This one is a confession as much as an advisory.** Compliance mode was built trying to go further than a witness — the actual goal, while building it, was a real fix: turn "the model drifted from the map" into something that stops happening, not just something that gets noticed. It doesn't do that, and the honest reason isn't lack of engineering time, it's that no amount of engineering here would have closed it. Every path from "here's a drift" to "here's a fix" ran back into the same wall: we don't know if a given drift is a real problem or the map missing something legitimate, because we don't know what this is deployed into. We are not oracles of context. That's not a caveat on top of the advisory — realizing it mid-build is the actual origin of this advisory.
+
+**What**: `dev_mcp`'s compliance mode (`run_scenario(..., compliance_mode=True)`, see `dev_mcp/compliance_inspector.py`) records every `attempt_transition()`/`attempt_bridge()` call's own verdict — `CONTINUE` means the move fit the map, anything else didn't — and returns a tally plus an `address` note naming the mismatch (requested vs. what the map actually offered, `state.possible_transitions`/`bridge_options` at that moment). None of this blocks, corrects, retries, or prevents anything. It is a durable copy of a verdict the engine already computes and would otherwise discard on the next call — same discard-by-design as `MoveTrace` — nothing more.
+
+**Why this is the default**: same root cause as `ADV-01`/`ADV-02`/`ADV-06` — `dev_mcp` has no visibility into what's actually being built on top of `fpf_thinking_map`. A drift entry cannot distinguish "the model made a mistake" from "the map is missing a transition this legitimate task genuinely needed" — those look identical from inside the ledger, and only someone who knows the domain the map is deployed into can tell them apart. Shipping compliance mode as an enforcement layer instead of a witness would mean guessing that distinction on every integrator's behalf, for deployments this repo has no way to know anything about — could be an e-commerce checkout flow, could be something safety-critical, could be a context nobody here has ever seen or would recognize as risky. There is no version of a default-on hard rail that is correct for all of those at once, and shipping one anyway means being wrong for someone, silently, with no way for `dev_mcp` to know it happened.
+
+There's a second cost, not just a coverage gap: a map that hard-blocks without domain grounding stops being a map and starts being a cage. `traversal.py` frames `step()` as "the LLM's guided reasoning loop" on purpose — the design bet is that the model finds the slice useful, not that it's trapped by it. A model that experiences a cage learns to route around it, which manufactures exactly the silent, adversarial drift this tool exists to surface — worse than the original problem, and harder to see, because now it's evasion instead of an honest miss.
+
+**How to close the gap**: this is a per-deployment decision, not a library feature to request — the same shape as `ADV-08`'s answer, pointed at a different question. Run compliance mode against your own real scenarios, read `drift_entries` and `get_compliance_log()` over actual traffic, and decide — with knowledge of your own domain, your own risk tolerance, and what a wrong move there actually costs — whether a specific, repeated drift is worth hardening into a real rail. If it is, build it the way `ADV-01`/`ADV-02`/`ADV-06` already describe: a `GatePrimitive`/`GateCheck` or a `LogicLayer` rule scoped to that exact transition, driving a hard `BLOCK`/`ABSTAIN` instead of leaving it advisory. `dev_mcp` can hand you the evidence that a rail might be warranted. It cannot tell you where the cage should go, or whether your context calls for one at all — that inspection has to happen on your side, against your own model and your own domain, not fpf's.
+
+---
+
+*v1 — 2026-07-08 (ADV-01/02), v2 — 2026-07-08 (ADV-03..06), v3 — 2026-07-08 (ADV-07), v4 — 2026-07-18 (ADV-08), v5 — 2026-07-18 (ADV-09). All found by actually running scenarios through `dev_mcp` (`scope="core"`) or reading the shipped source directly, not by inspection or guesswork — ADV-09 found while building and testing `dev_mcp`'s own compliance-mode tooling in the same session it shipped in. More advisories get added here the same way — dug up, not invented.*

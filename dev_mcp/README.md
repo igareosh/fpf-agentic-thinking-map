@@ -15,7 +15,7 @@ pip install -r dev_mcp/requirements.txt
 python -m dev_mcp.test_server
 ```
 
-Expect: `STATUS: ALL PASS` (25/25).
+Expect: `STATUS: ALL PASS` (29/29).
 
 ## Start MCP server
 
@@ -47,12 +47,13 @@ This is for tracking ownership of findings.
 
 ## Tools (short)
 
-- `run_scenario(code, scope)` — run scenario code (`result` is returned)
+- `run_scenario(code, scope, compliance_mode=False)` — run scenario code (`result` is returned)
 - `run_verify()` — run `python -m fpf_thinking_map.verify`
 - `get_fpf_source_mapping()` — open source mapping doc
 - `get_audit_gaps(status_filter)` — open known gap backlog
 - `get_advisories()` — open integrator advisories
 - `get_advisory_log(limit)` — read back past advisory triggers (see below)
+- `get_compliance_log(limit)` — read back past compliance-mode tallies (see below)
 
 Deep docs used by these tools are under `docs/deep/`.
 
@@ -81,6 +82,28 @@ scenario's own objects show the specific mismatch. `ADV-04` is
 `"heuristic-prompt"` — best-effort, since inferring "these two actions
 are meant to be opposites" is exactly the semantic judgment the advisory
 says the engine doesn't make.
+
+## Compliance mode (a witness, not a fix — see ADV-09)
+
+`run_scenario(code, scope, compliance_mode=True)` records every
+`attempt_transition()`/`attempt_bridge()` call's own verdict — `CONTINUE`
+means the move fit the map, anything else didn't — and returns a tally
+(`total_attempts`, `fit_map`, `drifted`) plus, when something drifted,
+`drift_entries` pairing what was `requested` against what the map's own
+`possible_transitions`/`bridge_options` actually offered at that moment
+(`expected`), and a plain `address` line naming the mismatch directly. It
+persists to `dev_mcp/.state/compliance_log.jsonl` the same way advisory
+hits do; read it back with `get_compliance_log()`.
+
+It does not block, correct, or retry anything — it's a durable copy of a
+verdict the engine already computed and would otherwise discard. Whether
+a repeated drift is worth hardening into a real rail is a per-deployment
+decision this tool cannot make: it has no visibility into what domain the
+map is deployed into, so it can't tell "the model erred" apart from "the
+map is missing something this task legitimately needed," and a hard rail
+built on that guess would be wrong for someone. See `ADV-09` in
+`docs/deep/ADVISORIES.md` for the full reasoning and how to close that gap
+on your own side, with your own domain context.
 
 ## Minimal session example
 

@@ -28,6 +28,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from dev_mcp.advisory_detectors import detect_advisories, find_active_states_and_logic
+from dev_mcp.compliance_inspector import ComplianceLedger, wrap_traversal_class
 
 mcp = FastMCP("fpf-thinking-map-test")
 
@@ -39,6 +40,7 @@ ADVISORIES_MD = DEEP_DOCS / "ADVISORIES.md"
 
 STATE_DIR = REPO_ROOT / "dev_mcp" / ".state"
 ADVISORY_LOG = STATE_DIR / "advisory_log.jsonl"
+COMPLIANCE_LOG = STATE_DIR / "compliance_log.jsonl"
 
 
 _VALID_SCOPES = {"core", "user-extension"}
@@ -75,14 +77,42 @@ def _run_advisory_detection(ns: dict, scope: str, code: str) -> list[dict[str, s
                   "detail": f"{type(exc).__name__}: {exc}"}]
 
 
+def _log_compliance(ledger: ComplianceLedger, scope: str, code: str) -> dict:
+    """Best-effort: summarize the ledger and append it to the durable log.
+
+    Never raises — compliance mode is a witness, not a gate; a logging bug
+    here must not break run_scenario's actual job.
+    """
+    try:
+        summary = ledger.summary()
+        if summary["total_attempts"]:
+            STATE_DIR.mkdir(parents=True, exist_ok=True)
+            entry = {
+                "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "scope": scope,
+                "summary": summary,
+                "code_excerpt": code[:200],
+            }
+            with COMPLIANCE_LOG.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, default=str) + "\n")
+        return summary
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"compliance logging failed: {type(exc).__name__}: {exc}"}
+
+
 @mcp.tool(
     description=(
         "Run Python scenario code with fpf_thinking_map classes pre-imported. "
         "Assign to `result` to return output. "
-        "scope is required: core (library behavior) or user-extension (downstream map behavior)."
+        "scope is required: core (library behavior) or user-extension (downstream map behavior). "
+        "compliance_mode=True records every attempt_transition()/attempt_bridge() call's own "
+        "verdict (CONTINUE = fit the map, anything else = didn't) and returns a tally. Each "
+        "drift entry pairs what was requested against what the map actually had on offer at "
+        "that moment (expected) for a fast side-by-side scan — not why a move didn't fit, "
+        "just requested vs. expected vs. outcome. See get_compliance_log()."
     )
 )
-def run_scenario(code: str, scope: str) -> str:
+def run_scenario(code: str, scope: str, compliance_mode: bool = False) -> str:
     if scope not in _VALID_SCOPES:
         return json.dumps(
             {"error": f"scope must be one of {sorted(_VALID_SCOPES)}, got {scope!r}"},
@@ -105,6 +135,13 @@ def run_scenario(code: str, scope: str) -> str:
             indent=2,
         )
 
+    ledger = ComplianceLedger()
+    if compliance_mode:
+        # Scenario code never sees this — same constructor, same calls, one extra
+        # write per attempt_transition()/attempt_bridge(), reading a verdict the
+        # engine already computed and would otherwise have thrown away.
+        ns["ThinkingMapTraversal"] = wrap_traversal_class(ns["ThinkingMapTraversal"], ledger)
+
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
@@ -117,6 +154,8 @@ def run_scenario(code: str, scope: str) -> str:
         payload = {"scope": scope, "error": f"{type(exc).__name__}: {exc}", "stdout": buf.getvalue()}
         if advisories_triggered:
             payload["advisories_triggered"] = advisories_triggered
+        if compliance_mode:
+            payload["compliance"] = _log_compliance(ledger, scope, code)
         return json.dumps(payload, indent=2, default=str)
 
     advisories_triggered = _run_advisory_detection(ns, scope, code)
@@ -127,6 +166,8 @@ def run_scenario(code: str, scope: str) -> str:
     }
     if advisories_triggered:
         payload["advisories_triggered"] = advisories_triggered
+    if compliance_mode:
+        payload["compliance"] = _log_compliance(ledger, scope, code)
     return json.dumps(payload, indent=2, default=str)
 
 
@@ -190,6 +231,23 @@ def get_advisory_log(limit: int = 20) -> str:
     if not ADVISORY_LOG.is_file():
         return json.dumps({"entries": [], "note": "no advisories triggered yet on this host"}, indent=2)
     lines = ADVISORY_LOG.read_text(encoding="utf-8").splitlines()
+    entries = [json.loads(ln) for ln in lines if ln.strip()]
+    entries.reverse()
+    return json.dumps({"entries": entries[: max(0, limit)], "total_logged": len(entries)}, indent=2, default=str)
+
+
+@mcp.tool(
+    description=(
+        "Return the durable log of compliance-mode tallies from past run_scenario(compliance_mode=True) "
+        "calls on this host — each entry is a fit/drift count plus the bare requested-move/outcome facts, "
+        "no interpretation of why a move didn't fit. limit caps how many recent entries come back "
+        "(most recent first)."
+    )
+)
+def get_compliance_log(limit: int = 20) -> str:
+    if not COMPLIANCE_LOG.is_file():
+        return json.dumps({"entries": [], "note": "no compliance-mode runs logged yet on this host"}, indent=2)
+    lines = COMPLIANCE_LOG.read_text(encoding="utf-8").splitlines()
     entries = [json.loads(ln) for ln in lines if ln.strip()]
     entries.reverse()
     return json.dumps({"entries": entries[: max(0, limit)], "total_logged": len(entries)}, indent=2, default=str)
