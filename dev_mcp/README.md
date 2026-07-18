@@ -55,7 +55,8 @@ This is for tracking ownership of findings.
 - `get_advisory_log(limit)` — read back past advisory triggers (see below)
 - `get_compliance_log(limit)` — read back past compliance-mode tallies (see below)
 
-Deep docs used by these tools are under `docs/deep/`.
+Deep docs used by these tools are under `docs/deep/`. Visual walkthrough of how
+these tools actually fit together: [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Advisory-trigger awareness (not a fix, not enforcement)
 

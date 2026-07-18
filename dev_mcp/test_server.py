@@ -380,6 +380,31 @@ result = out.kind.value
     assert "(1 total" not in address, "single-drift note must not carry the plural pointer"
 
 
+def check_compliance_bridge_calls_recorded():
+    """attempt_bridge gets the same fit/drift treatment as attempt_transition —
+    nothing in the earlier checks actually exercised the bridge half."""
+    code = """
+sm = SemanticMap()
+sm.register_context(ContextPrimitive(
+    "ctx_a", "A", bridges_to=[ContextBridge(target_context_id="ctx_b", substitution_license=True)],
+))
+sm.register_context(ContextPrimitive("ctx_b", "B"))
+sm.register_transition(TransitionPrimitive("t2", "Go", "ctx_b", "entry", "done"))
+engine = ThinkingMapTraversal(sm)
+state = engine.build_active_state(RuntimeBinding(active_context_id="ctx_a"), current_state="start")
+bad = engine.attempt_bridge(state, "ctx_c", "entry")   # no bridge to ctx_c at all
+good = engine.attempt_bridge(state, "ctx_b", "entry")  # the map's actual, licensed bridge
+result = (bad.kind.value, good.kind.value)
+"""
+    out = json.loads(run_scenario(code, scope="core", compliance_mode=True))
+    c = out["compliance"]
+    assert c["total_attempts"] == 2 and c["fit_map"] == 1 and c["drifted"] == 1, c
+    drift = c["drift_entries"][0]
+    assert drift["call"] == "attempt_bridge", drift
+    assert drift["requested"] == "ctx_c", drift
+    assert drift["expected"] == ["ctx_b"], f"map's own bridge_options target at that state: {drift}"
+
+
 def check_compliance_log_persists_across_calls():
     code = """
 sm = SemanticMap()
@@ -430,6 +455,7 @@ def main() -> int:
         ("compliance: off by default", check_compliance_off_by_default),
         ("compliance: fit recorded", check_compliance_fit_recorded),
         ("compliance: drift recorded", check_compliance_drift_recorded),
+        ("compliance: attempt_bridge calls recorded", check_compliance_bridge_calls_recorded),
         ("compliance: log persists across calls", check_compliance_log_persists_across_calls),
     ]
 
