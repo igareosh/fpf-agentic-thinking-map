@@ -1,3 +1,5 @@
+> "Pick something. Get good at it. See if you can be the best at it." — Jordan Peterson
+
 # FPF Agentic Thinking Map
 
 **v1.5.0** — a compact runtime map for LLM agents.
