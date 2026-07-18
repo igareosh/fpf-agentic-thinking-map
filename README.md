@@ -250,6 +250,14 @@ If you need theory, adoption/rejection rationale, and analysis provenance, use:
 
 - [Decisions, rejections, adoptions index](docs/DECISIONS_REJECTIONS_ADOPTIONS.md)
 
+Testing this package's behavior against the documented [integrator
+advisories](docs/deep/ADVISORIES.md) (evidence staleness, risk-level
+filtering, bridge trust, and the rest)? [`dev_mcp`](dev_mcp/README.md) checks
+scenario runs against all 8 automatically and keeps a log of what fired —
+useful if you're integrating this into your own agent and want to know
+which sharp edges your scenarios actually touched, not just which ones exist
+on paper.
+
 Mainstream docs stay focused on runtime behavior and integration.
 
 ---

@@ -6,6 +6,14 @@ Each advisory: what the default behavior actually is, why that's the default, an
 
 **Read these two first if you read nothing else here: [`ADV-03`](#adv-03--active_context_id-is-self-asserted-not-verified-against-how-you-got-there) (context claims aren't verified) and [`ADV-07`](#adv-07--riskaboves-string-matching-is-case-sensitive-and-fails-silently) (a routing rule built exactly as this doc recommends can still silently do the opposite of what you intended). Both are silent — no error, no warning — and both sit directly behind paths this document itself tells you to use.**
 
+**Testing against these directly?** [`dev_mcp`](../../dev_mcp/README.md)'s
+`run_scenario` checks every one of the 8 advisories below against whatever
+`ActiveState` your scenario builds, automatically — no need to reason by
+hand about whether your test case happens to sit in one of these blind
+spots. Hits are returned inline and logged (`get_advisory_log`), so you can
+tell which of these are theoretical for your domain and which your own
+scenarios actually hit.
+
 ---
 
 ## ADV-01 — Evidence staleness warns, it does not block
