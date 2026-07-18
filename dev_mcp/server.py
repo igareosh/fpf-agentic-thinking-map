@@ -4,6 +4,10 @@ Agent-first summary:
 - Run scenarios quickly: run_scenario(code, scope)
 - Run shipped verification: run_verify()
 - Read deep docs when needed: sources, gap audit, advisories
+- Every run_scenario call is checked against all 8 ADVISORIES.md conditions;
+  hits ride along in the response and get appended to a durable log —
+  inspect it later with get_advisory_log(). This is awareness, not
+  enforcement: nothing here blocks or fixes anything, see advisory_detectors.py.
 
 scope is required on run_scenario:
 - core: testing shipped library behavior
@@ -18,9 +22,12 @@ import json
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
+
+from dev_mcp.advisory_detectors import detect_advisories, find_active_states_and_logic
 
 mcp = FastMCP("fpf-thinking-map-test")
 
@@ -30,8 +37,42 @@ SOURCES_MD = DEEP_DOCS / "SOURCES.md"
 AUDIT_MD = DEEP_DOCS / "FPF_SOURCE_TO_CODE_RELATION_AUDIT.md"
 ADVISORIES_MD = DEEP_DOCS / "ADVISORIES.md"
 
+STATE_DIR = REPO_ROOT / "dev_mcp" / ".state"
+ADVISORY_LOG = STATE_DIR / "advisory_log.jsonl"
+
 
 _VALID_SCOPES = {"core", "user-extension"}
+
+
+def _run_advisory_detection(ns: dict, scope: str, code: str) -> list[dict[str, str]]:
+    """Best-effort: scan the scenario's namespace, run all 8 detectors, log hits.
+
+    Never raises — a detector bug must not break run_scenario's actual job.
+    """
+    try:
+        hits: list[dict[str, str]] = []
+        for var_name, state, logic_layer in find_active_states_and_logic(ns):
+            for hit in detect_advisories(state, logic_layer):
+                d = hit.to_dict()
+                d["variable"] = var_name
+                hits.append(d)
+
+        if hits:
+            STATE_DIR.mkdir(parents=True, exist_ok=True)
+            entry = {
+                "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "scope": scope,
+                "advisories": sorted({h["advisory"] for h in hits}),
+                "hits": hits,
+                "code_excerpt": code[:200],
+            }
+            with ADVISORY_LOG.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, default=str) + "\n")
+
+        return hits
+    except Exception as exc:  # noqa: BLE001 — awareness layer, must never break the real tool
+        return [{"advisory": "ADV-DETECT-ERROR", "title": "advisory detection failed", "tier": "internal",
+                  "detail": f"{type(exc).__name__}: {exc}"}]
 
 
 @mcp.tool(
@@ -69,19 +110,24 @@ def run_scenario(code: str, scope: str) -> str:
         with contextlib.redirect_stdout(buf):
             exec(code, ns)  # noqa: S102 — see docstring
     except Exception as exc:  # noqa: BLE001 — reporting the failure IS the point of this tool
-        return json.dumps(
-            {"scope": scope, "error": f"{type(exc).__name__}: {exc}", "stdout": buf.getvalue()},
-            indent=2, default=str,
-        )
+        # A scenario can build real state before hitting an unrelated error later —
+        # still worth checking what was built, so a failed scenario doesn't also
+        # silently lose whatever advisory awareness it already earned.
+        advisories_triggered = _run_advisory_detection(ns, scope, code)
+        payload = {"scope": scope, "error": f"{type(exc).__name__}: {exc}", "stdout": buf.getvalue()}
+        if advisories_triggered:
+            payload["advisories_triggered"] = advisories_triggered
+        return json.dumps(payload, indent=2, default=str)
 
-    return json.dumps(
-        {
-            "scope": scope,
-            "result": repr(ns.get("result", "<no `result` assigned>")),
-            "stdout": buf.getvalue(),
-        },
-        indent=2, default=str,
-    )
+    advisories_triggered = _run_advisory_detection(ns, scope, code)
+    payload = {
+        "scope": scope,
+        "result": repr(ns.get("result", "<no `result` assigned>")),
+        "stdout": buf.getvalue(),
+    }
+    if advisories_triggered:
+        payload["advisories_triggered"] = advisories_triggered
+    return json.dumps(payload, indent=2, default=str)
 
 
 @mcp.tool(
@@ -130,6 +176,23 @@ def get_advisories() -> str:
     if not ADVISORIES_MD.is_file():
         return f"ERROR: {ADVISORIES_MD} not found"
     return ADVISORIES_MD.read_text(encoding="utf-8")
+
+
+@mcp.tool(
+    description=(
+        "Return the durable log of advisory conditions (ADV-01..ADV-08) triggered by past "
+        "run_scenario calls on this host — so a session can check what was already found "
+        "instead of missing it or rediscovering it from scratch. limit caps how many recent "
+        "entries come back (most recent first). Not a fix, not enforcement — awareness only."
+    )
+)
+def get_advisory_log(limit: int = 20) -> str:
+    if not ADVISORY_LOG.is_file():
+        return json.dumps({"entries": [], "note": "no advisories triggered yet on this host"}, indent=2)
+    lines = ADVISORY_LOG.read_text(encoding="utf-8").splitlines()
+    entries = [json.loads(ln) for ln in lines if ln.strip()]
+    entries.reverse()
+    return json.dumps({"entries": entries[: max(0, limit)], "total_logged": len(entries)}, indent=2, default=str)
 
 
 @mcp.tool(description="Run the existing self-verification harness (python -m fpf_thinking_map.verify).")

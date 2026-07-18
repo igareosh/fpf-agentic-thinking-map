@@ -1,0 +1,227 @@
+"""Structural detectors for the 8 documented integrator advisories (docs/deep/ADVISORIES.md).
+
+Not a fix. Not enforcement. Nothing here changes engine behavior or blocks
+a scenario. This is awareness persistence: when a scenario run's objects
+happen to sit in the exact structural situation an advisory describes, say
+so — so a tester (human or LLM) sees "you're standing in ADV-03's blind
+spot right now" instead of independently rediscovering the same sharp edge
+every session, or missing it because nothing pointed at it.
+
+Two tiers, and the distinction matters — don't read every hit as a bug:
+
+- "anomaly": the scenario's own objects show the specific mismatch the
+  advisory describes (e.g. EXPIRED evidence still counted present). This
+  is a fact about what happened, not a guess.
+- "structural-fact" / "heuristic-prompt": the scenario is in a situation
+  where the advisory's default behavior applies (e.g. risk_level is
+  elevated) — this fires whenever the precondition holds, by design of
+  the shipped engine, not because something went wrong. It is a reminder
+  to go check, not a discovered anomaly.
+
+Each detector's docstring cites the exact ADVISORIES.md "What" clause it
+mirrors. If ADVISORIES.md and this file ever disagree, ADVISORIES.md is
+the source of truth — update this file to match, not the other way round.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from fpf_thinking_map.primitives import AgencyLevel, Freshness, GateDecision
+from fpf_thinking_map.state import ActiveState
+
+try:
+    from fpf_thinking_map.logic import LogicLayer
+except ImportError:  # pragma: no cover — defensive, logic.py ships with the package
+    LogicLayer = None  # type: ignore[assignment,misc]
+
+_KNOWN_RISK_LEVELS = {"low", "normal", "high", "critical"}
+
+
+@dataclass(frozen=True)
+class AdvisoryHit:
+    advisory: str
+    title: str
+    tier: str  # "anomaly" | "structural-fact" | "heuristic-prompt"
+    detail: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "advisory": self.advisory,
+            "title": self.title,
+            "tier": self.tier,
+            "detail": self.detail,
+        }
+
+
+def _adv01_evidence_staleness(state: ActiveState) -> AdvisoryHit | None:
+    """ADV-01 — evidence past TTL (EXPIRED) still satisfies required_evidence; WARN, never BLOCK."""
+    for t in state.possible_transitions:
+        for eid in t.required_evidence:
+            if eid in state.available_evidence_ids and state.effective_freshness(eid) == Freshness.EXPIRED:
+                return AdvisoryHit(
+                    "ADV-01", "Evidence staleness warns, it does not block", "anomaly",
+                    f"transition '{t.transition_id}' required_evidence includes '{eid}', "
+                    f"which is EXPIRED but still present in available_evidence_ids — "
+                    f"required_evidence alone will not block this move.",
+                )
+    return None
+
+
+def _adv02_risk_not_filtering(state: ActiveState) -> AdvisoryHit | None:
+    """ADV-02 — possible_transitions is scoped by (context, current_state) only; risk_level never filters it."""
+    if state.binding.risk_level in ("high", "critical") and state.possible_transitions:
+        return AdvisoryHit(
+            "ADV-02", "risk_level doesn't filter transitions on its own", "structural-fact",
+            f"risk_level='{state.binding.risk_level}' bound with "
+            f"{len(state.possible_transitions)} transition(s) exposed unchanged — "
+            f"possible_transitions never reads risk_level. If this domain needs "
+            f"risk-based routing, verify a LogicLayer/guard using RiskAbove is actually wired in.",
+        )
+    return None
+
+
+def _adv03_context_self_asserted(state: ActiveState) -> AdvisoryHit | None:
+    """ADV-03 — active_context_id is plain input; nothing verifies it was reached via cross_bridge().
+
+    Fires on essentially every freshly-built ActiveState with a context bound —
+    that IS the documented behavior ("a fresh build_active_state() call has no
+    way to know what came before it"), not a detector malfunction. Included so
+    the fact stays visible rather than assumed away; read the detail before
+    treating a hit as noteworthy on its own.
+    """
+    ctx_id = state.binding.active_context_id
+    if ctx_id and state.trace.bridge_target is None and state.trace.last_transition_id is None:
+        return AdvisoryHit(
+            "ADV-03", "active_context_id is self-asserted, not verified against how you got there",
+            "structural-fact",
+            f"active_context_id='{ctx_id}' is set, but this ActiveState's own trace shows "
+            f"no cross_bridge()/transition_to() call that reached it — true of every freshly "
+            f"constructed binding by design. Only actionable if your harness re-accepts an "
+            f"externally-supplied active_context_id later in a session without validating it "
+            f"came from this object's own prior cross_bridge() call.",
+        )
+    return None
+
+
+def _adv04_contradiction_opt_in(state: ActiveState, logic_layer: "LogicLayer | None") -> AdvisoryHit | None:
+    """ADV-04 — consistency_check() only flags contradictions declared via exclusive_with, never inferred."""
+    if logic_layer is None or not logic_layer.rules:
+        return None
+    results = logic_layer.evaluate_all(state)
+    satisfied = [r for r in results if r["satisfied"] and r["action"]]
+    for i, r1 in enumerate(satisfied):
+        for r2 in satisfied[i + 1 :]:
+            if r1["action"] == r2["action"]:
+                continue
+            rule1 = next((r for r in logic_layer.rules if r.name == r1["rule"]), None)
+            rule2 = next((r for r in logic_layer.rules if r.name == r2["rule"]), None)
+            declared = bool(rule1 and rule2 and (r2["action"] in rule1.exclusive_with or r1["action"] in rule2.exclusive_with))
+            if not declared:
+                return AdvisoryHit(
+                    "ADV-04", "Contradiction detection is opt-in, not inferred from action names",
+                    "heuristic-prompt",
+                    f"rules '{r1['rule']}' (action='{r1['action']}') and '{r2['rule']}' "
+                    f"(action='{r2['action']}') are both satisfied with different actions and "
+                    f"neither declares exclusive_with the other — if these actions are meant to "
+                    f"be mutually exclusive in this domain, consistency_check() will not catch it "
+                    f"without an explicit exclusive_with declaration.",
+                )
+    return None
+
+
+def _adv05_degrade_granularity(state: ActiveState) -> AdvisoryHit | None:
+    """ADV-05 — gate DEGRADE only fires from a single GateCheck's own partial evidence, never aggregated."""
+    for gate in state.semantic_map.gates.values():
+        single_item_checks = [c for c in gate.checks if len(c.required_evidence) == 1]
+        if len(single_item_checks) < 2:
+            continue
+        decisions = {c.check_id: c.evaluate(state.available_evidence_ids) for c in single_item_checks}
+        has_pass = GateDecision.PASS in decisions.values()
+        has_abstain = GateDecision.ABSTAIN in decisions.values()
+        if has_pass and has_abstain:
+            aggregate = gate.evaluate(state.available_evidence_ids)
+            return AdvisoryHit(
+                "ADV-05", "Gate DEGRADE only distinguishes partial evidence within a single GateCheck",
+                "anomaly",
+                f"gate '{gate.gate_id}' has {len(single_item_checks)} single-evidence checks with "
+                f"a mix of PASS/ABSTAIN ({decisions}) — genuinely partial completion, but the gate "
+                f"aggregate resolves to '{aggregate.value}', indistinguishable from every check "
+                f"being ABSTAIN. Group related evidence into one GateCheck if DEGRADE visibility matters here.",
+            )
+    return None
+
+
+def _adv06_agency_not_enforced(state: ActiveState) -> AdvisoryHit | None:
+    """ADV-06 — agency_level is descriptive metadata surfaced to the model; nothing gates on it by default."""
+    passive_roles = [r for r in state.active_roles if r.agency_level == AgencyLevel.PASSIVE]
+    if passive_roles and state.possible_transitions:
+        return AdvisoryHit(
+            "ADV-06", "agency_level is descriptive metadata, not an enforced permission", "structural-fact",
+            f"role(s) {[r.role_id for r in passive_roles]} bound as PASSIVE, with "
+            f"{len(state.possible_transitions)} transition(s) still exposed identically to a "
+            f"DELIBERATIVE-bound role — agency_level gates nothing by default in this engine.",
+        )
+    return None
+
+
+def _adv07_risk_case_sensitivity(state: ActiveState) -> AdvisoryHit | None:
+    """ADV-07 — RiskAbove does a raw dict lookup; any unrecognized string (including wrong case) silently → 'normal'."""
+    rl = state.binding.risk_level
+    if rl not in _KNOWN_RISK_LEVELS:
+        return AdvisoryHit(
+            "ADV-07", "RiskAbove's string matching is case-sensitive and fails silently", "anomaly",
+            f"risk_level={rl!r} is not one of {sorted(_KNOWN_RISK_LEVELS)} — RiskAbove will "
+            f"silently resolve this to the same numeric level as 'normal' (1), with no error "
+            f"and no distinguishing signal in consistency_check() output.",
+        )
+    return None
+
+
+def _adv08_no_persistence_surface(state: ActiveState) -> AdvisoryHit | None:
+    """ADV-08 — ActiveState/RuntimeBinding/MoveTrace have no serialization surface; #28's backing store is init=False."""
+    return AdvisoryHit(
+        "ADV-08", "No persistence surface: session continuity is a harness responsibility", "structural-fact",
+        f"this ActiveState (current_state={state.current_state!r}, visit_count={state.visit_count}) "
+        f"has no to_dict/from_dict — if your harness persists it across an idle period, LLM-side "
+        f"context compaction, or a process restart, the stagnation counter's backing store "
+        f"(_evidence_added_at/_state_visits/_state_visit_evidence) resets to zero unless you "
+        f"restore those private fields yourself, outside the constructor.",
+    )
+
+
+def detect_advisories(state: ActiveState, logic_layer: "LogicLayer | None" = None) -> list[AdvisoryHit]:
+    """Run all 8 detectors against one ActiveState (+ optional LogicLayer) and return the hits."""
+    hits: list[AdvisoryHit | None] = [
+        _adv01_evidence_staleness(state),
+        _adv02_risk_not_filtering(state),
+        _adv03_context_self_asserted(state),
+        _adv04_contradiction_opt_in(state, logic_layer),
+        _adv05_degrade_granularity(state),
+        _adv06_agency_not_enforced(state),
+        _adv07_risk_case_sensitivity(state),
+        _adv08_no_persistence_surface(state),
+    ]
+    return [h for h in hits if h is not None]
+
+
+def find_active_states_and_logic(ns: dict[str, Any]) -> list[tuple[str, ActiveState, "LogicLayer | None"]]:
+    """Scan a run_scenario exec namespace for ActiveState objects (by variable name, any name).
+
+    Also looks for a ThinkingMapTraversal in the same namespace to pull its
+    bound logic_layer for ADV-04, without requiring the scenario to expose
+    the LogicLayer under a specific name either.
+    """
+    logic_layer: "LogicLayer | None" = None
+    for value in ns.values():
+        traversal_logic = getattr(value, "logic_layer", None)
+        if traversal_logic is not None and LogicLayer is not None and isinstance(traversal_logic, LogicLayer):
+            logic_layer = traversal_logic
+            break
+
+    found: list[tuple[str, ActiveState, "LogicLayer | None"]] = []
+    for name, value in ns.items():
+        if isinstance(value, ActiveState):
+            found.append((name, value, logic_layer))
+    return found
