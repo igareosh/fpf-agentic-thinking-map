@@ -206,6 +206,19 @@ not semantic, not enforcement — that flags exactly this shape when it's
 present in a scenario's map, so the omission has to be noticed instead of
 just hoped past.
 
+**A destructive delete was the motivating case, not the only use.** Underneath
+it, `requires_human_authorization` and `safe_alternatives` are two general,
+declared relationships — "this move needs a second party's say-so" and "this
+move has an alternative" — that don't know or care what the transition
+actually does. A map author could gate on cost, on scope, on anything else
+that needs a human in the loop before it fires; nothing here assumes
+destructive is the only reason to reach for it. We tested the destructive
+case hardest because it's the one that's easiest to get wrong loudly. What
+this actually becomes in someone else's domain map is genuinely open — see
+[`ADOPTED_IGNITION_LOCK.md`](docs/deep/ADOPTED_IGNITION_LOCK.md) for the fuller,
+more humble version of this section, and [`dev_mcp`](dev_mcp/README.md) for
+testing your own case against it rather than trusting this README's word for it.
+
 ---
 
 ## Runtime contract

@@ -9,6 +9,8 @@ Use this index when you need rationale and provenance behind design choices.
 - **A.15.5 Work-Entry Readiness (adopted):**
   - [FPF scope audit log](deep/FPF_SCOPE_AUDIT_LOG.md)
   - [FPF audit response](deep/FPF_AUDIT_RESPONSE.md)
+- **Ignition Lock / Abort to Orbit — legal vs. fireable, and declared alternatives (adopted, v1.6.0):**
+  - [ADOPTED_IGNITION_LOCK.md](deep/ADOPTED_IGNITION_LOCK.md)
 
 ## Rejections
 
