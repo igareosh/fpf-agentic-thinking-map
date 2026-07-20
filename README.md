@@ -38,6 +38,7 @@ folded into the numbers above:
 - [Live demo →](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)
 - [Release history →](https://github.com/igareosh/fpf-agentic-thinking-map/releases)
 - [Deep decisions/rejections/adoptions →](docs/DECISIONS_REJECTIONS_ADOPTIONS.md)
+- [Related projects we've reviewed →](docs/RELATED_PROJECTS.md) (not used by us, not a partnership — just noted so we don't forget)
 
 ---
 
