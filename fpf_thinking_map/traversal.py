@@ -274,7 +274,7 @@ class ThinkingMapTraversal:
     ) -> Outcome:
         """Attempt a specific transition. Guards scoped to this move.
 
-        authorized=True is required to fire a manual_only transition —
+        authorized=True is required to fire a requires_human_authorization transition —
         the model requesting the same transition_id without it gets
         ESCALATE, not a silent no-op and not a bypass.
         """
@@ -299,10 +299,10 @@ class ThinkingMapTraversal:
                 reason=f"Transition requires state '{t.from_state}', current is '{state.current_state}'",
             )
 
-        if t.manual_only and not authorized:
+        if t.requires_human_authorization and not authorized:
             return Outcome(
                 kind=OutcomeKind.ESCALATE,
-                reason=f"Transition '{transition_id}' is manual_only — "
+                reason=f"Transition '{transition_id}' is requires_human_authorization — "
                        f"requires explicit human authorization, not model-invoked",
             )
 

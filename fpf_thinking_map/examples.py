@@ -367,7 +367,7 @@ def build_destructive_action_map() -> SemanticMap:
 
     Evidence and gate are both satisfiable on their own terms — FPF
     legality alone would say the traversal is CONTINUE, same as any
-    other move. manual_only is the separate HITL layer stacked on top:
+    other move. requires_human_authorization is the separate HITL layer stacked on top:
     the model can see the delete is ready, it still can't fire it.
     """
     sm = SemanticMap()
@@ -397,7 +397,7 @@ def build_destructive_action_map() -> SemanticMap:
         to_state="deleted",
         required_gate_id="delete_gate",
         required_evidence=["dry_run_report"],
-        manual_only=True,
+        requires_human_authorization=True,
     ))
 
     return sm
@@ -408,7 +408,7 @@ def run_scenario_destructive_hitl():
 
     Evidence is present, the gate passes — the FPF logic layer alone
     would say CONTINUE, nothing structurally wrong with firing. This is
-    exactly the case manual_only exists for: destructive/irreversible
+    exactly the case requires_human_authorization exists for: destructive/irreversible
     moves where legal should not silently become autonomous.
     """
     print("\n" + "=" * 60)

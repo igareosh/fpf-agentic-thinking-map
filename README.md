@@ -109,12 +109,15 @@ correct behavior: the map has no built-in notion that deleting something is
 different from deploying something. It shouldn't have to — that distinction
 belongs to a separate layer, not baked into every gate.
 
-`manual_only` is that layer. Mark a transition `manual_only=True` and the
-engine keeps computing and reporting its legality — `step()`/`slice()` still
-show it, still say whether evidence and gate are satisfied — it just refuses
-to fire without `authorized=True`, enforced at `ActiveState.transition_to()`
-itself, so there's no lower-level call that skips it. The model can see the
-delete is ready. It cannot pull the trigger.
+`requires_human_authorization` is that layer — the field name says exactly
+what it checks, on purpose: there's no bundled system prompt telling the
+model what this flag means, so the name has to carry that on its own when
+the model reads it cold in a `step()`/`slice()` response. Mark a transition
+`requires_human_authorization=True` and the engine keeps computing and
+reporting its legality — evidence and gate status are still shown in full —
+it just refuses to fire without `authorized=True`, enforced at
+`ActiveState.transition_to()` itself, so there's no lower-level call that
+skips it. The model can see the delete is ready. It cannot pull the trigger.
 
 **Where that "yes" comes from matters.** `authorized` is a plain argument —
 nothing inside this engine stops a caller with direct access to it from
@@ -178,7 +181,7 @@ It is for:
 - clearer failure signals
 - lower runtime noise
 - inspectable behavior
-- HITL gating on destructive/irreversible transitions (`manual_only`)
+- HITL gating on destructive/irreversible transitions (`requires_human_authorization`)
 
 It is not:
 

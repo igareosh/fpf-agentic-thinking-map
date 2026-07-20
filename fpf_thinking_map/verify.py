@@ -1117,13 +1117,13 @@ def check_response_contract():
     assert len(rc2["basis"]) == 2
 
 
-def check_manual_only_transition():
-    """manual_only: legal is not auto-fireable — requires authorized=True."""
+def check_requires_human_authorization():
+    """requires_human_authorization: legal is not auto-fireable — requires authorized=True."""
     sm = SemanticMap()
     sm.register_context(ContextPrimitive("ctx", "Test"))
     sm.register_transition(TransitionPrimitive(
         "t_release", "Release", "ctx", "candidate", "released",
-        manual_only=True,
+        requires_human_authorization=True,
     ))
     engine = ThinkingMapTraversal(sm)
 
@@ -1131,9 +1131,9 @@ def check_manual_only_transition():
     b = RuntimeBinding(active_context_id="ctx")
     s = engine.build_active_state(b, current_state="candidate")
     sl = s.slice("t_release")
-    assert sl["move"]["manual_only"] is True
+    assert sl["move"]["requires_human_authorization"] is True
     assert sl["can_fire"] is False
-    assert any("manual_only" in blk for blk in sl["blockers"])
+    assert any("requires_human_authorization" in blk for blk in sl["blockers"])
 
     # attempt_transition without authorization → ESCALATE, state unchanged
     o1 = engine.attempt_transition(s, "t_release")
@@ -1149,7 +1149,7 @@ def check_manual_only_transition():
     assert o2.kind == OutcomeKind.CONTINUE, f"Expected CONTINUE, got {o2.kind}"
     assert s.current_state == "released"
 
-    # ordinary transitions are unaffected — manual_only defaults to False
+    # ordinary transitions are unaffected — requires_human_authorization defaults to False
     sm2 = SemanticMap()
     sm2.register_context(ContextPrimitive("ctx2", "Test2"))
     sm2.register_transition(TransitionPrimitive("t_norm", "Go", "ctx2", "a", "b"))
@@ -1187,7 +1187,7 @@ def main():
         ("semantic floors (FPF vertical)", check_semantic_floors),
         ("EvidenceFresh prop + integration", check_evidence_fresh_prop),
         ("response contract (output discipline)", check_response_contract),
-        ("manual_only transition (no model auto-fire)", check_manual_only_transition),
+        ("requires_human_authorization transition (no model auto-fire)", check_requires_human_authorization),
     ]
 
     passed = sum(check(name, fn) for name, fn in checks)
