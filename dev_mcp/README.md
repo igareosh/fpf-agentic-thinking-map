@@ -60,15 +60,16 @@ these tools actually fit together: [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Advisory-trigger awareness (not a fix, not enforcement)
 
-Every `run_scenario` call is checked, after execution, against all 8
-conditions documented in `docs/deep/ADVISORIES.md`. If any `ActiveState`
-object built by the scenario happens to sit in the exact structural
-situation an advisory describes, the response carries an
-`advisories_triggered` list — and the hit is appended to a durable log
-(`dev_mcp/.state/advisory_log.jsonl`, gitignored, local to whatever host
-runs the server) so a later session can call `get_advisory_log()` and see
-what was already found instead of missing it or rediscovering it from
-scratch.
+Every `run_scenario` call is checked, after execution, against 9 of the 11
+conditions documented in `docs/deep/ADVISORIES.md` (`ADV-09` has no
+detector — it's about compliance mode itself, not something an
+`ActiveState` can exhibit). If any `ActiveState` object built by the
+scenario happens to sit in the exact structural situation an advisory
+describes, the response carries an `advisories_triggered` list — and the
+hit is appended to a durable log (`dev_mcp/.state/advisory_log.jsonl`,
+gitignored, local to whatever host runs the server) so a later session can
+call `get_advisory_log()` and see what was already found instead of
+missing it or rediscovering it from scratch.
 
 This changes nothing about engine behavior — no move is blocked, no
 outcome is altered. It is a testing-awareness layer only. Detector logic
@@ -77,12 +78,16 @@ citing the exact `ADVISORIES.md` "What" clause it mirrors. Four of the
 detectors (`ADV-02`, `ADV-03`, `ADV-06`, `ADV-08`) are tiered
 `"structural-fact"` — they fire whenever the documented precondition
 holds (e.g. risk_level is elevated), which is the engine's normal,
-by-design behavior, not a discovered anomaly. The rest (`ADV-01`,
+by-design behavior, not a discovered anomaly. Three (`ADV-01`,
 `ADV-05`, `ADV-07`) are tiered `"anomaly"` — they only fire when the
 scenario's own objects show the specific mismatch. `ADV-04` is
 `"heuristic-prompt"` — best-effort, since inferring "these two actions
 are meant to be opposites" is exactly the semantic judgment the advisory
-says the engine doesn't make.
+says the engine doesn't make. `ADV-10` and `ADV-11` (added with Ignition
+Lock / Abort to Orbit, v1.6.0) are also `"heuristic-prompt"`: a
+destructive-sounding transition with no gate, and a `safe_alternatives`
+declaration that doesn't hold up structurally — same honesty as `ADV-04`,
+keyword/reference matching, not semantic understanding.
 
 ## Compliance mode (a witness, not a fix — see ADV-09)
 

@@ -414,23 +414,28 @@ class TransitionPrimitive:
     Transitions connect states. Guards on transitions are evaluated
     before the transition fires.
 
-    requires_human_authorization: the HITL gate for destructive/irreversible moves. FPF
-    legality (evidence fresh, gate satisfied) doesn't know a delete from
-    a deploy — both get CONTINUE on their own merits. requires_human_authorization=True
-    is how a transition opts into "legal is not the same as fireable":
-    the model still sees it (step()/slice() report it, evidence and gate
-    status included), it just cannot invoke it — only a caller passing
+    requires_human_authorization: "Ignition Lock" — the HITL gate for
+    destructive/irreversible moves. FPF legality (evidence fresh, gate
+    satisfied) doesn't know a delete from a deploy — both get CONTINUE
+    on their own merits. requires_human_authorization=True is how a
+    transition opts into "legal is not the same as fireable": the model
+    still sees it (step()/slice() report it, evidence and gate status
+    included), it just cannot invoke it — only a caller passing
     authorized=True can, checked in ActiveState.transition_to() so there
     is no lower-level call that skips it. That authorized flag must come
     from a channel the agent's own tool-calling loop can't reach — see
-    README "Human-in-the-loop for destructive moves" for how to wire it.
+    README "Ignition Lock — human-in-the-loop for destructive moves" for
+    how to wire it, and docs/deep/ADOPTED_IGNITION_LOCK.md for why this
+    is a general "needs a second party's say-so" primitive, not a
+    destructive-actions-only feature.
 
-    safe_alternatives: other transition_ids this one names as its
-    non-destructive twins — e.g. an archive/soft-delete instead of a hard
-    delete. Explicit and declared, never inferred: two transitions merely
-    sharing a from_state are not assumed to be substitutes for each other.
-    Surfaced in slice() before the model ever attempts this transition, and
-    folded into the ESCALATE Outcome if it does — the engine only makes the
+    safe_alternatives: "Abort to Orbit" — other transition_ids this one
+    names as its non-destructive twins — e.g. an archive/soft-delete
+    instead of a hard delete. Explicit and declared, never inferred: two
+    transitions merely sharing a from_state are not assumed to be
+    substitutes for each other. Surfaced in slice() before the model ever
+    attempts this transition, and folded into the ESCALATE Outcome if it
+    does — the engine only makes the
     option visible, it never picks one. Whether an alternative actually
     satisfies the goal is a domain judgment outside this library's scope.
     """

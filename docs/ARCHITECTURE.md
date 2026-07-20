@@ -17,7 +17,7 @@ Visual scheme of the thinking map — what each part does and how they fit toget
 - `logic.py` — 6 operators + rules
 - `traversal.py` — step engine + 10 declared outcomes
 - `examples.py` — shipped scenarios
-- `verify.py` — 22 checks
+- `verify.py` — 23 checks
 
 ## Runtime contract
 

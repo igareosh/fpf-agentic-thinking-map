@@ -42,7 +42,7 @@ graph LR
 
 ## How a step works
 
-`step()` is the normal runtime path. It can return 6 of the 10 declared outcomes. `ESCALATE` only comes from `attempt_bridge()` (below). `ASK`, `PUBLISH`, and `REVISE_PLAN` exist in `OutcomeKind`, but nothing returns them yet.
+`step()` is the normal runtime path. It can return 6 of the 10 declared outcomes. `ASK`, `PUBLISH`, and `REVISE_PLAN` exist in `OutcomeKind`, but nothing returns them yet. `ESCALATE` comes from two places: `attempt_bridge()` (below) and `attempt_transition()`'s Ignition Lock check (next section) — `step()` itself never returns it, since it only scans what's possible, it doesn't attempt a specific move.
 
 ```mermaid
 flowchart TD
@@ -91,11 +91,47 @@ flowchart LR
     style CONT3 fill:#2d5016,color:#fff
 ```
 
-`attempt_transition()` is simpler than `step()`. It either:
+`attempt_transition()` is simpler than `step()`, but has one more branch than it used to:
 
-- returns `ABSTAIN` if the move is invalid
+- returns `ABSTAIN` if the move is invalid (wrong context, wrong `from_state`)
+- returns `ESCALATE` if `requires_human_authorization` is set and `authorized` wasn't passed — **before** evidence or gates are even checked (below)
 - returns `COLLECT_EVIDENCE` if required evidence is missing
 - returns `CONTINUE` if the transition succeeds
+
+### Ignition Lock — the authorization check inside `attempt_transition()`
+
+Legal and fireable are different questions. Evidence and gates answer "is this move structurally sound." `requires_human_authorization` answers "is this caller allowed to be the one who fires it" — checked first, before either of the others, so a destructive move doesn't get a false sense of readiness from clean evidence when the real blocker is that no human has said yes yet.
+
+```mermaid
+flowchart TD
+    AT([attempt_transition<br/>called]) --> FOUND{transition_id<br/>found + valid<br/>context/state?}
+    FOUND -->|no| AB1[ABSTAIN]
+    FOUND -->|yes| AUTH{requires_human_<br/>authorization<br/>and not authorized?}
+    AUTH -->|yes| MARK[pending_authorizations.add id<br/>reason names missing evidence<br/>+ prior denial, if any]
+    MARK --> ESC[ESCALATE<br/>+ alternatives from<br/>safe_alternatives]
+    AUTH -->|no, or authorized=True| EV{evidence<br/>gaps?}
+    EV -->|gaps| CE[COLLECT_EVIDENCE]
+    EV -->|complete| GATE{gate<br/>decision?}
+    GATE -->|BLOCK/ABSTAIN| AB2[ABSTAIN /<br/>COLLECT_EVIDENCE]
+    GATE -->|PASS/DEGRADE| GUARD{guards<br/>allow?}
+    GUARD -->|deny| AB3[ABSTAIN]
+    GUARD -->|allow| FIRE[transition_to<br/>pending_authorizations.discard id<br/>if this was the pending one]
+    FIRE --> CONT[CONTINUE]
+
+    style AB1 fill:#8b1a1a,color:#fff
+    style AB2 fill:#8b1a1a,color:#fff
+    style AB3 fill:#8b1a1a,color:#fff
+    style ESC fill:#8b6914,color:#fff
+    style CE fill:#4a3728,color:#fff
+    style CONT fill:#2d5016,color:#fff
+```
+
+Two things this diagram is deliberately explicit about, because both were found by testing, not planned up front:
+
+- `authorized=True` only clears the `AUTH` branch. It does not touch evidence or gate checks below it — passing it cannot make a `BLOCK`ed gate fire.
+- `pending_authorizations` is a set, not a single value: escalating a second, different transition while a first one is still unresolved adds to it, it doesn't replace it. Only the specific `transition_id` that actually fires gets removed.
+
+`ESCALATE`'s `alternatives` field is populated straight from that transition's `safe_alternatives` — Abort to Orbit — regardless of whether any of them are themselves fireable right now. The engine names them; it does not check them for you, and it does not choose one.
 
 ## Logic layer — how the 6 operators compose
 
@@ -360,7 +396,7 @@ sequenceDiagram
 | `CHANGE_FRAME` | `step()` | live |
 | `IDLE` | `step()` | live |
 | `BRIDGE` | `step()` | live (advisory only) |
-| `ESCALATE` | `attempt_bridge()` | live |
+| `ESCALATE` | `attempt_bridge()`, `attempt_transition()` (Ignition Lock) | live |
 | `ASK` | — | declared, unreachable |
 | `PUBLISH` | — | declared, unreachable |
 | `REVISE_PLAN` | — | declared, unreachable |

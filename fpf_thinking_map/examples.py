@@ -5,9 +5,9 @@ Demonstrates 7 scenarios:
   1. Missing evidence    — gate blocks, evidence collected, retry succeeds
   2. Role conflict       — analyst ⊥ approver, guard denies
   3. Full traversal      — assessing → ready → deploying (demo walk)
-  4. Destructive HITL    — delete is legal (evidence+gate pass), still
+  4. Ignition Lock       — delete is legal (evidence+gate pass), still
                            refused until a human authorizes it
-  5. Denied → reroute    — human declines the delete; the declared safe
+  5. Abort to Orbit      — human declines the delete; the declared safe
                            twin (archive) was visible the whole time and
                            is still an ordinary transition to fire
   6. Logic glue          — all 6 operators at each step, freshness-aware rules
@@ -432,7 +432,7 @@ def build_destructive_action_map() -> SemanticMap:
 
 
 def run_scenario_destructive_hitl():
-    """Scenario: the model reasons a delete is legal — HITL still gates it.
+    """Scenario: the model reasons a delete is legal — Ignition Lock still gates it.
 
     Evidence is present, the gate passes — the FPF logic layer alone
     would say CONTINUE, nothing structurally wrong with firing. This is
@@ -440,7 +440,7 @@ def run_scenario_destructive_hitl():
     moves where legal should not silently become autonomous.
     """
     print("\n" + "=" * 60)
-    print("SCENARIO: Destructive delete — legal, but HITL-gated")
+    print("SCENARIO: Destructive delete — legal, but Ignition-Lock-gated")
     print("=" * 60)
 
     sm = build_destructive_action_map()
@@ -480,7 +480,7 @@ def run_scenario_destructive_hitl():
 
 
 def run_scenario_denied_reroute():
-    """Scenario: human says no — the traversal doesn't dead-end, it reroutes.
+    """Scenario: human says no — Abort to Orbit, not a dead end.
 
     Same map, same escalation. This time the human declines the delete
     outright. The engine doesn't pick what happens next — it never does —
@@ -490,7 +490,7 @@ def run_scenario_denied_reroute():
     model to choose. No dead end, no silent block nobody can route out of.
     """
     print("\n" + "=" * 60)
-    print("SCENARIO: Destructive delete denied — reroute to the safe twin")
+    print("SCENARIO: Destructive delete denied — Abort to Orbit (reroute to the safe twin)")
     print("=" * 60)
 
     sm = build_destructive_action_map()
