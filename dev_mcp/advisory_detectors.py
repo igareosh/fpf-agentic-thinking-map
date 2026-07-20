@@ -1,4 +1,4 @@
-"""Structural detectors for 9 of the 10 documented integrator advisories (docs/deep/ADVISORIES.md).
+"""Structural detectors for 10 of the 11 documented integrator advisories (docs/deep/ADVISORIES.md).
 ADV-09 has no detector — it's about compliance mode itself, not an ActiveState property.
 
 Not a fix. Not enforcement. Nothing here changes engine behavior or blocks
@@ -232,11 +232,55 @@ def _adv10_ungated_destructive_transition(state: ActiveState) -> AdvisoryHit | N
     )
 
 
-def detect_advisories(state: ActiveState, logic_layer: "LogicLayer | None" = None) -> list[AdvisoryHit]:
-    """Run all 9 structural detectors (ADV-01..08, ADV-10) against one ActiveState
+def _adv11_unsound_safe_alternative(state: ActiveState) -> AdvisoryHit | None:
+    """ADV-11 — safe_alternatives is declared and unvalidated (like bridges_to
+    elsewhere in this codebase): nothing checks that a named alternative
+    actually exists, is itself less destructive, or hasn't already been
+    denied. This is about the map's own declaration being sound — whether
+    the model actually reads and uses a validly-declared alternative is a
+    different question entirely, and deliberately not this engine's to
+    answer. A model that ignores a clearly surfaced, structurally sound
+    alternative is a model-capability problem; no amount of engine-side
+    validation compensates for that, and trying to would mean silently
+    steering the model's choices instead of informing them — the same
+    boundary ADV-09 draws around compliance mode.
+    """
+    unsound: list[str] = []
+    for t in state.semantic_map.transitions.values():
+        if not t.safe_alternatives:
+            continue
+        for alt_id in t.safe_alternatives:
+            alt = state.semantic_map.transitions.get(alt_id)
+            if alt is None:
+                unsound.append(f"{t.transition_id} -> {alt_id} (no such transition in this map)")
+            elif alt.requires_human_authorization:
+                unsound.append(
+                    f"{t.transition_id} -> {alt_id} (declared 'safe' but itself "
+                    f"requires_human_authorization — questionable as an alternative)"
+                )
+            elif alt_id in state.denied_authorizations:
+                unsound.append(
+                    f"{t.transition_id} -> {alt_id} (this alternative was itself already "
+                    f"denied: {state.denied_authorizations[alt_id]!r})"
+                )
+    if not unsound:
+        return None
+    return AdvisoryHit(
+        "ADV-11", "safe_alternatives declaration doesn't hold up structurally", "heuristic-prompt",
+        f"safe_alternatives is declared and unvalidated, same as bridges_to elsewhere in this "
+        f"codebase — nothing checks that a named alternative exists, is itself less destructive, "
+        f"or hasn't already been denied. Unsound entries found: {'; '.join(unsound)}. This checks "
+        f"the map's own declaration, not whether the model actually reads or chooses to use it — "
+        f"that's a model-capability question this engine deliberately doesn't try to answer.",
+    )
 
-    (+ optional LogicLayer) and return the hits. ADV-09 has no detector here —
-    it's about compliance mode itself, not something an ActiveState can exhibit.
+
+def detect_advisories(state: ActiveState, logic_layer: "LogicLayer | None" = None) -> list[AdvisoryHit]:
+    """Run all 10 structural detectors (ADV-01..08, ADV-10, ADV-11) against one
+
+    ActiveState (+ optional LogicLayer) and return the hits. ADV-09 has no
+    detector here — it's about compliance mode itself, not something an
+    ActiveState can exhibit.
     """
     hits: list[AdvisoryHit | None] = [
         _adv01_evidence_staleness(state),
@@ -248,6 +292,7 @@ def detect_advisories(state: ActiveState, logic_layer: "LogicLayer | None" = Non
         _adv07_risk_case_sensitivity(state),
         _adv08_no_persistence_surface(state),
         _adv10_ungated_destructive_transition(state),
+        _adv11_unsound_safe_alternative(state),
     ]
     return [h for h in hits if h is not None]
 

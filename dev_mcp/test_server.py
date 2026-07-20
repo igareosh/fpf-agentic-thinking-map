@@ -348,6 +348,86 @@ result = "ok"
     assert "ADV-10" not in ids, f"harmless-labeled transition must not trigger ADV-10, got {ids}"
 
 
+def check_adv11_dangling_alternative_detected():
+    code = """
+sm = SemanticMap()
+sm.register_context(ContextPrimitive("ctx", "Test"))
+sm.register_transition(TransitionPrimitive(
+    "delete_x", "Delete X", "ctx", "start", "gone",
+    requires_human_authorization=True, safe_alternatives=["archive_x_TYPO"],
+))
+engine = ThinkingMapTraversal(sm)
+state = engine.build_active_state(RuntimeBinding(active_context_id="ctx"), current_state="start")
+result = "ok"
+"""
+    out = json.loads(run_scenario(code, scope="core"))
+    ids = _triggered_ids(out)
+    assert "ADV-11" in ids, f"expected ADV-11 (dangling safe_alternatives reference), got {ids}"
+    hit = next(a for a in out["advisories_triggered"] if a["advisory"] == "ADV-11")
+    assert "archive_x_TYPO" in hit["detail"] and "no such transition" in hit["detail"], hit
+
+
+def check_adv11_gated_alternative_detected():
+    code = """
+sm = SemanticMap()
+sm.register_context(ContextPrimitive("ctx", "Test"))
+sm.register_transition(TransitionPrimitive(
+    "delete_x", "Delete X", "ctx", "start", "gone",
+    requires_human_authorization=True, safe_alternatives=["also_gated"],
+))
+sm.register_transition(TransitionPrimitive(
+    "also_gated", "Also gated", "ctx", "start", "gone2", requires_human_authorization=True,
+))
+engine = ThinkingMapTraversal(sm)
+state = engine.build_active_state(RuntimeBinding(active_context_id="ctx"), current_state="start")
+result = "ok"
+"""
+    out = json.loads(run_scenario(code, scope="core"))
+    ids = _triggered_ids(out)
+    assert "ADV-11" in ids, f"expected ADV-11 (alternative itself gated), got {ids}"
+    hit = next(a for a in out["advisories_triggered"] if a["advisory"] == "ADV-11")
+    assert "also_gated" in hit["detail"] and "questionable" in hit["detail"], hit
+
+
+def check_adv11_denied_alternative_detected():
+    code = """
+sm = SemanticMap()
+sm.register_context(ContextPrimitive("ctx", "Test"))
+sm.register_transition(TransitionPrimitive(
+    "delete_x", "Delete X", "ctx", "start", "gone",
+    requires_human_authorization=True, safe_alternatives=["archive_x"],
+))
+sm.register_transition(TransitionPrimitive("archive_x", "Archive X", "ctx", "start", "archived"))
+engine = ThinkingMapTraversal(sm)
+state = engine.build_active_state(RuntimeBinding(active_context_id="ctx"), current_state="start")
+state.deny_pending_authorization("archive_x", reason="archive storage full")
+result = "ok"
+"""
+    out = json.loads(run_scenario(code, scope="core"))
+    ids = _triggered_ids(out)
+    assert "ADV-11" in ids, f"expected ADV-11 (alternative already denied), got {ids}"
+    hit = next(a for a in out["advisories_triggered"] if a["advisory"] == "ADV-11")
+    assert "archive storage full" in hit["detail"], hit
+
+
+def check_adv11_no_false_positive_on_sound_alternative():
+    code = """
+sm = SemanticMap()
+sm.register_context(ContextPrimitive("ctx", "Test"))
+sm.register_transition(TransitionPrimitive(
+    "delete_x", "Delete X", "ctx", "start", "gone",
+    requires_human_authorization=True, safe_alternatives=["archive_x"],
+))
+sm.register_transition(TransitionPrimitive("archive_x", "Archive X", "ctx", "start", "archived"))
+engine = ThinkingMapTraversal(sm)
+state = engine.build_active_state(RuntimeBinding(active_context_id="ctx"), current_state="start")
+result = "ok"
+"""
+    out = json.loads(run_scenario(code, scope="core"))
+    ids = _triggered_ids(out)
+    assert "ADV-11" not in ids, f"sound, existing, ungated, non-denied alternative must not trigger ADV-11, got {ids}"
+
+
 def check_advisory_log_persists_across_calls():
     code = """
 sm = SemanticMap()
@@ -529,6 +609,10 @@ def main() -> int:
         ("advisories: ADV-10 ungated destructive detected", check_adv10_ungated_destructive_detected),
         ("advisories: ADV-10 no false positive when gated", check_adv10_no_false_positive_when_gated),
         ("advisories: ADV-10 no false positive on harmless label", check_adv10_no_false_positive_on_harmless_label),
+        ("advisories: ADV-11 dangling alternative detected", check_adv11_dangling_alternative_detected),
+        ("advisories: ADV-11 gated alternative detected", check_adv11_gated_alternative_detected),
+        ("advisories: ADV-11 denied alternative detected", check_adv11_denied_alternative_detected),
+        ("advisories: ADV-11 no false positive on sound alternative", check_adv11_no_false_positive_on_sound_alternative),
         ("advisories: log persists across calls", check_advisory_log_persists_across_calls),
         ("compliance: off by default", check_compliance_off_by_default),
         ("compliance: fit recorded", check_compliance_fit_recorded),
