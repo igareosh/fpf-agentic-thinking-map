@@ -77,6 +77,22 @@ So the model spends capacity on the task, not on traversal clutter.
 
 ---
 
+## Why this isn't another prompt
+
+Most agent setups today handle this with prose: a CLAUDE.md, a system prompt,
+a rules file telling the model to behave. That's still just tokens sitting in
+context, waiting to be silently deprioritized or reinterpreted as the
+conversation grows.
+
+This package doesn't ask the model to remember discipline, it removes the
+need for discipline. Legality of the next move is computed in code
+(`GatePrimitive`, `TransitionPrimitive`, required evidence) — outside the
+token stream, so it can't be silently reinterpreted the way prose
+instructions can be. That's a structural difference, not a wording
+difference.
+
+---
+
 ## Runtime contract
 
 Each step returns a compact JSON slice:
