@@ -7,7 +7,7 @@ Each advisory: what the default behavior actually is, why that's the default, an
 **Read these two first if you read nothing else here: [`ADV-03`](#adv-03--active_context_id-is-self-asserted-not-verified-against-how-you-got-there) (context claims aren't verified) and [`ADV-07`](#adv-07--riskaboves-string-matching-is-case-sensitive-and-fails-silently) (a routing rule built exactly as this doc recommends can still silently do the opposite of what you intended). Both are silent — no error, no warning — and both sit directly behind paths this document itself tells you to use.**
 
 **Testing against these directly?** [`dev_mcp`](../../dev_mcp/README.md)'s
-`run_scenario` checks every one of the 8 auto-detected advisories below
+`run_scenario` checks every one of the 9 auto-detected advisories below
 against whatever `ActiveState` your scenario builds, automatically — no
 need to reason by hand about whether your test case happens to sit in one
 of these blind spots. Hits are returned inline and logged
@@ -28,6 +28,7 @@ of that automatic scan — see its own entry for why not.
 | [`ADV-07`](#adv-07--riskaboves-string-matching-is-case-sensitive-and-fails-silently) | case-sensitive risk | sharpest — `"CRITICAL"` silently reads as `"normal"`, no error |
 | [`ADV-08`](#adv-08--no-persistence-surface-session-continuity-is-a-harness-responsibility-not-an-engine-one) | no persistence | no `to_dict`/`from_dict` anywhere — session continuity is the harness's job |
 | [`ADV-09`](#adv-09--compliance-mode-is-a-witness-not-a-fix--and-cant-be-one-without-knowing-your-domain) | **no oracles, no future seers** | compliance mode can show you drift, it cannot know your domain well enough to fix it |
+| [`ADV-10`](#adv-10--requires_human_authorization-defaults-to-false-and-nothing-checks-whether-a-transitions-own-name-says-it-should-have-been-true) | ungated by default | `requires_human_authorization=False` is the default — nothing checks whether a destructive-sounding transition should have set it |
 
 ---
 
@@ -135,4 +136,16 @@ There's a second cost, not just a coverage gap: a map that hard-blocks without d
 
 ---
 
-*v1 — 2026-07-08 (ADV-01/02), v2 — 2026-07-08 (ADV-03..06), v3 — 2026-07-08 (ADV-07), v4 — 2026-07-18 (ADV-08), v5 — 2026-07-18 (ADV-09). All found by actually running scenarios through `dev_mcp` (`scope="core"`) or reading the shipped source directly, not by inspection or guesswork — ADV-09 found while building and testing `dev_mcp`'s own compliance-mode tooling in the same session it shipped in. More advisories get added here the same way — dug up, not invented.*
+## ADV-10 — `requires_human_authorization` defaults to False, and nothing checks whether a transition's own name says it should have been True
+
+**What**: `TransitionPrimitive.requires_human_authorization` defaults to `False` — unguarded, free to fire the moment evidence and gates are satisfied. That default is correct for the overwhelming majority of transitions, which aren't destructive. It is also a silent trap for the minority that are: a map author (human or an LLM co-building the map itself) writes `delete_everything` or `drop_table`, forgets to set `requires_human_authorization=True`, and nothing in this engine notices. The transition fires exactly like any harmless one, because structurally, as far as the engine's own legality check is concerned, it is exactly like any harmless one — evidence present, gate satisfied, `CONTINUE`.
+
+This is the sharpest version of a pattern this whole feature set has to be honest about: `requires_human_authorization=True`/`False` and `authorized=True`/`False` are two different booleans, both defaulting to `False`, meaning opposite things about safety — `requires_human_authorization=False` means *unguarded* (fires freely), `authorized=False` means *blocked* (won't fire a guarded one). Reading them cold, especially under time pressure or heavy context, "False" doesn't reliably read as "safe" in one case and "less safe, needs opt-in" in the other. The risk isn't that a model misparses a JSON boolean — it's that a human or model *building* the map treats a destructive transition the same as any other by default, because nothing about writing `TransitionPrimitive(...)` without `requires_human_authorization=True` feels like an omission at the point of writing it.
+
+**Why this is the default**: the engine cannot know a transition is destructive from its `transition_id`/`label` — that's semantic, domain, and language-dependent, and guessing it would mean the engine silently gating (or not gating) transitions based on string content nobody asked it to interpret. Same boundary as `ADV-04` (contradiction detection is opt-in, not inferred from action names) — inferring intent from a name is exactly the kind of guess this library refuses to make automatically, because guessing wrong in either direction is worse than staying silent: gate something harmless and it's an annoying false alarm; auto-detect and silently *skip* gating something because a name didn't match a keyword, and the false confidence is worse than never having the check at all.
+
+**How to close the gap**: `dev_mcp`'s `ADV-10` detector (`_adv10_ungated_destructive_transition`, one of the 9 auto-run detectors) is exactly this — a keyword-heuristic lint, not a runtime gate, not enforcement, and it says so in its own output. It scans transition labels/ids for a small, explicit, documented keyword list (`delete`, `drop`, `remove`, `destroy`, `nuke`, `wipe`, `purge`, `truncate`, `terminate`, `revoke`, `kill`) and flags any match that lacks `requires_human_authorization=True`. Run it against your own map before shipping it: false positives (an "archive" transition that mentions "removing old copies" in its label) and false negatives (a genuinely destructive transition with no alarming word in its name — "finalize", "commit", "apply" can all mean delete depending on domain) are both expected and were never going to be otherwise. This is a second pair of eyes on a map's own naming, not proof of safety — the actual decision, "does this specific transition need `requires_human_authorization=True`," is still the map author's to make, the same way `ADV-04`'s `exclusive_with` still has to be declared by hand.
+
+---
+
+*v1 — 2026-07-08 (ADV-01/02), v2 — 2026-07-08 (ADV-03..06), v3 — 2026-07-08 (ADV-07), v4 — 2026-07-18 (ADV-08), v5 — 2026-07-18 (ADV-09), v6 — 2026-07-20 (ADV-10). All found by actually running scenarios through `dev_mcp` (`scope="core"`) or reading the shipped source directly, not by inspection or guesswork — ADV-09 found while building and testing `dev_mcp`'s own compliance-mode tooling in the same session it shipped in; ADV-10 found by an end user reasoning through the `requires_human_authorization`/`authorized` polarity out loud, in the same session that feature shipped in. More advisories get added here the same way — dug up, not invented.*

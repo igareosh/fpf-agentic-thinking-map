@@ -29,9 +29,9 @@ Badges above describe the **core engine** (`fpf_thinking_map/`, what PyPI ships)
 not shipped, own test suite, own count, on purpose kept distinct rather than
 folded into the numbers above:
 
-[![dev_mcp self-test](https://img.shields.io/badge/dev__mcp%20self--test-31%2F31%20pass-1f6feb)](dev_mcp/test_server.py)
+[![dev_mcp self-test](https://img.shields.io/badge/dev__mcp%20self--test-34%2F34%20pass-1f6feb)](dev_mcp/test_server.py)
 [![dev_mcp compliance mode](https://img.shields.io/badge/dev__mcp-compliance%20mode-1a3a5c)](dev_mcp/compliance_inspector.py)
-[![dev_mcp advisories](https://img.shields.io/badge/integrator%20advisories-9-8b6914)](docs/deep/ADVISORIES.md)
+[![dev_mcp advisories](https://img.shields.io/badge/integrator%20advisories-10-8b6914)](docs/deep/ADVISORIES.md)
 
 - [Visual architecture →](ARCHITECTURE.md) (core engine)
 - [dev_mcp visual architecture →](dev_mcp/ARCHITECTURE.md) (MCP tool layer, testing mode)
@@ -179,6 +179,16 @@ judgment has something visible to work with is what it's for.
 See [`run_scenario_denied_reroute`](fpf_thinking_map/examples.py): the same
 escalation, this time denied with a reason, then resolved by firing the
 declared alternative directly — destructive denied, task still done.
+
+**None of this helps if the gate was never set.** `requires_human_authorization`
+defaults to `False` — unguarded — and nothing in the engine checks whether a
+transition's own name suggests it should have been `True`. A map author (or
+an LLM co-building the map) writing `delete_everything` without the flag is a
+silent gap this library can't catch by guessing intent from a string. What it
+can do: [`ADV-10`](docs/deep/ADVISORIES.md) is a `dev_mcp` lint — keyword-heuristic,
+not semantic, not enforcement — that flags exactly this shape when it's
+present in a scenario's map, so the omission has to be noticed instead of
+just hoped past.
 
 ---
 

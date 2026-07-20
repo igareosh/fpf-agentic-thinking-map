@@ -301,6 +301,53 @@ result = "ok"
     assert "ADV-08" in ids, f"expected ADV-08 (standing fact, every ActiveState), got {ids} — full: {out}"
 
 
+def check_adv10_ungated_destructive_detected():
+    code = """
+sm = SemanticMap()
+sm.register_context(ContextPrimitive("ctx", "Test"))
+sm.register_transition(TransitionPrimitive("delete_everything", "Delete everything", "ctx", "start", "gone"))
+engine = ThinkingMapTraversal(sm)
+state = engine.build_active_state(RuntimeBinding(active_context_id="ctx"), current_state="start")
+result = "ok"
+"""
+    out = json.loads(run_scenario(code, scope="core"))
+    ids = _triggered_ids(out)
+    assert "ADV-10" in ids, f"expected ADV-10 (ungated destructive-sounding transition), got {ids} — full: {out}"
+    hit = next(a for a in out["advisories_triggered"] if a["advisory"] == "ADV-10")
+    assert "delete_everything" in hit["detail"], hit
+
+
+def check_adv10_no_false_positive_when_gated():
+    code = """
+sm = SemanticMap()
+sm.register_context(ContextPrimitive("ctx", "Test"))
+sm.register_transition(TransitionPrimitive(
+    "delete_everything", "Delete everything", "ctx", "start", "gone",
+    requires_human_authorization=True,
+))
+engine = ThinkingMapTraversal(sm)
+state = engine.build_active_state(RuntimeBinding(active_context_id="ctx"), current_state="start")
+result = "ok"
+"""
+    out = json.loads(run_scenario(code, scope="core"))
+    ids = _triggered_ids(out)
+    assert "ADV-10" not in ids, f"gated destructive transition must not trigger ADV-10, got {ids}"
+
+
+def check_adv10_no_false_positive_on_harmless_label():
+    code = """
+sm = SemanticMap()
+sm.register_context(ContextPrimitive("ctx", "Test"))
+sm.register_transition(TransitionPrimitive("approve_request", "Approve request", "ctx", "start", "done"))
+engine = ThinkingMapTraversal(sm)
+state = engine.build_active_state(RuntimeBinding(active_context_id="ctx"), current_state="start")
+result = "ok"
+"""
+    out = json.loads(run_scenario(code, scope="core"))
+    ids = _triggered_ids(out)
+    assert "ADV-10" not in ids, f"harmless-labeled transition must not trigger ADV-10, got {ids}"
+
+
 def check_advisory_log_persists_across_calls():
     code = """
 sm = SemanticMap()
@@ -479,6 +526,9 @@ def main() -> int:
         ("advisories: ADV-07 risk case sensitivity detected", check_adv07_risk_case_sensitivity_detected),
         ("advisories: ADV-07 no false positive on correct case", check_adv07_no_false_positive_on_correct_case),
         ("advisories: ADV-08 no persistence surface always noted", check_adv08_no_persistence_surface_always_noted),
+        ("advisories: ADV-10 ungated destructive detected", check_adv10_ungated_destructive_detected),
+        ("advisories: ADV-10 no false positive when gated", check_adv10_no_false_positive_when_gated),
+        ("advisories: ADV-10 no false positive on harmless label", check_adv10_no_false_positive_on_harmless_label),
         ("advisories: log persists across calls", check_advisory_log_persists_across_calls),
         ("compliance: off by default", check_compliance_off_by_default),
         ("compliance: fit recorded", check_compliance_fit_recorded),

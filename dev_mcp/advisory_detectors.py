@@ -1,4 +1,5 @@
-"""Structural detectors for the 8 documented integrator advisories (docs/deep/ADVISORIES.md).
+"""Structural detectors for 9 of the 10 documented integrator advisories (docs/deep/ADVISORIES.md).
+ADV-09 has no detector — it's about compliance mode itself, not an ActiveState property.
 
 Not a fix. Not enforcement. Nothing here changes engine behavior or blocks
 a scenario. This is awareness persistence: when a scenario run's objects
@@ -191,8 +192,52 @@ def _adv08_no_persistence_surface(state: ActiveState) -> AdvisoryHit | None:
     )
 
 
+_DESTRUCTIVE_KEYWORDS = frozenset({
+    "delete", "drop", "remove", "destroy", "nuke", "wipe", "purge",
+    "truncate", "terminate", "revoke", "kill",
+})
+
+
+def _adv10_ungated_destructive_transition(state: ActiveState) -> AdvisoryHit | None:
+    """ADV-10 — requires_human_authorization defaults to False (ungated); nothing
+    checks whether a transition's own label/id suggests it should have been True.
+
+    Keyword match only, not semantic understanding — same shape as ADV-07's
+    string matching, same honesty about it: false positives (an "archive"
+    transition that happens to say "remove old copies" in its label) and
+    false negatives (a genuinely destructive transition with no alarming
+    word in its name) are both expected. This is a heuristic-prompt, not an
+    anomaly — it fires on what the map's own labels say, not on proof that
+    anything is actually wrong.
+    """
+    hits: list[tuple[str, list[str]]] = []
+    for t in state.semantic_map.transitions.values():
+        if t.requires_human_authorization:
+            continue
+        haystack = f"{t.transition_id} {t.label}".lower()
+        matched = sorted(k for k in _DESTRUCTIVE_KEYWORDS if k in haystack)
+        if matched:
+            hits.append((t.transition_id, matched))
+    if not hits:
+        return None
+    named = ", ".join(f"{tid} ({'/'.join(kw)})" for tid, kw in hits)
+    return AdvisoryHit(
+        "ADV-10", "Destructive-sounding transition with no requires_human_authorization gate", "heuristic-prompt",
+        f"requires_human_authorization defaults to False (ungated) — nothing else in this engine "
+        f"checks whether a transition's own name suggests it should have been True. Keyword match "
+        f"only ({sorted(_DESTRUCTIVE_KEYWORDS)}), not semantic understanding: false positives and "
+        f"false negatives both expected. Transitions in this map with a destructive-sounding "
+        f"label/id but no gate set: {named}. If any of these are genuinely destructive, that's a "
+        f"silent gap on the map to fix — this engine cannot catch it for you, only point at it.",
+    )
+
+
 def detect_advisories(state: ActiveState, logic_layer: "LogicLayer | None" = None) -> list[AdvisoryHit]:
-    """Run all 8 detectors against one ActiveState (+ optional LogicLayer) and return the hits."""
+    """Run all 9 structural detectors (ADV-01..08, ADV-10) against one ActiveState
+
+    (+ optional LogicLayer) and return the hits. ADV-09 has no detector here —
+    it's about compliance mode itself, not something an ActiveState can exhibit.
+    """
     hits: list[AdvisoryHit | None] = [
         _adv01_evidence_staleness(state),
         _adv02_risk_not_filtering(state),
@@ -202,6 +247,7 @@ def detect_advisories(state: ActiveState, logic_layer: "LogicLayer | None" = Non
         _adv06_agency_not_enforced(state),
         _adv07_risk_case_sensitivity(state),
         _adv08_no_persistence_surface(state),
+        _adv10_ungated_destructive_transition(state),
     ]
     return [h for h in hits if h is not None]
 
