@@ -102,6 +102,29 @@ flowchart LR
 
 Legal and fireable are different questions. Evidence and gates answer "is this move structurally sound." `requires_human_authorization` answers "is this caller allowed to be the one who fires it" — checked first, before either of the others, so a destructive move doesn't get a false sense of readiness from clean evidence when the real blocker is that no human has said yes yet.
 
+The whole shape of it, before the code-level detail below:
+
+```mermaid
+flowchart LR
+    LEGAL["FPF legality<br/>evidence fresh + gate green"] --> LOCK{Ignition Lock<br/>gated?}
+    LOCK -->|not gated| FIRES1["fires normally"]
+    LOCK -->|gated, no human yet| WAIT["pending_authorizations<br/>— a human is now waiting on this"]
+    WAIT -->|"yes"| FIRES2["fires — authorized"]
+    WAIT -->|"no, with a reason"| ABORT["Abort to Orbit<br/>safe_alternatives were visible<br/>the entire time"]
+    ABORT --> ALT["model fires the<br/>declared alternative instead"]
+
+    style LOCK fill:#8b6914,color:#fff
+    style WAIT fill:#8b6914,color:#fff
+    style FIRES1 fill:#2d5016,color:#fff
+    style FIRES2 fill:#2d5016,color:#fff
+    style ABORT fill:#1a3a5c,color:#fff
+    style ALT fill:#2d5016,color:#fff
+```
+
+Legal was never in question in either branch — the map's own logic said `CONTINUE` the whole time. What Ignition Lock adds is a second party who gets to answer a question the engine was never going to ask on its own: not "can this fire," but "should it, without me."
+
+The actual code path this diagram is standing in for:
+
 ```mermaid
 flowchart TD
     AT([attempt_transition<br/>called]) --> FOUND{transition_id<br/>found + valid<br/>context/state?}
@@ -383,6 +406,40 @@ sequenceDiagram
         Note over S: state changes<br/>evidence ages
     end
 ```
+
+## Abort to Orbit scenario — full flow
+
+Same shape as the deploy scenario above, one participant added: a human who isn't reachable from inside the model's own tool-calling loop. This is `run_scenario_denied_reroute()` (`fpf_thinking_map/examples.py`), traced end to end.
+
+```mermaid
+sequenceDiagram
+    participant M as Model
+    participant T as ThinkingMapTraversal
+    participant S as ActiveState
+    participant H as Human
+
+    M->>T: attempt_transition("delete_records")
+    Note over T: evidence fresh, gate green —<br/>FPF legality alone says CONTINUE
+    T->>S: pending_authorizations.add("delete_records")
+    T-->>M: ESCALATE<br/>alternatives: ["archive_records"]
+    Note over M: sees the declared alternative<br/>before ever being told "no"
+
+    M->>T: step() — checks something unrelated
+    T-->>M: CONTINUE + warning:<br/>"delete_records still awaiting<br/>human authorization, unresolved"
+    Note over S: pending_authorizations unchanged —<br/>unrelated work doesn't erase the ask
+
+    H->>S: deny_pending_authorization("delete_records",<br/>reason="records may still be needed for audit")
+    Note over S: denied_authorizations recorded<br/>pending_authorizations cleared
+
+    M->>T: attempt_transition("archive_records")
+    Note over M: model's own choice —<br/>the engine never picked this
+    T->>S: transition_to("archive_records")
+    T-->>M: CONTINUE
+
+    Note over S: destructive denied,<br/>compliance respected,<br/>task still resolved
+```
+
+The two facts worth carrying forward from this diagram: the model saw `archive_records` named *before* it ever attempted the delete, not as a consolation prize after a refusal — and nothing here required a human to be watching in real time. `H->>S` could land seconds or hours after the `ESCALATE`; `pending_authorizations` is what keeps that gap from meaning the ask got lost.
 
 ## What's declared vs. what's reachable
 
