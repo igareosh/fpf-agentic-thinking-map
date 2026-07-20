@@ -424,6 +424,15 @@ class TransitionPrimitive:
     is no lower-level call that skips it. That authorized flag must come
     from a channel the agent's own tool-calling loop can't reach — see
     README "Human-in-the-loop for destructive moves" for how to wire it.
+
+    safe_alternatives: other transition_ids this one names as its
+    non-destructive twins — e.g. an archive/soft-delete instead of a hard
+    delete. Explicit and declared, never inferred: two transitions merely
+    sharing a from_state are not assumed to be substitutes for each other.
+    Surfaced in slice() before the model ever attempts this transition, and
+    folded into the ESCALATE Outcome if it does — the engine only makes the
+    option visible, it never picks one. Whether an alternative actually
+    satisfies the goal is a domain judgment outside this library's scope.
     """
     transition_id: str
     label: str
@@ -435,6 +444,7 @@ class TransitionPrimitive:
     readiness_refs: list[str] = field(default_factory=list)
     guard_expression: str = ""
     requires_human_authorization: bool = False
+    safe_alternatives: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

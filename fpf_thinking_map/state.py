@@ -196,8 +196,19 @@ class ActiveState:
     a human is mid-decision or nothing was ever attempted. A plain
     constructor field, not init=False like the private counters below, so a
     harness restoring from persistence can pass it straight back in. Cleared
-    the moment any transition or bridge crossing actually moves current_state
-    — see transition_to()/cross_bridge().
+    only when the same pending transition_id fires authorized — see
+    transition_to() — or via resolve_pending_authorization()/
+    deny_pending_authorization() below.
+    """
+    denied_authorizations: dict[str, str] = field(default_factory=dict)
+    """transition_id -> reason, for every requires_human_authorization
+
+    transition a human has explicitly said no to. Same visibility principle
+    as pending_authorization, aimed at the other side of the decision: a
+    denial is a recorded fact, not a silent void a re-attempt can wander
+    back into unremarked. Does not permanently block a future authorized=True
+    — a human can change their mind — it just means the ESCALATE reason on
+    any retry names what was said before.
     """
     _evidence_added_at: dict[str, int] = field(default_factory=dict, init=False, repr=False)
     _state_visits: dict[str, int] = field(default_factory=dict, init=False, repr=False)
@@ -420,14 +431,29 @@ class ActiveState:
         return True
 
     def resolve_pending_authorization(self) -> None:
-        """Clear pending_authorization without firing it — the "no" path.
+        """Clear pending_authorization without firing it, and without a trace.
 
-        transition_to()/attempt_transition() clear it automatically when the
-        pending transition is approved and fires. There was no equivalent for
-        a human declining it, or for a harness deciding the ask is stale and
-        no longer relevant. Call this explicitly for either case.
+        For a harness deciding the ask is stale or no longer relevant — the
+        traversal moved past the question entirely, not "no." If a human
+        actually said no, use deny_pending_authorization() instead: that one
+        remembers why, this one doesn't.
         """
         self.pending_authorization = None
+
+    def deny_pending_authorization(self, transition_id: str, reason: str = "") -> None:
+        """A human said no. Records it — a denial is a fact, not a void.
+
+        Clears pending_authorization if it was the transition being denied.
+        Does not block a later authorized=True on the same transition_id —
+        a human can change their mind — but any retry's ESCALATE reason will
+        name this denial, so it isn't silently re-asked as if fresh. Pair
+        with TransitionPrimitive.safe_alternatives on the denied transition
+        to know what else was declared as its non-destructive twin; this
+        method doesn't pick one, it only makes sure the denial is visible.
+        """
+        self.denied_authorizations[transition_id] = reason
+        if self.pending_authorization == transition_id:
+            self.pending_authorization = None
 
     def cross_bridge(self, target_context_id: str, entry_state: str) -> tuple[bool, str]:
         """#26: validated writeback for a cross-context bridge crossing.
@@ -592,6 +618,8 @@ class ActiveState:
                 "from": t.from_state,
                 "to": t.to_state,
                 "requires_human_authorization": t.requires_human_authorization,
+                "safe_alternatives": t.safe_alternatives,
+                "previously_denied": self.denied_authorizations.get(t.transition_id),
             },
             "gate": {
                 "id": gate.gate_id,
@@ -669,6 +697,7 @@ class ActiveState:
                     "requires_gate": t.required_gate_id,
                     "missing_evidence": self.missing_evidence_for(t.transition_id),
                     "requires_human_authorization": t.requires_human_authorization,
+                    "safe_alternatives": t.safe_alternatives,
                 }
                 for t in transitions
             ],

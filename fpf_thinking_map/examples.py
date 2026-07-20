@@ -1,14 +1,17 @@
 """Deploy decision scenarios — the thinking map in action.
 
-Demonstrates 6 scenarios:
+Demonstrates 7 scenarios:
 
   1. Missing evidence    — gate blocks, evidence collected, retry succeeds
   2. Role conflict       — analyst ⊥ approver, guard denies
   3. Full traversal      — assessing → ready → deploying (demo walk)
   4. Destructive HITL    — delete is legal (evidence+gate pass), still
                            refused until a human authorizes it
-  5. Logic glue          — all 6 operators at each step, freshness-aware rules
-  6. Truth table         — 6 operators on two evidence atoms, 4 rows
+  5. Denied → reroute    — human declines the delete; the declared safe
+                           twin (archive) was visible the whole time and
+                           is still an ordinary transition to fire
+  6. Logic glue          — all 6 operators at each step, freshness-aware rules
+  7. Truth table         — 6 operators on two evidence atoms, 4 rows
 
 Run all:   python -m fpf_thinking_map.examples
 Run one:   from fpf_thinking_map.examples import run_scenario_missing_evidence
@@ -398,6 +401,20 @@ def build_destructive_action_map() -> SemanticMap:
         required_gate_id="delete_gate",
         required_evidence=["dry_run_report"],
         requires_human_authorization=True,
+        safe_alternatives=["archive_records"],
+    ))
+
+    # the declared non-destructive twin — an ordinary transition, not
+    # gated, not auto-fired by the engine. Named on delete_records so it's
+    # visible before anyone attempts the delete, and again in the ESCALATE
+    # Outcome if they do — picking it is still the model's call to make.
+    sm.register_transition(TransitionPrimitive(
+        transition_id="archive_records",
+        label="Archive matching records instead of deleting",
+        context_id="data_ops",
+        from_state="reviewed",
+        to_state="archived",
+        required_evidence=["dry_run_report"],
     ))
 
     # unrelated, no authorization needed — for demonstrating that a pending
@@ -460,6 +477,57 @@ def run_scenario_destructive_hitl():
     print(json.dumps(outcome2.to_dict(), indent=2))
     print(f"state.pending_authorization = {state.pending_authorization!r}  "
           f"(resolved — this specific ask fired)")
+
+
+def run_scenario_denied_reroute():
+    """Scenario: human says no — the traversal doesn't dead-end, it reroutes.
+
+    Same map, same escalation. This time the human declines the delete
+    outright. The engine doesn't pick what happens next — it never does —
+    but delete_records declared archive_records as its safe_alternatives,
+    so that option was visible the entire time, named again right in the
+    denial, and is just sitting there as an ordinary transition for the
+    model to choose. No dead end, no silent block nobody can route out of.
+    """
+    print("\n" + "=" * 60)
+    print("SCENARIO: Destructive delete denied — reroute to the safe twin")
+    print("=" * 60)
+
+    sm = build_destructive_action_map()
+    engine = ThinkingMapTraversal(sm)
+
+    binding = RuntimeBinding(
+        task="clean up orphaned records",
+        goal="delete records flagged by dry-run",
+        actor="ops_agent",
+        active_context_id="data_ops",
+        current_evidence=["dry_run_report"],
+    )
+    state = engine.build_active_state(binding, current_state="reviewed")
+
+    print("\n--- Model attempts the delete — escalates, alternatives visible ---")
+    outcome = engine.attempt_transition(state, "delete_records")
+    print(f"outcome: {outcome.kind.value}")
+    print(f"alternatives named in the escalation: {outcome.alternatives}")
+
+    print("\n--- Human denies it, with a reason — recorded, not a void ---")
+    state.deny_pending_authorization(
+        "delete_records", reason="records may still be needed for audit — archive instead",
+    )
+    print(f"denied_authorizations: {state.denied_authorizations}")
+    print(f"pending_authorization: {state.pending_authorization!r}  (cleared by the denial)")
+
+    print("\n--- Model picks the declared alternative on its own — ordinary fire ---")
+    reroute = engine.attempt_transition(state, "archive_records")
+    print(json.dumps(reroute.to_dict(), indent=2))
+    print(f"final_state: {state.current_state}  (archived, not deleted — destructive=denied, "
+          f"compliance=respected, task still resolved)")
+
+    print("\n--- A later retry of the original delete would carry the history, ---")
+    print("--- not silently re-ask as if nothing happened (shown, not fired here) ---")
+    would_be = state.denied_authorizations.get("delete_records")
+    print(f"if delete_records were attempted again: reason would include "
+          f"'previously denied: {would_be!r}'")
 
 
 def build_deploy_rules() -> LogicLayer:
@@ -663,5 +731,6 @@ if __name__ == "__main__":
     run_scenario_role_conflict()
     run_scenario_full_traversal()
     run_scenario_destructive_hitl()
+    run_scenario_denied_reroute()
     run_logic_scenario()
     run_truth_table_demo()

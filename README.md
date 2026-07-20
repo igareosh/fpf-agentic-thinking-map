@@ -129,9 +129,6 @@ the model's own tool-calling loop can set for itself. It has to come from a
 channel the agent can request but not answer on its own behalf: a human
 typing a confirmation, a separate approval endpoint, an explicit "yes / go".
 
-See [`run_scenario_destructive_hitl`](fpf_thinking_map/examples.py) for the
-full walk: evidence present, gate passing, still refused until authorized.
-
 **The waiting itself is a fact worth keeping, not just the refusal.**
 `current_state="ready_to_restart"` looks identical whether a human is
 mid-decision on `delete_records` or nobody's touched it yet — that's the gap
@@ -144,9 +141,44 @@ restoring state after a restart can pass it straight back in. It's cleared
 automatically the moment that *same* transition fires authorized — firing
 something unrelated in the meantime does not erase it, and `step()` keeps
 surfacing a warning about it regardless of which move is in view, so the
-still-open ask doesn't quietly fall out of context. If a human declines
-instead, or the ask goes stale, call `resolve_pending_authorization()`
-explicitly — nothing here assumes "pending" always resolves to "yes".
+still-open ask doesn't quietly fall out of context. If the ask goes stale —
+the model moved on, the question no longer applies — call
+`resolve_pending_authorization()`. Nothing here assumes "pending" always
+resolves to "yes".
+
+See [`run_scenario_destructive_hitl`](fpf_thinking_map/examples.py) for the
+full walk: evidence present, gate passing, still refused until authorized.
+
+## When a human says no
+
+A denial is a fact, not a dead end. Escalating for every destructive move
+regardless of whether a legitimate non-destructive path existed too would be
+its own failure — the exact shape of denying a database wipe for reasons
+nobody could see, because nothing about the alternative was ever visible.
+
+`TransitionPrimitive.safe_alternatives` names a transition's non-destructive
+twins — explicit, declared, the same way `incompatible_with` and
+`bridges_to` already work in this codebase. Never inferred: two transitions
+merely sharing a `from_state` are not assumed to be substitutes for each
+other. `slice()` surfaces them before the model ever attempts the destructive
+move, and the `ESCALATE` `Outcome` carries them again if it does — so the
+option is visible at the point of decision, not just discovered after a
+refusal.
+
+`ActiveState.deny_pending_authorization(transition_id, reason)` records an
+explicit "no" — distinct from the stale-ask case above. It doesn't
+permanently lock the door (a human can change their mind; a later
+`authorized=True` still fires), but any retry's `ESCALATE` reason names what
+was said before, so it's never silently re-asked as if nothing happened. It
+also doesn't pick an alternative for you — the engine names the safe twin,
+the model chooses to fire it, through the same ordinary `attempt_transition()`
+as any other move. Whether the archive is actually an adequate substitute for
+the delete is a domain judgment this library can't make; making sure that
+judgment has something visible to work with is what it's for.
+
+See [`run_scenario_denied_reroute`](fpf_thinking_map/examples.py): the same
+escalation, this time denied with a reason, then resolved by firing the
+declared alternative directly — destructive denied, task still done.
 
 ---
 
@@ -197,7 +229,9 @@ It is for:
 - clearer failure signals
 - lower runtime noise
 - inspectable behavior
-- HITL gating on destructive/irreversible transitions (`requires_human_authorization`)
+- HITL gating on destructive/irreversible transitions (`requires_human_authorization`),
+  with declared non-destructive alternatives (`safe_alternatives`) so a denial
+  routes somewhere instead of dead-ending
 
 It is not:
 

@@ -54,6 +54,7 @@ class Outcome:
     action: str | None = None
     missing_evidence: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    alternatives: list[str] = field(default_factory=list)
     llm_prompt_state: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -69,6 +70,8 @@ class Outcome:
             d["missing_evidence"] = self.missing_evidence
         if self.warnings:
             d["warnings"] = self.warnings
+        if self.alternatives:
+            d["alternatives"] = self.alternatives
         return d
 
 
@@ -331,11 +334,17 @@ class ThinkingMapTraversal:
             )
             if missing_now:
                 reason += f" (also missing evidence: {missing_now})"
+            prior_denial = state.denied_authorizations.get(transition_id)
+            if prior_denial:
+                reason += f" (previously denied: {prior_denial!r} — retry, not a fresh ask)"
+            if t.safe_alternatives:
+                reason += f" (declared safe alternatives: {t.safe_alternatives})"
             state.pending_authorization = transition_id
             return Outcome(
                 kind=OutcomeKind.ESCALATE,
                 reason=reason,
                 missing_evidence=missing_now,
+                alternatives=list(t.safe_alternatives),
             )
 
         missing = state.missing_evidence_for(transition_id)

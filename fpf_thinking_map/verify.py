@@ -1172,11 +1172,11 @@ def check_requires_human_authorization():
     assert s.current_state == "released"
     assert s.pending_authorization is None
 
-    # resolve_pending_authorization(): the "human said no" / stale-ask path,
-    # for when the pending transition never fires at all
+    # resolve_pending_authorization(): stale-ask path, no history kept
     s.pending_authorization = "some_stale_ask"
     s.resolve_pending_authorization()
     assert s.pending_authorization is None
+    assert "some_stale_ask" not in s.denied_authorizations
 
     # ordinary transitions are unaffected — requires_human_authorization defaults to False
     sm2 = SemanticMap()
@@ -1205,6 +1205,56 @@ def check_requires_human_authorization():
         f"got {o4.missing_evidence}"
     )
     assert "proof" in o4.reason
+
+    # safe_alternatives: declared, surfaced in slice() before any attempt,
+    # and folded into the ESCALATE Outcome — never auto-fired by the engine
+    sm4 = SemanticMap()
+    sm4.register_context(ContextPrimitive("ctx4", "Test4"))
+    sm4.register_transition(TransitionPrimitive(
+        "hard_delete", "Hard delete", "ctx4", "reviewed", "deleted",
+        requires_human_authorization=True, safe_alternatives=["archive"],
+    ))
+    sm4.register_transition(TransitionPrimitive(
+        "archive", "Archive instead", "ctx4", "reviewed", "archived",
+    ))
+    engine4 = ThinkingMapTraversal(sm4)
+    s4 = engine4.build_active_state(RuntimeBinding(active_context_id="ctx4"), current_state="reviewed")
+
+    sl4 = s4.slice("hard_delete")
+    assert sl4["move"]["safe_alternatives"] == ["archive"], sl4["move"]
+    assert sl4["move"]["previously_denied"] is None
+
+    o5 = engine4.attempt_transition(s4, "hard_delete")
+    assert o5.kind == OutcomeKind.ESCALATE
+    assert o5.alternatives == ["archive"], o5.alternatives
+
+    # human says no — recorded, not a void; pending clears, denial doesn't
+    # block a later change of mind, and the alternative is still just sitting
+    # there as an ordinary transition for the model to choose on its own
+    s4.deny_pending_authorization("hard_delete", reason="not urgent enough, archive instead")
+    assert s4.pending_authorization is None
+    assert s4.denied_authorizations["hard_delete"] == "not urgent enough, archive instead"
+
+    o6 = engine4.attempt_transition(s4, "archive")
+    assert o6.kind == OutcomeKind.CONTINUE, f"Expected CONTINUE, got {o6.kind}"
+    assert s4.current_state == "archived"
+
+    # a retry after denial names the history — not silently re-asked as fresh
+    sm5 = SemanticMap()
+    sm5.register_context(ContextPrimitive("ctx5", "Test5"))
+    sm5.register_transition(TransitionPrimitive(
+        "hard_delete", "Hard delete", "ctx5", "reviewed", "deleted",
+        requires_human_authorization=True,
+    ))
+    engine5 = ThinkingMapTraversal(sm5)
+    s5 = engine5.build_active_state(RuntimeBinding(active_context_id="ctx5"), current_state="reviewed")
+    s5.deny_pending_authorization("hard_delete", reason="no")
+    o7 = engine5.attempt_transition(s5, "hard_delete")
+    assert o7.kind == OutcomeKind.ESCALATE
+    assert "previously denied" in o7.reason and "no" in o7.reason, o7.reason
+    # but a later authorized=True still fires — denial isn't permanent
+    o8 = engine5.attempt_transition(s5, "hard_delete", authorized=True)
+    assert o8.kind == OutcomeKind.CONTINUE
 
 
 def main():
