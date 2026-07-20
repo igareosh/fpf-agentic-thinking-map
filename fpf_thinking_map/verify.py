@@ -1159,6 +1159,24 @@ def check_requires_human_authorization():
     assert o3.kind == OutcomeKind.CONTINUE
     assert s2.current_state == "b"
 
+    # ESCALATE must surface missing evidence too, not just the auth requirement —
+    # a human shouldn't say "yes" to a request that still can't fire regardless
+    sm3 = SemanticMap()
+    sm3.register_context(ContextPrimitive("ctx3", "Test3"))
+    sm3.register_transition(TransitionPrimitive(
+        "t_gated", "Gated", "ctx3", "start", "done",
+        required_evidence=["proof"], requires_human_authorization=True,
+    ))
+    engine3 = ThinkingMapTraversal(sm3)
+    s3 = engine3.build_active_state(RuntimeBinding(active_context_id="ctx3"), current_state="start")
+    o4 = engine3.attempt_transition(s3, "t_gated")
+    assert o4.kind == OutcomeKind.ESCALATE, f"Expected ESCALATE, got {o4.kind}"
+    assert o4.missing_evidence == ["proof"], (
+        f"ESCALATE must report missing evidence alongside the auth requirement, "
+        f"got {o4.missing_evidence}"
+    )
+    assert "proof" in o4.reason
+
 
 def main():
     print("FPF Thinking Map — Self-verification (horizontal)")

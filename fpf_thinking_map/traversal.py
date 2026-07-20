@@ -300,10 +300,17 @@ class ThinkingMapTraversal:
             )
 
         if t.requires_human_authorization and not authorized:
+            missing_now = state.missing_evidence_for(transition_id)
+            reason = (
+                f"Transition '{transition_id}' is requires_human_authorization — "
+                f"requires explicit human authorization, not model-invoked"
+            )
+            if missing_now:
+                reason += f" (also missing evidence: {missing_now})"
             return Outcome(
                 kind=OutcomeKind.ESCALATE,
-                reason=f"Transition '{transition_id}' is requires_human_authorization — "
-                       f"requires explicit human authorization, not model-invoked",
+                reason=reason,
+                missing_evidence=missing_now,
             )
 
         missing = state.missing_evidence_for(transition_id)
