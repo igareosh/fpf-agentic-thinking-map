@@ -99,12 +99,12 @@ def wrap_traversal_class(traversal_cls: type, ledger: ComplianceLedger) -> type:
     orig_attempt_bridge = traversal_cls.attempt_bridge
 
     class ComplianceTraversal(traversal_cls):  # type: ignore[misc, valid-type]
-        def attempt_transition(self, state, transition_id):  # noqa: D102 — thin wrapper, no new behavior
+        def attempt_transition(self, state, transition_id, **kwargs):  # noqa: D102 — thin wrapper, no new behavior
             from_state = state.current_state
             # captured before the call: transition_to() mutates current_state on success,
             # so possible_transitions() must be read against the pre-move state.
             expected = _safe_expected(lambda: [t.transition_id for t in state.possible_transitions])
-            outcome = orig_attempt_transition(self, state, transition_id)
+            outcome = orig_attempt_transition(self, state, transition_id, **kwargs)
             ledger.records.append(
                 ComplianceRecord(
                     call="attempt_transition",

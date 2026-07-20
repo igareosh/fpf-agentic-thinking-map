@@ -29,7 +29,7 @@ Badges above describe the **core engine** (`fpf_thinking_map/`, what PyPI ships)
 not shipped, own test suite, own count, on purpose kept distinct rather than
 folded into the numbers above:
 
-[![dev_mcp self-test](https://img.shields.io/badge/dev__mcp%20self--test-30%2F30%20pass-1f6feb)](dev_mcp/test_server.py)
+[![dev_mcp self-test](https://img.shields.io/badge/dev__mcp%20self--test-31%2F31%20pass-1f6feb)](dev_mcp/test_server.py)
 [![dev_mcp compliance mode](https://img.shields.io/badge/dev__mcp-compliance%20mode-1a3a5c)](dev_mcp/compliance_inspector.py)
 [![dev_mcp advisories](https://img.shields.io/badge/integrator%20advisories-9-8b6914)](docs/deep/ADVISORIES.md)
 

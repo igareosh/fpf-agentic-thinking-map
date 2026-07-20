@@ -380,6 +380,34 @@ result = out.kind.value
     assert "(1 total" not in address, "single-drift note must not carry the plural pointer"
 
 
+def check_compliance_forwards_kwargs():
+    """#7: ComplianceTraversal.attempt_transition() must forward authorized=,
+    not just (state, transition_id) — otherwise compliance mode can witness
+    the ESCALATE branch of a requires_human_authorization transition but
+    never the authorized fire, which is the whole point of the feature."""
+    code = """
+sm = SemanticMap()
+sm.register_context(ContextPrimitive("ctx", "Test"))
+sm.register_transition(TransitionPrimitive(
+    "t1", "Release", "ctx", "start", "done", requires_human_authorization=True,
+))
+engine = ThinkingMapTraversal(sm)
+state = engine.build_active_state(RuntimeBinding(active_context_id="ctx"), current_state="start")
+o1 = engine.attempt_transition(state, "t1")
+o2 = engine.attempt_transition(state, "t1", authorized=True)
+result = {"escalate": o1.kind.value, "authorized": o2.kind.value, "final_state": state.current_state}
+"""
+    out = json.loads(run_scenario(code, scope="core", compliance_mode=True))
+    assert "error" not in out, f"authorized kwarg must reach the wrapped call, got: {out}"
+    payload = out["result"]
+    assert "'escalate': 'escalate'" in payload, payload
+    assert "'authorized': 'continue'" in payload, payload
+    assert "'final_state': 'done'" in payload, payload
+    c = out["compliance"]
+    assert c["total_attempts"] == 2, c
+    assert c["fit_map"] == 1 and c["drifted"] == 1, c
+
+
 def check_compliance_bridge_calls_recorded():
     """attempt_bridge gets the same fit/drift treatment as attempt_transition —
     nothing in the earlier checks actually exercised the bridge half."""
@@ -455,6 +483,7 @@ def main() -> int:
         ("compliance: off by default", check_compliance_off_by_default),
         ("compliance: fit recorded", check_compliance_fit_recorded),
         ("compliance: drift recorded", check_compliance_drift_recorded),
+        ("compliance: forwards kwargs (authorized=)", check_compliance_forwards_kwargs),
         ("compliance: attempt_bridge calls recorded", check_compliance_bridge_calls_recorded),
         ("compliance: log persists across calls", check_compliance_log_persists_across_calls),
     ]
