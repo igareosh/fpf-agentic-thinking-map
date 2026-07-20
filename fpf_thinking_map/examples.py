@@ -1,12 +1,14 @@
 """Deploy decision scenarios — the thinking map in action.
 
-Demonstrates 5 scenarios on a single domain (project delivery → operations):
+Demonstrates 6 scenarios:
 
   1. Missing evidence    — gate blocks, evidence collected, retry succeeds
   2. Role conflict       — analyst ⊥ approver, guard denies
   3. Full traversal      — assessing → ready → deploying (demo walk)
-  4. Logic glue          — all 6 operators at each step, freshness-aware rules
-  5. Truth table         — 6 operators on two evidence atoms, 4 rows
+  4. Destructive HITL    — delete is legal (evidence+gate pass), still
+                           refused until a human authorizes it
+  5. Logic glue          — all 6 operators at each step, freshness-aware rules
+  6. Truth table         — 6 operators on two evidence atoms, 4 rows
 
 Run all:   python -m fpf_thinking_map.examples
 Run one:   from fpf_thinking_map.examples import run_scenario_missing_evidence
@@ -360,6 +362,83 @@ def run_scenario_full_traversal():
         print(f"\n  Step {i + 1}: {o.kind.value} — {o.reason}")
 
 
+def build_destructive_action_map() -> SemanticMap:
+    """A minimal map for one destructive move: delete.
+
+    Evidence and gate are both satisfiable on their own terms — FPF
+    legality alone would say the traversal is CONTINUE, same as any
+    other move. manual_only is the separate HITL layer stacked on top:
+    the model can see the delete is ready, it still can't fire it.
+    """
+    sm = SemanticMap()
+
+    sm.register_context(ContextPrimitive(
+        context_id="data_ops",
+        label="Data Operations",
+        invariants=["no delete without a clean dry-run"],
+    ))
+
+    sm.register_gate(GatePrimitive(
+        gate_id="delete_gate",
+        label="Delete Gate",
+        context_id="data_ops",
+        checks=[GateCheck(
+            check_id="dry_run_clean",
+            description="Dry-run reports no unintended targets",
+            required_evidence=["dry_run_report"],
+        )],
+    ))
+
+    sm.register_transition(TransitionPrimitive(
+        transition_id="delete_records",
+        label="Delete matching records",
+        context_id="data_ops",
+        from_state="reviewed",
+        to_state="deleted",
+        required_gate_id="delete_gate",
+        required_evidence=["dry_run_report"],
+        manual_only=True,
+    ))
+
+    return sm
+
+
+def run_scenario_destructive_hitl():
+    """Scenario: the model reasons a delete is legal — HITL still gates it.
+
+    Evidence is present, the gate passes — the FPF logic layer alone
+    would say CONTINUE, nothing structurally wrong with firing. This is
+    exactly the case manual_only exists for: destructive/irreversible
+    moves where legal should not silently become autonomous.
+    """
+    print("\n" + "=" * 60)
+    print("SCENARIO: Destructive delete — legal, but HITL-gated")
+    print("=" * 60)
+
+    sm = build_destructive_action_map()
+    engine = ThinkingMapTraversal(sm)
+
+    binding = RuntimeBinding(
+        task="clean up orphaned records",
+        goal="delete records flagged by dry-run",
+        actor="ops_agent",
+        active_context_id="data_ops",
+        current_evidence=["dry_run_report"],
+    )
+    state = engine.build_active_state(binding, current_state="reviewed")
+
+    print("\n--- Slice view: evidence present, gate passing, still not fireable ---")
+    print(json.dumps(state.slice("delete_records"), indent=2))
+
+    print("\n--- Model attempts to fire it directly (no authorization) ---")
+    outcome = engine.attempt_transition(state, "delete_records")
+    print(json.dumps(outcome.to_dict(), indent=2))
+
+    print("\n--- Human says yes — authorized=True from a human-only channel ---")
+    outcome2 = engine.attempt_transition(state, "delete_records", authorized=True)
+    print(json.dumps(outcome2.to_dict(), indent=2))
+
+
 def build_deploy_rules() -> LogicLayer:
     """Deploy-decision rules demonstrating all 6 operators + freshness-aware checks.
 
@@ -560,5 +639,6 @@ if __name__ == "__main__":
     run_scenario_missing_evidence()
     run_scenario_role_conflict()
     run_scenario_full_traversal()
+    run_scenario_destructive_hitl()
     run_logic_scenario()
     run_truth_table_demo()

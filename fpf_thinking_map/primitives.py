@@ -413,6 +413,17 @@ class TransitionPrimitive:
 
     Transitions connect states. Guards on transitions are evaluated
     before the transition fires.
+
+    manual_only: the HITL gate for destructive/irreversible moves. FPF
+    legality (evidence fresh, gate satisfied) doesn't know a delete from
+    a deploy — both get CONTINUE on their own merits. manual_only=True
+    is how a transition opts into "legal is not the same as fireable":
+    the model still sees it (step()/slice() report it, evidence and gate
+    status included), it just cannot invoke it — only a caller passing
+    authorized=True can, checked in ActiveState.transition_to() so there
+    is no lower-level call that skips it. That authorized flag must come
+    from a channel the agent's own tool-calling loop can't reach — see
+    README "Human-in-the-loop for destructive moves" for how to wire it.
     """
     transition_id: str
     label: str
@@ -423,6 +434,7 @@ class TransitionPrimitive:
     required_evidence: list[str] = field(default_factory=list)
     readiness_refs: list[str] = field(default_factory=list)
     guard_expression: str = ""
+    manual_only: bool = False
 
 
 # ---------------------------------------------------------------------------

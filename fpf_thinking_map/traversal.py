@@ -270,8 +270,14 @@ class ThinkingMapTraversal:
         self,
         state: ActiveState,
         transition_id: str,
+        authorized: bool = False,
     ) -> Outcome:
-        """Attempt a specific transition. Guards scoped to this move."""
+        """Attempt a specific transition. Guards scoped to this move.
+
+        authorized=True is required to fire a manual_only transition —
+        the model requesting the same transition_id without it gets
+        ESCALATE, not a silent no-op and not a bypass.
+        """
         t = self.semantic_map.transitions.get(transition_id)
         if not t:
             return Outcome(
@@ -291,6 +297,13 @@ class ThinkingMapTraversal:
             return Outcome(
                 kind=OutcomeKind.ABSTAIN,
                 reason=f"Transition requires state '{t.from_state}', current is '{state.current_state}'",
+            )
+
+        if t.manual_only and not authorized:
+            return Outcome(
+                kind=OutcomeKind.ESCALATE,
+                reason=f"Transition '{transition_id}' is manual_only — "
+                       f"requires explicit human authorization, not model-invoked",
             )
 
         missing = state.missing_evidence_for(transition_id)
@@ -325,7 +338,7 @@ class ThinkingMapTraversal:
                 reason=f"Guards deny: {'; '.join(denials)}",
             )
 
-        if state.transition_to(transition_id):
+        if state.transition_to(transition_id, authorized=authorized):
             logic_ctx = self._eval_logic(state)
             return Outcome(
                 kind=OutcomeKind.CONTINUE,

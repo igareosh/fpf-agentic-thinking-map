@@ -365,8 +365,15 @@ class ActiveState:
             missing.update(self.missing_evidence_for(t.transition_id))
         return sorted(missing)
 
-    def transition_to(self, transition_id: str) -> bool:
-        """Attempt a state transition. Returns True if successful."""
+    def transition_to(self, transition_id: str, authorized: bool = False) -> bool:
+        """Attempt a state transition. Returns True if successful.
+
+        manual_only transitions refuse to fire without authorized=True,
+        even if evidence and gates are fully satisfied — this is the one
+        check that isn't about state, it's about who is allowed to pull
+        the trigger. Checked here, not just in the Outcome-returning
+        wrapper, so calling this method directly can't bypass it.
+        """
         t = self.semantic_map.transitions.get(transition_id)
         if not t:
             return False
@@ -374,6 +381,8 @@ class ActiveState:
         if ctx_id and t.context_id != ctx_id:
             return False
         if t.from_state != self.current_state:
+            return False
+        if t.manual_only and not authorized:
             return False
         if t.required_evidence:
             if set(t.required_evidence) - self.available_evidence_ids:
@@ -538,7 +547,9 @@ class ActiveState:
         can_fire = len(missing) == 0 and (
             gate_decision not in (GateDecision.ABSTAIN, GateDecision.BLOCK)
             if gate_decision else True
-        )
+        ) and not t.manual_only
+        if t.manual_only and not blockers:
+            blockers.append("manual_only — requires human authorization, not model-invoked")
 
         relevant_eids = sorted(self.available_evidence_ids & set(
             t.required_evidence + (
@@ -553,6 +564,7 @@ class ActiveState:
                 "label": t.label,
                 "from": t.from_state,
                 "to": t.to_state,
+                "manual_only": t.manual_only,
             },
             "gate": {
                 "id": gate.gate_id,
@@ -629,6 +641,7 @@ class ActiveState:
                     "to_state": t.to_state,
                     "requires_gate": t.required_gate_id,
                     "missing_evidence": self.missing_evidence_for(t.transition_id),
+                    "manual_only": t.manual_only,
                 }
                 for t in transitions
             ],

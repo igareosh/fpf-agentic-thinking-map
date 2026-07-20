@@ -1117,6 +1117,49 @@ def check_response_contract():
     assert len(rc2["basis"]) == 2
 
 
+def check_manual_only_transition():
+    """manual_only: legal is not auto-fireable — requires authorized=True."""
+    sm = SemanticMap()
+    sm.register_context(ContextPrimitive("ctx", "Test"))
+    sm.register_transition(TransitionPrimitive(
+        "t_release", "Release", "ctx", "candidate", "released",
+        manual_only=True,
+    ))
+    engine = ThinkingMapTraversal(sm)
+
+    # slice() reports it as visible but not fireable by the model
+    b = RuntimeBinding(active_context_id="ctx")
+    s = engine.build_active_state(b, current_state="candidate")
+    sl = s.slice("t_release")
+    assert sl["move"]["manual_only"] is True
+    assert sl["can_fire"] is False
+    assert any("manual_only" in blk for blk in sl["blockers"])
+
+    # attempt_transition without authorization → ESCALATE, state unchanged
+    o1 = engine.attempt_transition(s, "t_release")
+    assert o1.kind == OutcomeKind.ESCALATE, f"Expected ESCALATE, got {o1.kind}"
+    assert s.current_state == "candidate"
+
+    # direct transition_to() without authorization also refuses — no bypass
+    assert s.transition_to("t_release") is False
+    assert s.current_state == "candidate"
+
+    # attempt_transition with authorized=True fires normally
+    o2 = engine.attempt_transition(s, "t_release", authorized=True)
+    assert o2.kind == OutcomeKind.CONTINUE, f"Expected CONTINUE, got {o2.kind}"
+    assert s.current_state == "released"
+
+    # ordinary transitions are unaffected — manual_only defaults to False
+    sm2 = SemanticMap()
+    sm2.register_context(ContextPrimitive("ctx2", "Test2"))
+    sm2.register_transition(TransitionPrimitive("t_norm", "Go", "ctx2", "a", "b"))
+    engine2 = ThinkingMapTraversal(sm2)
+    s2 = engine2.build_active_state(RuntimeBinding(active_context_id="ctx2"), current_state="a")
+    o3 = engine2.attempt_transition(s2, "t_norm")
+    assert o3.kind == OutcomeKind.CONTINUE
+    assert s2.current_state == "b"
+
+
 def main():
     print("FPF Thinking Map — Self-verification (horizontal)")
     print("=" * 55)
@@ -1144,6 +1187,7 @@ def main():
         ("semantic floors (FPF vertical)", check_semantic_floors),
         ("EvidenceFresh prop + integration", check_evidence_fresh_prop),
         ("response contract (output discipline)", check_response_contract),
+        ("manual_only transition (no model auto-fire)", check_manual_only_transition),
     ]
 
     passed = sum(check(name, fn) for name, fn in checks)

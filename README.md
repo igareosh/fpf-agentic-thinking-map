@@ -17,7 +17,7 @@ and meant to be a practical point of discussion rather than a total framework.
 [![Python versions](https://img.shields.io/pypi/pyversions/fpf-thinking-map?label=Python)](https://pypi.org/project/fpf-thinking-map/)
 [![License](https://img.shields.io/pypi/l/fpf-thinking-map?label=License)](LICENSE)
 [![Zero dependencies](https://img.shields.io/badge/dependencies-0-2ea44f)](pyproject.toml)
-[![Verify](https://img.shields.io/badge/verify-22%2F22%20pass-2ea44f)](fpf_thinking_map/verify.py)
+[![Verify](https://img.shields.io/badge/verify-23%2F23%20pass-2ea44f)](fpf_thinking_map/verify.py)
 
 [![Live demo](https://img.shields.io/badge/demo-live-7c3aed)](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)
 [![Per decision](https://img.shields.io/badge/per%20decision-288.7x%20smaller-2ea44f)](docs/deep/TRIPLE_TAX_CALCULUS.md)
@@ -94,6 +94,43 @@ difference.
 
 ---
 
+## Human-in-the-loop for destructive moves
+
+Full-autonomy agentic runs are normal now — an agent frames a problem,
+collects evidence, and drives itself state to state without a human reading
+every step. Most of that traversal, this map is happy to let through: gates
+pass, evidence is fresh, fire.
+
+Destructive and irreversible moves are the exception, and the FPF logic
+underneath doesn't get more cautious about them on its own. If
+`delete_records` has its required evidence and its gate is satisfied, the
+traversal is legal and says `CONTINUE` — same as any other move. That's
+correct behavior: the map has no built-in notion that deleting something is
+different from deploying something. It shouldn't have to — that distinction
+belongs to a separate layer, not baked into every gate.
+
+`manual_only` is that layer. Mark a transition `manual_only=True` and the
+engine keeps computing and reporting its legality — `step()`/`slice()` still
+show it, still say whether evidence and gate are satisfied — it just refuses
+to fire without `authorized=True`, enforced at `ActiveState.transition_to()`
+itself, so there's no lower-level call that skips it. The model can see the
+delete is ready. It cannot pull the trigger.
+
+**Where that "yes" comes from matters.** `authorized` is a plain argument —
+nothing inside this engine stops a caller with direct access to it from
+setting `authorized=True` on its own. This library has no identity system and
+isn't getting one; that boundary is the integration's job, not the engine's.
+Wiring it correctly means whatever harness sits around this engine — an MCP
+server, a CLI, a chat approval step — never exposes `authorized` as something
+the model's own tool-calling loop can set for itself. It has to come from a
+channel the agent can request but not answer on its own behalf: a human
+typing a confirmation, a separate approval endpoint, an explicit "yes / go".
+
+See [`run_scenario_destructive_hitl`](fpf_thinking_map/examples.py) for the
+full walk: evidence present, gate passing, still refused until authorized.
+
+---
+
 ## Runtime contract
 
 Each step returns a compact JSON slice:
@@ -141,6 +178,7 @@ It is for:
 - clearer failure signals
 - lower runtime noise
 - inspectable behavior
+- HITL gating on destructive/irreversible transitions (`manual_only`)
 
 It is not:
 
