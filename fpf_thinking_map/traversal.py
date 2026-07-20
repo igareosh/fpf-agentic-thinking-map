@@ -151,7 +151,31 @@ class ThinkingMapTraversal:
 
         include_full_state=False (only meaningful together with transition_id):
         ships the scoped slice without the full board — see #27 in _build_prompt.
+
+        Thin wrapper around _step_inner(): appends an "attention, human still
+        waiting" warning whenever state.pending_authorization is set, no
+        matter which move is being considered here. This never blocks the
+        move under evaluation — a pending ask elsewhere is surfaced, not
+        enforced, the same way ADV-01's evidence-staleness WARN doesn't
+        block either. Enforcing "nothing else moves until this is resolved"
+        is a real policy some harnesses may want, but it's an app-level
+        decision, not one this domain-agnostic engine should force.
         """
+        outcome = self._step_inner(state, transition_id, logic_tags, include_full_state)
+        if state.pending_authorization:
+            outcome.warnings.append(
+                f"transition '{state.pending_authorization}' is still awaiting "
+                f"human authorization, unresolved"
+            )
+        return outcome
+
+    def _step_inner(
+        self,
+        state: ActiveState,
+        transition_id: str | None = None,
+        logic_tags: set[str] | None = None,
+        include_full_state: bool = True,
+    ) -> Outcome:
         state.step_count += 1
 
         if not state.active_context:
@@ -307,6 +331,7 @@ class ThinkingMapTraversal:
             )
             if missing_now:
                 reason += f" (also missing evidence: {missing_now})"
+            state.pending_authorization = transition_id
             return Outcome(
                 kind=OutcomeKind.ESCALATE,
                 reason=reason,

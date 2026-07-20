@@ -188,6 +188,17 @@ class ActiveState:
     trace: MoveTrace = field(default_factory=MoveTrace)
     step_count: int = 0
     stagnation_threshold: int = 3
+    pending_authorization: str | None = None
+    """transition_id of the last requires_human_authorization transition that
+
+    raised ESCALATE and hasn't been resolved since — the specific thing
+    ADV-08 flagged: current_state alone can't tell a resumed harness whether
+    a human is mid-decision or nothing was ever attempted. A plain
+    constructor field, not init=False like the private counters below, so a
+    harness restoring from persistence can pass it straight back in. Cleared
+    the moment any transition or bridge crossing actually moves current_state
+    — see transition_to()/cross_bridge().
+    """
     _evidence_added_at: dict[str, int] = field(default_factory=dict, init=False, repr=False)
     _state_visits: dict[str, int] = field(default_factory=dict, init=False, repr=False)
     _state_visit_evidence: dict[str, frozenset[str]] = field(default_factory=dict, init=False, repr=False)
@@ -400,7 +411,23 @@ class ActiveState:
             last_transition_id=transition_id,
         )
         self.current_state = t.to_state
+        if self.pending_authorization == transition_id:
+            # this specific ask got resolved (approved and fired) — clear it.
+            # Firing some *other* transition must not clear it: that would
+            # silently lose track of a still-unanswered human ask just
+            # because unrelated work happened to move forward.
+            self.pending_authorization = None
         return True
+
+    def resolve_pending_authorization(self) -> None:
+        """Clear pending_authorization without firing it — the "no" path.
+
+        transition_to()/attempt_transition() clear it automatically when the
+        pending transition is approved and fires. There was no equivalent for
+        a human declining it, or for a harness deciding the ask is stale and
+        no longer relevant. Call this explicitly for either case.
+        """
+        self.pending_authorization = None
 
     def cross_bridge(self, target_context_id: str, entry_state: str) -> tuple[bool, str]:
         """#26: validated writeback for a cross-context bridge crossing.
@@ -660,4 +687,5 @@ class ActiveState:
                 "last_transition": self.trace.last_transition_id,
                 "blockers": self.trace.blockers,
             } if self.trace.previous_state else None,
+            "pending_authorization": self.pending_authorization,
         }

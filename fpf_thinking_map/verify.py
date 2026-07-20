@@ -1125,6 +1125,9 @@ def check_requires_human_authorization():
         "t_release", "Release", "ctx", "candidate", "released",
         requires_human_authorization=True,
     ))
+    sm.register_transition(TransitionPrimitive(
+        "t_other", "Unrelated self-loop", "ctx", "candidate", "candidate",
+    ))
     engine = ThinkingMapTraversal(sm)
 
     # slice() reports it as visible but not fireable by the model
@@ -1134,20 +1137,46 @@ def check_requires_human_authorization():
     assert sl["move"]["requires_human_authorization"] is True
     assert sl["can_fire"] is False
     assert any("requires_human_authorization" in blk for blk in sl["blockers"])
+    assert s.to_llm_prompt_state()["pending_authorization"] is None
 
-    # attempt_transition without authorization → ESCALATE, state unchanged
+    # attempt_transition without authorization → ESCALATE, state unchanged,
+    # and pending_authorization now names the specific transition waiting
     o1 = engine.attempt_transition(s, "t_release")
     assert o1.kind == OutcomeKind.ESCALATE, f"Expected ESCALATE, got {o1.kind}"
     assert s.current_state == "candidate"
+    assert s.pending_authorization == "t_release", s.pending_authorization
+
+    # an unrelated transition firing must NOT silently clear someone else's
+    # still-unresolved pending ask
+    o_other = engine.attempt_transition(s, "t_other")
+    assert o_other.kind == OutcomeKind.CONTINUE
+    assert s.pending_authorization == "t_release", (
+        "firing an unrelated transition must not clear a different "
+        "transition's pending_authorization"
+    )
+
+    # step() surfaces a warning about it regardless of which move is in view
+    step_outcome = engine.step(s, transition_id="t_other")
+    assert any("t_release" in w and "awaiting" in w for w in step_outcome.warnings), (
+        step_outcome.warnings
+    )
 
     # direct transition_to() without authorization also refuses — no bypass
     assert s.transition_to("t_release") is False
     assert s.current_state == "candidate"
 
-    # attempt_transition with authorized=True fires normally
+    # attempt_transition with authorized=True fires normally, and clears
+    # pending_authorization since this is the specific ask being resolved
     o2 = engine.attempt_transition(s, "t_release", authorized=True)
     assert o2.kind == OutcomeKind.CONTINUE, f"Expected CONTINUE, got {o2.kind}"
     assert s.current_state == "released"
+    assert s.pending_authorization is None
+
+    # resolve_pending_authorization(): the "human said no" / stale-ask path,
+    # for when the pending transition never fires at all
+    s.pending_authorization = "some_stale_ask"
+    s.resolve_pending_authorization()
+    assert s.pending_authorization is None
 
     # ordinary transitions are unaffected — requires_human_authorization defaults to False
     sm2 = SemanticMap()

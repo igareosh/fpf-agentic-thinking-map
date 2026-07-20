@@ -400,6 +400,17 @@ def build_destructive_action_map() -> SemanticMap:
         requires_human_authorization=True,
     ))
 
+    # unrelated, no authorization needed — for demonstrating that a pending
+    # ask on delete_records doesn't get silently forgotten while other work
+    # happens, and doesn't block that other work either
+    sm.register_transition(TransitionPrimitive(
+        transition_id="log_status",
+        label="Log current review status",
+        context_id="data_ops",
+        from_state="reviewed",
+        to_state="reviewed",
+    ))
+
     return sm
 
 
@@ -433,10 +444,22 @@ def run_scenario_destructive_hitl():
     print("\n--- Model attempts to fire it directly (no authorization) ---")
     outcome = engine.attempt_transition(state, "delete_records")
     print(json.dumps(outcome.to_dict(), indent=2))
+    print(f"state.pending_authorization = {state.pending_authorization!r}  "
+          f"(a human is now the specific thing this is waiting on)")
+
+    print("\n--- Meanwhile, the model looks at a totally unrelated move ---")
+    print("--- (log_status, no authorization needed) — it fires fine, but ---")
+    print("--- step() still surfaces the still-unresolved delete_records ask ---")
+    other_outcome = engine.step(state, transition_id="log_status")
+    print(f"warnings: {other_outcome.warnings}")
+    print(f"state.pending_authorization = {state.pending_authorization!r}  "
+          f"(unchanged — unrelated work does not erase it)")
 
     print("\n--- Human says yes — authorized=True from a human-only channel ---")
     outcome2 = engine.attempt_transition(state, "delete_records", authorized=True)
     print(json.dumps(outcome2.to_dict(), indent=2))
+    print(f"state.pending_authorization = {state.pending_authorization!r}  "
+          f"(resolved — this specific ask fired)")
 
 
 def build_deploy_rules() -> LogicLayer:
