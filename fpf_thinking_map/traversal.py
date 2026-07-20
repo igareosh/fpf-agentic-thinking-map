@@ -156,19 +156,20 @@ class ThinkingMapTraversal:
         ships the scoped slice without the full board — see #27 in _build_prompt.
 
         Thin wrapper around _step_inner(): appends an "attention, human still
-        waiting" warning whenever state.pending_authorization is set, no
-        matter which move is being considered here. This never blocks the
-        move under evaluation — a pending ask elsewhere is surfaced, not
-        enforced, the same way ADV-01's evidence-staleness WARN doesn't
-        block either. Enforcing "nothing else moves until this is resolved"
-        is a real policy some harnesses may want, but it's an app-level
-        decision, not one this domain-agnostic engine should force.
+        waiting" warning for every entry in state.pending_authorizations, no
+        matter which move is being considered here — plural, since more
+        than one transition can be escalated and unresolved at once, and
+        each one deserves its own reminder, not just the most recent. This
+        never blocks the move under evaluation — a pending ask elsewhere is
+        surfaced, not enforced, the same way ADV-01's evidence-staleness
+        WARN doesn't block either. Enforcing "nothing else moves until this
+        is resolved" is a real policy some harnesses may want, but it's an
+        app-level decision, not one this domain-agnostic engine should force.
         """
         outcome = self._step_inner(state, transition_id, logic_tags, include_full_state)
-        if state.pending_authorization:
+        for pending_id in sorted(state.pending_authorizations):
             outcome.warnings.append(
-                f"transition '{state.pending_authorization}' is still awaiting "
-                f"human authorization, unresolved"
+                f"transition '{pending_id}' is still awaiting human authorization, unresolved"
             )
         return outcome
 
@@ -339,7 +340,7 @@ class ThinkingMapTraversal:
                 reason += f" (previously denied: {prior_denial!r} — retry, not a fresh ask)"
             if t.safe_alternatives:
                 reason += f" (declared safe alternatives: {t.safe_alternatives})"
-            state.pending_authorization = transition_id
+            state.pending_authorizations.add(transition_id)
             return Outcome(
                 kind=OutcomeKind.ESCALATE,
                 reason=reason,

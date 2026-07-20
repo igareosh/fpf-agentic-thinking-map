@@ -1135,24 +1135,26 @@ def check_requires_human_authorization():
     s = engine.build_active_state(b, current_state="candidate")
     sl = s.slice("t_release")
     assert sl["move"]["requires_human_authorization"] is True
+    assert sl["move"]["currently_pending"] is False
     assert sl["can_fire"] is False
     assert any("requires_human_authorization" in blk for blk in sl["blockers"])
-    assert s.to_llm_prompt_state()["pending_authorization"] is None
+    assert s.to_llm_prompt_state()["pending_authorizations"] == []
 
     # attempt_transition without authorization → ESCALATE, state unchanged,
-    # and pending_authorization now names the specific transition waiting
+    # and pending_authorizations now names the specific transition waiting
     o1 = engine.attempt_transition(s, "t_release")
     assert o1.kind == OutcomeKind.ESCALATE, f"Expected ESCALATE, got {o1.kind}"
     assert s.current_state == "candidate"
-    assert s.pending_authorization == "t_release", s.pending_authorization
+    assert s.pending_authorizations == {"t_release"}, s.pending_authorizations
+    assert s.slice("t_release")["move"]["currently_pending"] is True
 
     # an unrelated transition firing must NOT silently clear someone else's
     # still-unresolved pending ask
     o_other = engine.attempt_transition(s, "t_other")
     assert o_other.kind == OutcomeKind.CONTINUE
-    assert s.pending_authorization == "t_release", (
+    assert s.pending_authorizations == {"t_release"}, (
         "firing an unrelated transition must not clear a different "
-        "transition's pending_authorization"
+        "transition's pending_authorizations entry"
     )
 
     # step() surfaces a warning about it regardless of which move is in view
@@ -1166,17 +1168,45 @@ def check_requires_human_authorization():
     assert s.current_state == "candidate"
 
     # attempt_transition with authorized=True fires normally, and clears
-    # pending_authorization since this is the specific ask being resolved
+    # pending_authorizations since this is the specific ask being resolved
     o2 = engine.attempt_transition(s, "t_release", authorized=True)
     assert o2.kind == OutcomeKind.CONTINUE, f"Expected CONTINUE, got {o2.kind}"
     assert s.current_state == "released"
-    assert s.pending_authorization is None
+    assert s.pending_authorizations == set()
 
     # resolve_pending_authorization(): stale-ask path, no history kept
-    s.pending_authorization = "some_stale_ask"
-    s.resolve_pending_authorization()
-    assert s.pending_authorization is None
+    s.pending_authorizations.add("some_stale_ask")
+    s.resolve_pending_authorization("some_stale_ask")
+    assert s.pending_authorizations == set()
     assert "some_stale_ask" not in s.denied_authorizations
+
+    # concurrent pending asks: escalating a second, different transition
+    # must not silently erase tracking of the first — found by testing
+    # against the live cursor-fpf-test-mcp deployment
+    sm_concurrent = SemanticMap()
+    sm_concurrent.register_context(ContextPrimitive("ctxc", "Concurrent"))
+    sm_concurrent.register_transition(TransitionPrimitive(
+        "delete_a", "Delete A", "ctxc", "start", "a_gone", requires_human_authorization=True,
+    ))
+    sm_concurrent.register_transition(TransitionPrimitive(
+        "delete_b", "Delete B", "ctxc", "start", "b_gone", requires_human_authorization=True,
+    ))
+    engine_c = ThinkingMapTraversal(sm_concurrent)
+    sc = engine_c.build_active_state(RuntimeBinding(active_context_id="ctxc"), current_state="start")
+    engine_c.attempt_transition(sc, "delete_a")
+    assert sc.pending_authorizations == {"delete_a"}
+    engine_c.attempt_transition(sc, "delete_b")
+    assert sc.pending_authorizations == {"delete_a", "delete_b"}, (
+        f"escalating delete_b must not erase delete_a's still-pending ask, "
+        f"got {sc.pending_authorizations}"
+    )
+    step_c = engine_c.step(sc)
+    assert any("delete_a" in w for w in step_c.warnings), step_c.warnings
+    assert any("delete_b" in w for w in step_c.warnings), step_c.warnings
+    engine_c.attempt_transition(sc, "delete_a", authorized=True)
+    assert sc.pending_authorizations == {"delete_b"}, (
+        "resolving delete_a must not touch delete_b's still-pending ask"
+    )
 
     # ordinary transitions are unaffected — requires_human_authorization defaults to False
     sm2 = SemanticMap()
@@ -1232,7 +1262,7 @@ def check_requires_human_authorization():
     # block a later change of mind, and the alternative is still just sitting
     # there as an ordinary transition for the model to choose on its own
     s4.deny_pending_authorization("hard_delete", reason="not urgent enough, archive instead")
-    assert s4.pending_authorization is None
+    assert s4.pending_authorizations == set()
     assert s4.denied_authorizations["hard_delete"] == "not urgent enough, archive instead"
 
     o6 = engine4.attempt_transition(s4, "archive")

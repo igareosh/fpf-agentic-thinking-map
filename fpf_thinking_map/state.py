@@ -188,23 +188,25 @@ class ActiveState:
     trace: MoveTrace = field(default_factory=MoveTrace)
     step_count: int = 0
     stagnation_threshold: int = 3
-    pending_authorization: str | None = None
-    """transition_id of the last requires_human_authorization transition that
+    pending_authorizations: set[str] = field(default_factory=set)
+    """transition_ids of every requires_human_authorization transition that
 
-    raised ESCALATE and hasn't been resolved since — the specific thing
-    ADV-08 flagged: current_state alone can't tell a resumed harness whether
-    a human is mid-decision or nothing was ever attempted. A plain
-    constructor field, not init=False like the private counters below, so a
-    harness restoring from persistence can pass it straight back in. Cleared
-    only when the same pending transition_id fires authorized — see
-    transition_to() — or via resolve_pending_authorization()/
-    deny_pending_authorization() below.
+    has raised ESCALATE and hasn't been resolved since — plural, on purpose:
+    an earlier single str|None version silently lost track of an escalation
+    the moment a second, different transition also escalated before the
+    first was resolved. current_state alone can't tell a resumed harness
+    whether a human is mid-decision on any of these or nothing was ever
+    attempted (ADV-08's exact gap). A plain constructor field, not
+    init=False like the private counters below, so a harness restoring from
+    persistence can pass it straight back in. Each transition_id is removed
+    only when that same one fires authorized — see transition_to() — or via
+    resolve_pending_authorization()/deny_pending_authorization() below.
     """
     denied_authorizations: dict[str, str] = field(default_factory=dict)
     """transition_id -> reason, for every requires_human_authorization
 
     transition a human has explicitly said no to. Same visibility principle
-    as pending_authorization, aimed at the other side of the decision: a
+    as pending_authorizations, aimed at the other side of the decision: a
     denial is a recorded fact, not a silent void a re-attempt can wander
     back into unremarked. Does not permanently block a future authorized=True
     — a human can change their mind — it just means the ESCALATE reason on
@@ -422,28 +424,29 @@ class ActiveState:
             last_transition_id=transition_id,
         )
         self.current_state = t.to_state
-        if self.pending_authorization == transition_id:
-            # this specific ask got resolved (approved and fired) — clear it.
-            # Firing some *other* transition must not clear it: that would
-            # silently lose track of a still-unanswered human ask just
-            # because unrelated work happened to move forward.
-            self.pending_authorization = None
+        # this specific ask got resolved (approved and fired) — remove it.
+        # Firing some *other* transition must not remove it: that would
+        # silently lose track of a still-unanswered human ask just
+        # because unrelated work happened to move forward. discard(), not
+        # remove(): firing a transition that was never pending is normal,
+        # not an error.
+        self.pending_authorizations.discard(transition_id)
         return True
 
-    def resolve_pending_authorization(self) -> None:
-        """Clear pending_authorization without firing it, and without a trace.
+    def resolve_pending_authorization(self, transition_id: str) -> None:
+        """Clear one pending ask without firing it, and without a trace.
 
-        For a harness deciding the ask is stale or no longer relevant — the
-        traversal moved past the question entirely, not "no." If a human
-        actually said no, use deny_pending_authorization() instead: that one
-        remembers why, this one doesn't.
+        For a harness deciding this specific ask is stale or no longer
+        relevant — the traversal moved past the question entirely, not "no."
+        If a human actually said no, use deny_pending_authorization()
+        instead: that one remembers why, this one doesn't.
         """
-        self.pending_authorization = None
+        self.pending_authorizations.discard(transition_id)
 
     def deny_pending_authorization(self, transition_id: str, reason: str = "") -> None:
         """A human said no. Records it — a denial is a fact, not a void.
 
-        Clears pending_authorization if it was the transition being denied.
+        Removes transition_id from pending_authorizations if it was there.
         Does not block a later authorized=True on the same transition_id —
         a human can change their mind — but any retry's ESCALATE reason will
         name this denial, so it isn't silently re-asked as if fresh. Pair
@@ -452,8 +455,7 @@ class ActiveState:
         method doesn't pick one, it only makes sure the denial is visible.
         """
         self.denied_authorizations[transition_id] = reason
-        if self.pending_authorization == transition_id:
-            self.pending_authorization = None
+        self.pending_authorizations.discard(transition_id)
 
     def cross_bridge(self, target_context_id: str, entry_state: str) -> tuple[bool, str]:
         """#26: validated writeback for a cross-context bridge crossing.
@@ -620,6 +622,7 @@ class ActiveState:
                 "requires_human_authorization": t.requires_human_authorization,
                 "safe_alternatives": t.safe_alternatives,
                 "previously_denied": self.denied_authorizations.get(t.transition_id),
+                "currently_pending": t.transition_id in self.pending_authorizations,
             },
             "gate": {
                 "id": gate.gate_id,
@@ -716,5 +719,5 @@ class ActiveState:
                 "last_transition": self.trace.last_transition_id,
                 "blockers": self.trace.blockers,
             } if self.trace.previous_state else None,
-            "pending_authorization": self.pending_authorization,
+            "pending_authorizations": sorted(self.pending_authorizations),
         }

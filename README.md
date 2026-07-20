@@ -133,18 +133,22 @@ typing a confirmation, a separate approval endpoint, an explicit "yes / go".
 `current_state="ready_to_restart"` looks identical whether a human is
 mid-decision on `delete_records` or nobody's touched it yet — that's the gap
 [`ADV-08`](docs/deep/ADVISORIES.md) already flags for this engine generally,
-sharpened here. `ActiveState.pending_authorization` names the specific
-transition a human is being asked about the moment `requires_human_authorization`
-escalates, and it survives past that one call: it's a plain constructor
-field, not one of the private counters `ADV-08` warns about, so a harness
-restoring state after a restart can pass it straight back in. It's cleared
-automatically the moment that *same* transition fires authorized — firing
-something unrelated in the meantime does not erase it, and `step()` keeps
-surfacing a warning about it regardless of which move is in view, so the
-still-open ask doesn't quietly fall out of context. If the ask goes stale —
-the model moved on, the question no longer applies — call
-`resolve_pending_authorization()`. Nothing here assumes "pending" always
-resolves to "yes".
+sharpened here. `ActiveState.pending_authorizations` (a `set[str]`, plural on
+purpose) names every transition a human is currently being asked about the
+moment `requires_human_authorization` escalates, and each one survives past
+that one call: it's a plain constructor field, not one of the private
+counters `ADV-08` warns about, so a harness restoring state after a restart
+can pass it straight back in. Plural mattered in practice, not just in
+theory — an earlier single-value version of this field silently lost track
+of a still-pending ask the moment a *second*, different transition also
+escalated before the first was resolved, found by testing two concurrent
+destructive requests against the live engine. Each transition_id is removed
+only when that same one fires authorized — firing something unrelated does
+not touch it — and `step()` surfaces a warning for every entry still
+pending, regardless of which move is in view, so none of them quietly fall
+out of context. If an ask goes stale — the model moved on, the question no
+longer applies — call `resolve_pending_authorization(transition_id)`.
+Nothing here assumes "pending" always resolves to "yes".
 
 See [`run_scenario_destructive_hitl`](fpf_thinking_map/examples.py) for the
 full walk: evidence present, gate passing, still refused until authorized.

@@ -461,7 +461,7 @@ def run_scenario_destructive_hitl():
     print("\n--- Model attempts to fire it directly (no authorization) ---")
     outcome = engine.attempt_transition(state, "delete_records")
     print(json.dumps(outcome.to_dict(), indent=2))
-    print(f"state.pending_authorization = {state.pending_authorization!r}  "
+    print(f"state.pending_authorizations = {sorted(state.pending_authorizations)!r}  "
           f"(a human is now the specific thing this is waiting on)")
 
     print("\n--- Meanwhile, the model looks at a totally unrelated move ---")
@@ -469,13 +469,13 @@ def run_scenario_destructive_hitl():
     print("--- step() still surfaces the still-unresolved delete_records ask ---")
     other_outcome = engine.step(state, transition_id="log_status")
     print(f"warnings: {other_outcome.warnings}")
-    print(f"state.pending_authorization = {state.pending_authorization!r}  "
+    print(f"state.pending_authorizations = {sorted(state.pending_authorizations)!r}  "
           f"(unchanged — unrelated work does not erase it)")
 
     print("\n--- Human says yes — authorized=True from a human-only channel ---")
     outcome2 = engine.attempt_transition(state, "delete_records", authorized=True)
     print(json.dumps(outcome2.to_dict(), indent=2))
-    print(f"state.pending_authorization = {state.pending_authorization!r}  "
+    print(f"state.pending_authorizations = {sorted(state.pending_authorizations)!r}  "
           f"(resolved — this specific ask fired)")
 
 
@@ -515,7 +515,7 @@ def run_scenario_denied_reroute():
         "delete_records", reason="records may still be needed for audit — archive instead",
     )
     print(f"denied_authorizations: {state.denied_authorizations}")
-    print(f"pending_authorization: {state.pending_authorization!r}  (cleared by the denial)")
+    print(f"pending_authorizations: {sorted(state.pending_authorizations)!r}  (cleared by the denial)")
 
     print("\n--- Model picks the declared alternative on its own — ordinary fire ---")
     reroute = engine.attempt_transition(state, "archive_records")
