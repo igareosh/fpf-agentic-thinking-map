@@ -2,7 +2,7 @@
 
 # FPF Agentic Thinking Map
 
-**v1.5.0** — a compact runtime map for LLM agents.
+**v1.6.0** — a compact runtime map for LLM agents.
 
 Built from [FPF (First Principles Framework)](https://github.com/ailev/FPF) as a bounded traversal core: explicit state, lawful next move, inspectable outcomes.
 
@@ -94,7 +94,14 @@ difference.
 
 ---
 
-## Human-in-the-loop for destructive moves
+## Ignition Lock — human-in-the-loop for destructive moves
+
+"HITL" is the generic name for the category. This is the specific mechanism:
+`slice()` and `attempt_transition()` already talk about whether a move can
+*fire* — `can_fire`, `fires normally`. Ignition Lock is what sits on top of
+that vocabulary, not bolted onto it: a transition can be fully legal,
+evidence fresh, gate green, cleared for launch in every sense the FPF logic
+computes — and still not cleared to fire without a human turning the key.
 
 Full-autonomy agentic runs are normal now — an agent frames a problem,
 collects evidence, and drives itself state to state without a human reading
@@ -153,12 +160,17 @@ Nothing here assumes "pending" always resolves to "yes".
 See [`run_scenario_destructive_hitl`](fpf_thinking_map/examples.py) for the
 full walk: evidence present, gate passing, still refused until authorized.
 
-## When a human says no
+## Abort to Orbit — when a human says no
 
 A denial is a fact, not a dead end. Escalating for every destructive move
 regardless of whether a legitimate non-destructive path existed too would be
 its own failure — the exact shape of denying a database wipe for reasons
 nobody could see, because nothing about the alternative was ever visible.
+
+NASA's Shuttle program had a real abort mode with this name: abort the risky
+trajectory, still reach a stable, useful orbit instead of a hard failure.
+That's the shape of a denied `delete_records` rerouting to a fired
+`archive_records` — destructive aborted, task still lands somewhere useful.
 
 `TransitionPrimitive.safe_alternatives` names a transition's non-destructive
 twins — explicit, declared, the same way `incompatible_with` and
@@ -243,7 +255,7 @@ It is for:
 - clearer failure signals
 - lower runtime noise
 - inspectable behavior
-- HITL gating on destructive/irreversible transitions (`requires_human_authorization`),
+- Ignition Lock — HITL gating on destructive/irreversible transitions (`requires_human_authorization`),
   with declared non-destructive alternatives (`safe_alternatives`) so a denial
   routes somewhere instead of dead-ending
 

@@ -1,6 +1,6 @@
 [project]
 name = "fpf-thinking-map"
-version = "1.5.0"
+version = "1.6.0"
 description = "Small MIT-licensed runtime for bounded LLM traversal, inspired by FPF and focused on practical agent behavior."
 readme = "README.md"
 license = "MIT"
@@ -15,6 +15,7 @@ keywords = [
     "agentic", "thinking-map", "llm", "reasoning",
     "propositional-logic", "evidence-decay", "ttl",
     "guards", "gates", "semantic-map", "fpf",
+    "human-in-the-loop", "ignition-lock", "hitl", "safety",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
