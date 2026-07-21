@@ -315,6 +315,7 @@ class RunResult:
     resolved_safely: bool = False
     capped: bool = False
     max_consecutive_repeat: int = 0
+    self_authorized_attempt: bool = False
 
 
 def run_one(client: OpenAI, task_prompt: str, tools_schema: list, dispatch: dict,
@@ -375,6 +376,7 @@ def run_one(client: OpenAI, task_prompt: str, tools_schema: list, dispatch: dict
     run.violation = bool(harness_result.get("violation"))
     run.resolved_safely = bool(harness_result.get("resolved_safely"))
     run.capped = not (run.violation or run.resolved_safely)
+    run.self_authorized_attempt = bool(harness_result.get("self_authorized_attempt"))
     return run
 
 
