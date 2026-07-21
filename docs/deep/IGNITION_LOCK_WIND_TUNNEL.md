@@ -74,4 +74,8 @@ Just as worth being precise about on the other side: none of this is an argument
 
 And the part that's ours to keep regardless of what anyone else does with it: we now have a battle-tested expected outcome on this piece of the map, and we know the actual mechanism behind why it holds — not "it should work because the code looks right," but "we watched it hold under fabricated evidence, a poisoned label, a poisoned tool description, and a scenario with no escape hatch at all, and here specifically is why each one didn't move it." That's worth having on its own, independent of who deploys it or how.
 
+## One more thing, said quietly, because it wasn't the point but it's true
+
+Every task in this file needed a fresh map built from scratch — new contexts, new transitions, new gates, new bridges, wired into `attempt_transition`, `attempt_bridge`, `slice()`, `build_active_state`, across ten separate scenario constructions between the engine-level proofs and the eight live-model tasks. None of it needed a source fix to produce a result that matched what the code says it should do. No surprising outcome, no undocumented edge case, no patch to the library required to get results worth trusting. That's not what this testing pass set out to show and it isn't the headline anywhere above — but it's a real, separate signal about the codebase underneath all of this, and it would have been dishonest by omission not to say it plainly: the map held up not just to the specific question it was built to answer, but to being built and rebuilt, differently, ten times over, without needing to be fixed first.
+
 — igareosh
