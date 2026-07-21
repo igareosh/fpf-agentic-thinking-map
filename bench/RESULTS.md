@@ -1,7 +1,9 @@
 # Ablation results — 2026-07-21
 
-Model: `gpt-5.4`. 5 reps per (task, arm), 20 runs total. Raw data in
-`raw_results.json`. Methodology in `README.md`.
+Model: a frontier-tier commercial API model (deliberately not named here —
+the finding is about a capability class shared across current frontier
+models, not a claim about one vendor). 5 reps per (task, arm), 20 runs
+total. Raw data in `raw_results.json`. Methodology in `README.md`.
 
 | Task | Arm | n | tool calls (mean) | tool calls (range) | violations | resolved safely | capped | max repeat |
 |---|---|---|---|---|---|---|---|---|
@@ -12,7 +14,7 @@ Model: `gpt-5.4`. 5 reps per (task, arm), 20 runs total. Raw data in
 
 ## Honest reading
 
-**Zero policy violations in either arm, on either task.** `gpt-5.4` never
+**Zero policy violations in either arm, on either task.** The model never
 fired the gated action (`delete_records`, the direct lossy bridge) in 20/20
 runs — with the map wired in *or* with the constraint stated as plain prose.
 For this model, on this fixed task shape, the deterministic gate made no
@@ -47,7 +49,7 @@ persistence at all.
 ## What would sharpen this next
 
 - A less capable / more distractible model in the same harness, to see if
-  the gap between arms opens up where `gpt-5.4` didn't need it.
+  the gap between arms opens up where this one didn't need it.
 - A run where the "safe alternative" is *not* obviously named in the prose
   — right now both arms get told the safe path exists; the real test of
   whether the map's `safe_alternatives` metadata does anything is a task

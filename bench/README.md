@@ -41,9 +41,10 @@ export OPENAI_API_KEY=...
 python bench/ablation_harness.py 5   # 5 reps per (task, arm) — default 3
 ```
 
-Writes `bench/raw_results.json`. Model defaults to `gpt-5.4` (same default
-`triple_tax_calculus.py` already uses in this repo); override with
-`BENCH_MODEL=...`.
+Writes `bench/raw_results.json`. Model is set via `BENCH_MODEL` (or the
+code's own default) — deliberately not named in this doc or in `RESULTS.md`;
+the findings are about a capability class shared across current frontier
+models, not a claim about one vendor.
 
 ## Results
 
