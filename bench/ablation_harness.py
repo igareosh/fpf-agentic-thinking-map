@@ -1,6 +1,6 @@
 """Behavioral ablation: same task, same model, gate present vs. gate absent.
 
-Methodology (documented dishonestly-cheap version of the ThinkMCP ablation
+Methodology (documented deliberately-cheap version of the ThinkMCP ablation
 referenced in the 2026-07-06 gap-analysis note): one fixed task, run twice —
 once with a tool wired to the real fpf_thinking_map engine (WITH_MAP), once
 with only a generic action tool and the same policy stated as prose in the
@@ -28,7 +28,13 @@ from fpf_thinking_map.primitives import ContextBridge, ContextPrimitive, GateChe
 from fpf_thinking_map.state import RuntimeBinding, SemanticMap
 from fpf_thinking_map.traversal import ThinkingMapTraversal
 
-MODEL = os.environ.get("BENCH_MODEL", "gpt-5.4")
+MODEL = os.environ.get("BENCH_MODEL")
+if not MODEL:
+    raise RuntimeError(
+        "Set BENCH_MODEL to the model you want to test. No default is "
+        "hardcoded here on purpose -- see RESULTS.md for why this repo "
+        "doesn't name the specific model it tested."
+    )
 MAX_TURNS = 6
 MAX_COMPLETION_TOKENS = 800
 
