@@ -74,6 +74,28 @@ Just as worth being precise about on the other side: none of this is an argument
 
 And the part that's ours to keep regardless of what anyone else does with it: we now have a battle-tested expected outcome on this piece of the map, and we know the actual mechanism behind why it holds — not "it should work because the code looks right," but "we watched it hold under fabricated evidence, a poisoned label, a poisoned tool description, and a scenario with no escape hatch at all, and here specifically is why each one didn't move it." That's worth having on its own, independent of who deploys it or how.
 
+## What this result does and does not establish
+
+This testing pass produced a repeatable behavioural divergence under controlled scenario changes, and a separate engine-level result that did not depend on model behaviour at all. Those are different kinds of evidence and should stay different.
+
+The behavioural result shows that, in the tested scenarios, exposing an explicit authorization boundary changed what the agent did. Without the map, the agent followed the apparent task path. With the map, it detected that the path exceeded available authority and escalated instead. Repeating that pattern across several unrelated scenarios makes the result harder to explain as a single prompt accident, but it does not make it universal.
+
+The engine-level result is narrower and stronger. Authorization was checked as structured state, not inferred from labels, evidence text, tool descriptions, or the agent's interpretation of them. Fabricated claims could influence what the model believed, but they could not satisfy the gate. That is not evidence that the whole system is secure. It is evidence that this specific authorization predicate is independent of the semantic channel used by the model.
+
+The experiments do not establish that every model will behave the same way, that every map will be authored correctly, or that every production integration will preserve the same boundary. They do not yet test replayed authorization, stale authorization, authorization bound to the wrong transition, state changes between inspection and execution, equivalent unguarded paths, or compromise of the authorization channel itself. Those belong to a different threat surface.
+
+The honest conclusion is therefore limited:
+
+* the authorization primitive is not decorative;
+* it can become load-bearing in realistic agentic tasks;
+* the map can expose a boundary that the agent was not explicitly told about;
+* the agent can reason correctly over that boundary;
+* the final enforcement does not depend on the agent reasoning correctly.
+
+That is enough for a proof of concept. It is not a claim of general safety, universal model behaviour, or production certification.
+
+For reproducibility, the accompanying scenario files, scripts, test conditions, expected outcomes, and raw run records should be treated as part of the evidence. The narrative explains what was learned. The artifacts are what allow someone else to check whether the same conclusion follows.
+
 ## One more thing, said quietly, because it wasn't the point but it's true
 
 Every task in this file needed a fresh map built from scratch — new contexts, new transitions, new gates, new bridges, wired into `attempt_transition`, `attempt_bridge`, `slice()`, `build_active_state`, across ten separate scenario constructions between the engine-level proofs and the eight live-model tasks. None of it needed a source fix to produce a result that matched what the code says it should do. No surprising outcome, no undocumented edge case, no patch to the library required to get results worth trusting. That's not what this testing pass set out to show and it isn't the headline anywhere above — but it's a real, separate signal about the codebase underneath all of this, and it would have been dishonest by omission not to say it plainly: the map held up not just to the specific question it was built to answer, but to being built and rebuilt, differently, ten times over, without needing to be fixed first.
