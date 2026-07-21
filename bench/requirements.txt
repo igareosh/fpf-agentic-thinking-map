@@ -1,0 +1,2 @@
+# bench/ has its own light dependency, separate from the zero-dependency core engine
+openai>=1.0
