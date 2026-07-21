@@ -94,130 +94,21 @@ difference.
 
 ---
 
-## Ignition Lock — human-in-the-loop for destructive moves
+## Ignition Lock & Abort to Orbit — HITL gating with a reroute on denial
 
-"HITL" is the generic name for the category. This is the specific mechanism:
-`slice()` and `attempt_transition()` already talk about whether a move can
-*fire* — `can_fire`, `fires normally`. Ignition Lock is what sits on top of
-that vocabulary, not bolted onto it: a transition can be fully legal,
-evidence fresh, gate green, cleared for launch in every sense the FPF logic
-computes — and still not cleared to fire without a human turning the key.
+`requires_human_authorization` lets a transition be fully legal by every
+FPF-computed measure (evidence fresh, gate satisfied) and still refuse to
+fire without a caller passing `authorized=True`. `safe_alternatives` +
+`ActiveState.deny_pending_authorization(...)` mean a denial reroutes to a
+declared non-destructive twin instead of dead-ending. Motivated by
+destructive/irreversible moves, but the primitives are general — a map
+author can gate on cost, scope, or anything else that needs a second party's
+say-so.
 
-Full-autonomy agentic runs are normal now — an agent frames a problem,
-collects evidence, and drives itself state to state without a human reading
-every step. Most of that traversal, this map is happy to let through: gates
-pass, evidence is fresh, fire.
-
-Destructive and irreversible moves are the exception, and the FPF logic
-underneath doesn't get more cautious about them on its own. If
-`delete_records` has its required evidence and its gate is satisfied, the
-traversal is legal and says `CONTINUE` — same as any other move. That's
-correct behavior: the map has no built-in notion that deleting something is
-different from deploying something. It shouldn't have to — that distinction
-belongs to a separate layer, not baked into every gate.
-
-`requires_human_authorization` is that layer — the field name says exactly
-what it checks, on purpose: there's no bundled system prompt telling the
-model what this flag means, so the name has to carry that on its own when
-the model reads it cold in a `step()`/`slice()` response. Mark a transition
-`requires_human_authorization=True` and the engine keeps computing and
-reporting its legality — evidence and gate status are still shown in full —
-it just refuses to fire without `authorized=True`, enforced at
-`ActiveState.transition_to()` itself, so there's no lower-level call that
-skips it. The model can see the delete is ready. It cannot pull the trigger.
-
-**Where that "yes" comes from matters.** `authorized` is a plain argument —
-nothing inside this engine stops a caller with direct access to it from
-setting `authorized=True` on its own. This library has no identity system and
-isn't getting one; that boundary is the integration's job, not the engine's.
-Wiring it correctly means whatever harness sits around this engine — an MCP
-server, a CLI, a chat approval step — never exposes `authorized` as something
-the model's own tool-calling loop can set for itself. It has to come from a
-channel the agent can request but not answer on its own behalf: a human
-typing a confirmation, a separate approval endpoint, an explicit "yes / go".
-
-**The waiting itself is a fact worth keeping, not just the refusal.**
-`current_state="ready_to_restart"` looks identical whether a human is
-mid-decision on `delete_records` or nobody's touched it yet — that's the gap
-[`ADV-08`](docs/deep/ADVISORIES.md) already flags for this engine generally,
-sharpened here. `ActiveState.pending_authorizations` (a `set[str]`, plural on
-purpose) names every transition a human is currently being asked about the
-moment `requires_human_authorization` escalates, and each one survives past
-that one call: it's a plain constructor field, not one of the private
-counters `ADV-08` warns about, so a harness restoring state after a restart
-can pass it straight back in. Plural mattered in practice, not just in
-theory — an earlier single-value version of this field silently lost track
-of a still-pending ask the moment a *second*, different transition also
-escalated before the first was resolved, found by testing two concurrent
-destructive requests against the live engine. Each transition_id is removed
-only when that same one fires authorized — firing something unrelated does
-not touch it — and `step()` surfaces a warning for every entry still
-pending, regardless of which move is in view, so none of them quietly fall
-out of context. If an ask goes stale — the model moved on, the question no
-longer applies — call `resolve_pending_authorization(transition_id)`.
-Nothing here assumes "pending" always resolves to "yes".
-
-See [`run_scenario_destructive_hitl`](fpf_thinking_map/examples.py) for the
-full walk: evidence present, gate passing, still refused until authorized.
-
-## Abort to Orbit — when a human says no
-
-A denial is a fact, not a dead end. Escalating for every destructive move
-regardless of whether a legitimate non-destructive path existed too would be
-its own failure — the exact shape of denying a database wipe for reasons
-nobody could see, because nothing about the alternative was ever visible.
-
-NASA's Shuttle program had a real abort mode with this name: abort the risky
-trajectory, still reach a stable, useful orbit instead of a hard failure.
-That's the shape of a denied `delete_records` rerouting to a fired
-`archive_records` — destructive aborted, task still lands somewhere useful.
-
-`TransitionPrimitive.safe_alternatives` names a transition's non-destructive
-twins — explicit, declared, the same way `incompatible_with` and
-`bridges_to` already work in this codebase. Never inferred: two transitions
-merely sharing a `from_state` are not assumed to be substitutes for each
-other. `slice()` surfaces them before the model ever attempts the destructive
-move, and the `ESCALATE` `Outcome` carries them again if it does — so the
-option is visible at the point of decision, not just discovered after a
-refusal.
-
-`ActiveState.deny_pending_authorization(transition_id, reason)` records an
-explicit "no" — distinct from the stale-ask case above. It doesn't
-permanently lock the door (a human can change their mind; a later
-`authorized=True` still fires), but any retry's `ESCALATE` reason names what
-was said before, so it's never silently re-asked as if nothing happened. It
-also doesn't pick an alternative for you — the engine names the safe twin,
-the model chooses to fire it, through the same ordinary `attempt_transition()`
-as any other move. Whether the archive is actually an adequate substitute for
-the delete is a domain judgment this library can't make; making sure that
-judgment has something visible to work with is what it's for.
-
-See [`run_scenario_denied_reroute`](fpf_thinking_map/examples.py): the same
-escalation, this time denied with a reason, then resolved by firing the
-declared alternative directly — destructive denied, task still done.
-
-**None of this helps if the gate was never set.** `requires_human_authorization`
-defaults to `False` — unguarded — and nothing in the engine checks whether a
-transition's own name suggests it should have been `True`. A map author (or
-an LLM co-building the map) writing `delete_everything` without the flag is a
-silent gap this library can't catch by guessing intent from a string. What it
-can do: [`ADV-10`](docs/deep/ADVISORIES.md) is a `dev_mcp` lint — keyword-heuristic,
-not semantic, not enforcement — that flags exactly this shape when it's
-present in a scenario's map, so the omission has to be noticed instead of
-just hoped past.
-
-**A destructive delete was the motivating case, not the only use.** Underneath
-it, `requires_human_authorization` and `safe_alternatives` are two general,
-declared relationships — "this move needs a second party's say-so" and "this
-move has an alternative" — that don't know or care what the transition
-actually does. A map author could gate on cost, on scope, on anything else
-that needs a human in the loop before it fires; nothing here assumes
-destructive is the only reason to reach for it. We tested the destructive
-case hardest because it's the one that's easiest to get wrong loudly. What
-this actually becomes in someone else's domain map is genuinely open — see
-[`ADOPTED_IGNITION_LOCK.md`](docs/deep/ADOPTED_IGNITION_LOCK.md) for the fuller,
-more humble version of this section, and [`dev_mcp`](dev_mcp/README.md) for
-testing your own case against it rather than trusting this README's word for it.
+- [`ADOPTED_IGNITION_LOCK.md`](docs/deep/ADOPTED_IGNITION_LOCK.md) — what shipped, why, how it was tested
+- [`ADVISORIES.md`](docs/deep/ADVISORIES.md) — `ADV-08` (no persistence surface), `ADV-10` (ungated-by-default lint), `ADV-11` (unsound `safe_alternatives` lint)
+- [`run_scenario_destructive_hitl` / `run_scenario_denied_reroute`](fpf_thinking_map/examples.py) — runnable walkthroughs
+- [`dev_mcp`](dev_mcp/README.md) — test your own map's use of this against the live engine
 
 ---
 
