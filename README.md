@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/fpf-agentic-thinking-map-header.png" alt="FPF Agentic Thinking Map — Agent freedom. Explicit movement rules." width="100%" />
+</p>
+
 # FPF Agentic Thinking Map
 
 **FPF Agentic Thinking Map** is a zero-dependency Python runtime for controlling
