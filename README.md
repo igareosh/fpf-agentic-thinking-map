@@ -15,7 +15,7 @@ evidence is missing, and when human authorization is required.
 [![Zero dependencies](https://img.shields.io/badge/dependencies-0-2ea44f)](pyproject.toml)
 [![Verify](https://img.shields.io/badge/verify-23%2F23%20pass-2ea44f)](fpf_thinking_map/verify.py)
 [![Live demo](https://img.shields.io/badge/demo-live-7c3aed)](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)
-[![Downloads](https://img.shields.io/badge/downloads-3.7k-1f6feb)](https://pypistats.org/packages/fpf-thinking-map)
+[![Downloads (honest)](https://img.shields.io/badge/downloads_(honest)-3.7k-1f6feb)](https://pypistats.org/packages/fpf-thinking-map)
 
 ---
 
