@@ -130,17 +130,6 @@ party's say-so.
 
 ---
 
-## Typical use cases
-
-- deployment and release approval
-- research or investigation workflows
-- regulated review pipelines
-- agent tool authorization
-- evidence-dependent task progression
-- destructive-action confirmation and safe rerouting
-
----
-
 ## Measurements
 
 Tested on **5 shipped decision points**:
