@@ -15,6 +15,7 @@ evidence is missing, and when human authorization is required.
 [![Zero dependencies](https://img.shields.io/badge/dependencies-0-2ea44f)](pyproject.toml)
 [![Verify](https://img.shields.io/badge/verify-23%2F23%20pass-2ea44f)](fpf_thinking_map/verify.py)
 [![Live demo](https://img.shields.io/badge/demo-live-7c3aed)](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)
+[![Downloads](https://static.pepy.tech/badge/fpf-thinking-map)](https://pepy.tech/project/fpf-thinking-map)
 
 ---
 
@@ -22,6 +23,8 @@ evidence is missing, and when human authorization is required.
 
 ```bash
 pip install fpf-thinking-map
+python -m fpf_thinking_map.verify     # 23/23 checks against your install
+python -m fpf_thinking_map.examples   # runnable walkthroughs, incl. Ignition Lock
 ```
 
 ```python
