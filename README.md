@@ -11,6 +11,8 @@ transitions, and inspectable outcomes.
 Use it when an agent must know where it is, what it may do next, what
 evidence is missing, and when human authorization is required.
 
+For agentic systems that must think freely, but move lawfully.
+
 **v1.6.0** · Python 3.12+ · MIT · zero runtime dependencies
 
 [![PyPI version](https://img.shields.io/pypi/v/fpf-thinking-map?label=PyPI)](https://pypi.org/project/fpf-thinking-map/)
