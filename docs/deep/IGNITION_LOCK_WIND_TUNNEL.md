@@ -84,6 +84,8 @@ The engine-level result is narrower and stronger. Authorization was checked as s
 
 The experiments do not establish that every model will behave the same way, that every map will be authored correctly, or that every production integration will preserve the same boundary. They do not yet test replayed authorization, stale authorization, authorization bound to the wrong transition, state changes between inspection and execution, equivalent unguarded paths, or compromise of the authorization channel itself. Those belong to a different threat surface.
 
+**2026-07-23 update — part of that gap is now closed, not just named.** `authorized=True` was an ambient boolean: it said a human said yes, not to what state. `fpf_thinking_map.authorization.AuthorizationReceipt` binds the yes to one transition_id and a hash of the exact state (context, current_state, evidence set) it was issued against; `attempt_transition()` re-verifies transition identity, state fingerprint, expiry, and prior consumption before it will spend one — see `verify.py`'s `check_authorization_receipt`. That closes replayed authorization, authorization bound to the wrong transition, and state-changed-between-inspection-and-execution (the inspect-A / reuse-against-B case). It does not close, and does not claim to close, equivalent unguarded paths or compromise of the authorization channel itself (whatever mints the receipt — an approval-gate, a human-in-the-loop UI — is still a separate trust boundary this doesn't touch). `authorized=True` still works, for callers who haven't migrated; it just isn't the recommended path anymore.
+
 The honest conclusion is therefore limited:
 
 * the authorization primitive is not decorative;

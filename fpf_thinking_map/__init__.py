@@ -6,13 +6,14 @@ Evidence decays via TTL hop counter. The model reads small JSON slices and
 picks moves — no re-reasoning about state the code already computed.
 
 Modules:
-  primitives  — 10 semantic objects + 5 semantic floors from FPF spec
-  state       — runtime binding, active state, TTL tracking, per-move slices
-  guards      — 9 deterministic guards (hard constraints, not LLM judgments)
-  logic       — 6 propositional operators + freshness-aware decision rules
-  traversal   — step engine with 10 lawful outcomes
-  examples    — deploy decision scenarios demonstrating the full system
-  verify      — 21-check self-verification harness
+  primitives    — 10 semantic objects + 5 semantic floors from FPF spec
+  state         — runtime binding, active state, TTL tracking, per-move slices
+  guards        — 9 deterministic guards (hard constraints, not LLM judgments)
+  logic         — 6 propositional operators + freshness-aware decision rules
+  traversal     — step engine with 10 lawful outcomes
+  authorization — receipts scoping a human's yes to one transition + one state
+  examples      — deploy decision scenarios demonstrating the full system
+  verify        — self-verification harness
 """
 
 # --- Primitives: the semantic field ---
@@ -79,3 +80,10 @@ from fpf_thinking_map.logic import (
 
 # --- Traversal: the step engine ---
 from fpf_thinking_map.traversal import ThinkingMapTraversal, Outcome, OutcomeKind
+
+# --- Authorization: receipts scoping approval to one transition + one state ---
+from fpf_thinking_map.authorization import (
+    AuthorizationReceipt,
+    compute_state_fingerprint,
+    issue_authorization_receipt,
+)

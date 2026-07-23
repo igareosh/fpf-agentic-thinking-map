@@ -13,13 +13,13 @@ evidence is missing, and when human authorization is required.
 
 For agentic systems that must think freely, but move lawfully.
 
-**v1.6.0** · Python 3.12+ · MIT · zero runtime dependencies
+**v1.7.0** · Python 3.12+ · MIT · zero runtime dependencies
 
 [![PyPI version](https://img.shields.io/pypi/v/fpf-thinking-map?label=PyPI)](https://pypi.org/project/fpf-thinking-map/)
 [![Python versions](https://img.shields.io/pypi/pyversions/fpf-thinking-map?label=Python)](https://pypi.org/project/fpf-thinking-map/)
 [![License](https://img.shields.io/pypi/l/fpf-thinking-map?label=License)](LICENSE)
 [![Zero dependencies](https://img.shields.io/badge/dependencies-0-2ea44f)](pyproject.toml)
-[![Verify](https://img.shields.io/badge/verify-23%2F23%20pass-2ea44f)](fpf_thinking_map/verify.py)
+[![Verify](https://img.shields.io/badge/verify-24%2F24%20pass-2ea44f)](fpf_thinking_map/verify.py)
 [![Live demo](https://img.shields.io/badge/demo-live-7c3aed)](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)
 [![Downloads (honest)](https://img.shields.io/badge/downloads_(honest)-3.7k-1f6feb)](https://pypistats.org/packages/fpf-thinking-map)
 
@@ -29,7 +29,7 @@ For agentic systems that must think freely, but move lawfully.
 
 ```bash
 pip install fpf-thinking-map
-python -m fpf_thinking_map.verify     # 23/23 checks against your install
+python -m fpf_thinking_map.verify     # 24/24 checks against your install
 python -m fpf_thinking_map.examples   # runnable walkthroughs, incl. Ignition Lock
 ```
 
@@ -131,6 +131,15 @@ declared non-destructive twin instead of dead-ending. Motivated by
 destructive/irreversible moves, but the primitives are general — a map
 author can gate on cost, scope, or anything else that needs a second
 party's say-so.
+
+`authorized=True` is an ambient boolean — it proves *a* human said yes, not
+that they said yes to *this* state. `fpf_thinking_map.authorization.AuthorizationReceipt`
+scopes the yes to one `transition_id` and a hash of the exact state it was
+issued against (`issue_authorization_receipt(state, transition_id, request_id)`);
+`attempt_transition(..., authorization=receipt)` rejects it if the transition,
+state, expiry, or prior consumption don't check out — closing the
+inspect-one-state / fire-into-another gap that a bare boolean can't see.
+`authorized=True` still works for callers who haven't migrated.
 
 - [`ADOPTED_IGNITION_LOCK.md`](docs/deep/ADOPTED_IGNITION_LOCK.md) — what shipped, why, how it was tested
 - [`ADVISORIES.md`](docs/deep/ADVISORIES.md) — `ADV-08` (no persistence surface), `ADV-10` (ungated-by-default lint), `ADV-11` (unsound `safe_alternatives` lint)

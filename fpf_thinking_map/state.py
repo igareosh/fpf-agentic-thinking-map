@@ -35,6 +35,7 @@ from fpf_thinking_map.primitives import (
     GateDecision,
     Freshness,
 )
+from fpf_thinking_map.authorization import AuthorizationReceipt, compute_state_fingerprint
 
 
 @dataclass
@@ -201,6 +202,16 @@ class ActiveState:
     persistence can pass it straight back in. Each transition_id is removed
     only when that same one fires authorized — see transition_to() — or via
     resolve_pending_authorization()/deny_pending_authorization() below.
+    """
+    consumed_authorizations: set[str] = field(default_factory=set)
+    """request_ids of every AuthorizationReceipt already spent by transition_to().
+
+    A receipt is checked against this set (not just its own expiry/fingerprint)
+    so the same human decision can't fire twice — replaying a receipt that
+    already succeeded once must not succeed again. A constructor field, same
+    replay-across-restarts reasoning as pending_authorizations: a harness
+    restoring from persistence needs this back too, or a resumed run would
+    accept a receipt it already spent in a previous process.
     """
     denied_authorizations: dict[str, str] = field(default_factory=dict)
     """transition_id -> reason, for every requires_human_authorization
@@ -389,14 +400,58 @@ class ActiveState:
             missing.update(self.missing_evidence_for(t.transition_id))
         return sorted(missing)
 
-    def transition_to(self, transition_id: str, authorized: bool = False) -> bool:
+    def verify_authorization(
+        self, transition_id: str, receipt: AuthorizationReceipt
+    ) -> tuple[bool, str]:
+        """Check a receipt against *this* state, right now — not against
+        whatever state existed when it was issued.
+
+        Every failure names itself, so an ESCALATE built on top of this can
+        say something more actionable than "not authorized":
+          - wrong transition: receipt was issued for a different move
+          - already consumed: same request_id spent once already — replay
+          - expired: more step()s have passed than the receipt allows
+          - stale state: current_state/context/evidence moved since the
+            human looked — the exact TOCTOU this exists to catch
+        """
+        if receipt.transition_id != transition_id:
+            return False, (
+                f"receipt issued for '{receipt.transition_id}', "
+                f"attempted transition is '{transition_id}'"
+            )
+        if receipt.request_id in self.consumed_authorizations:
+            return False, f"receipt '{receipt.request_id}' already consumed"
+        if self.step_count > receipt.expires_at_step:
+            return False, (
+                f"receipt expired at step {receipt.expires_at_step}, "
+                f"current step is {self.step_count}"
+            )
+        current_fingerprint = compute_state_fingerprint(self)
+        if receipt.state_fingerprint != current_fingerprint:
+            return False, (
+                "state has changed since this receipt was issued — issued "
+                f"against {receipt.state_fingerprint}, current is {current_fingerprint}"
+            )
+        return True, "ok"
+
+    def transition_to(
+        self,
+        transition_id: str,
+        authorized: bool = False,
+        authorization: AuthorizationReceipt | None = None,
+    ) -> bool:
         """Attempt a state transition. Returns True if successful.
 
-        requires_human_authorization transitions refuse to fire without authorized=True,
-        even if evidence and gates are fully satisfied — this is the one
-        check that isn't about state, it's about who is allowed to pull
-        the trigger. Checked here, not just in the Outcome-returning
-        wrapper, so calling this method directly can't bypass it.
+        requires_human_authorization transitions refuse to fire without
+        authorized=True or a verified `authorization` receipt, even if
+        evidence and gates are fully satisfied — this is the one check
+        that isn't about state, it's about who is allowed to pull the
+        trigger. Checked here, not just in the Outcome-returning wrapper,
+        so calling this method directly can't bypass it.
+
+        `authorization`, when given, is independently re-verified here
+        (not trusted from the caller) — same reasoning as authorized=:
+        a bad receipt must not fire just because some earlier check passed.
         """
         t = self.semantic_map.transitions.get(transition_id)
         if not t:
@@ -406,6 +461,11 @@ class ActiveState:
             return False
         if t.from_state != self.current_state:
             return False
+        if authorization is not None:
+            ok, _ = self.verify_authorization(transition_id, authorization)
+            if not ok:
+                return False
+            authorized = True
         if t.requires_human_authorization and not authorized:
             return False
         if t.required_evidence:
@@ -424,6 +484,8 @@ class ActiveState:
             last_transition_id=transition_id,
         )
         self.current_state = t.to_state
+        if authorization is not None:
+            self.consumed_authorizations.add(authorization.request_id)
         # this specific ask got resolved (approved and fired) — remove it.
         # Firing some *other* transition must not remove it: that would
         # silently lose track of a still-unanswered human ask just

@@ -21,6 +21,11 @@ from fpf_thinking_map.examples import (
     run_scenario_role_conflict,
     run_truth_table_demo,
 )
+from fpf_thinking_map.authorization import (
+    AuthorizationReceipt,
+    compute_state_fingerprint,
+    issue_authorization_receipt,
+)
 from fpf_thinking_map.guards import GuardEngine, GuardScope, GuardVerdict
 from fpf_thinking_map.logic import (
     DecisionRule,
@@ -78,6 +83,7 @@ def check_imports():
         HasMissingEvidence, RiskAbove, TransitionAvailable,
         CustomProp, DecisionRule,
         ThinkingMapTraversal, Outcome, OutcomeKind,
+        AuthorizationReceipt, compute_state_fingerprint, issue_authorization_receipt,
     )
 
 
@@ -1287,6 +1293,130 @@ def check_requires_human_authorization():
     assert o8.kind == OutcomeKind.CONTINUE
 
 
+def check_authorization_receipt():
+    """AuthorizationReceipt: approval scoped to one transition + one inspected
+    state, not an ambient boolean — closes the TOCTOU gap named but explicitly
+    left untested in the 2026-07-21 Ignition Lock wind-tunnel writeup:
+    inspect state A, get a receipt for A, let other moves carry the traversal
+    to state B, then try to spend A's receipt against B."""
+    sm = SemanticMap()
+    sm.register_context(ContextPrimitive("ctx", "Test"))
+    sm.register_transition(TransitionPrimitive(
+        "publish", "Publish", "ctx", "draft", "published",
+        requires_human_authorization=True,
+    ))
+    sm.register_transition(TransitionPrimitive(
+        "edit", "Edit draft", "ctx", "draft", "draft",
+    ))
+    engine = ThinkingMapTraversal(sm)
+    b = RuntimeBinding(active_context_id="ctx", current_evidence=["v1"])
+    s = engine.build_active_state(b, current_state="draft")
+
+    # wrong transition: a receipt minted for a different move is rejected,
+    # not silently accepted because *some* human said yes to *something*
+    receipt_for_edit = issue_authorization_receipt(s, "edit", request_id="req-1")
+    o_wrong = engine.attempt_transition(s, "publish", authorization=receipt_for_edit)
+    assert o_wrong.kind == OutcomeKind.ESCALATE, o_wrong.kind
+    assert "issued for 'edit'" in o_wrong.reason, o_wrong.reason
+    assert s.current_state == "draft"
+
+    # TOCTOU: receipt issued while inspecting the current state, then the
+    # model edits the draft (state moves) before the receipt is spent —
+    # the fingerprint no longer matches, receipt must be refused
+    receipt_stale = issue_authorization_receipt(s, "publish", request_id="req-2")
+    s.binding.current_evidence.append("v2")  # evidence changed since inspection
+    o_toctou = engine.attempt_transition(s, "publish", authorization=receipt_stale)
+    assert o_toctou.kind == OutcomeKind.ESCALATE, o_toctou.kind
+    assert "state has changed" in o_toctou.reason, o_toctou.reason
+    assert s.current_state == "draft"
+    assert "req-2" not in s.consumed_authorizations
+
+    # happy path: receipt issued against the state as it actually is right
+    # now fires cleanly
+    receipt_ok = issue_authorization_receipt(s, "publish", request_id="req-3")
+    o_ok = engine.attempt_transition(s, "publish", authorization=receipt_ok)
+    assert o_ok.kind == OutcomeKind.CONTINUE, o_ok.reason
+    assert s.current_state == "published"
+    assert "req-3" in s.consumed_authorizations
+
+    # replay: the exact same receipt, presented again, is refused — the
+    # decision it represents has already been spent
+    sm2 = SemanticMap()
+    sm2.register_context(ContextPrimitive("ctx2", "Test2"))
+    sm2.register_transition(TransitionPrimitive(
+        "publish", "Publish", "ctx2", "draft", "published",
+        requires_human_authorization=True,
+    ))
+    sm2.register_transition(TransitionPrimitive(
+        "unpublish", "Unpublish", "ctx2", "published", "draft",
+    ))
+    engine2 = ThinkingMapTraversal(sm2)
+    s2 = engine2.build_active_state(RuntimeBinding(active_context_id="ctx2"), current_state="draft")
+    receipt_replay = issue_authorization_receipt(s2, "publish", request_id="req-4")
+    assert engine2.attempt_transition(s2, "publish", authorization=receipt_replay).kind == OutcomeKind.CONTINUE
+    engine2.attempt_transition(s2, "unpublish")
+    # back to draft with the exact same fingerprint the old receipt was cut
+    # against — expiry alone wouldn't catch this, only consumption tracking does
+    o_replay = engine2.attempt_transition(s2, "publish", authorization=receipt_replay)
+    assert o_replay.kind == OutcomeKind.ESCALATE, o_replay.kind
+    assert "already consumed" in o_replay.reason, o_replay.reason
+
+    # expiry: a receipt outlives its ttl_steps even though nothing else
+    # about the state changed
+    sm3 = SemanticMap()
+    sm3.register_context(ContextPrimitive("ctx3", "Test3"))
+    sm3.register_transition(TransitionPrimitive(
+        "publish", "Publish", "ctx3", "draft", "published",
+        requires_human_authorization=True,
+    ))
+    engine3 = ThinkingMapTraversal(sm3)
+    s3 = engine3.build_active_state(RuntimeBinding(active_context_id="ctx3"), current_state="draft")
+    receipt_ttl = issue_authorization_receipt(s3, "publish", request_id="req-5", ttl_steps=0)
+    engine3.step(s3)  # advances step_count past expires_at_step
+    o_expired = engine3.attempt_transition(s3, "publish", authorization=receipt_ttl)
+    assert o_expired.kind == OutcomeKind.ESCALATE, o_expired.kind
+    assert "expired" in o_expired.reason, o_expired.reason
+
+    # no bypass: transition_to() called directly re-verifies too, same as
+    # the authorized= boolean already does
+    sm4 = SemanticMap()
+    sm4.register_context(ContextPrimitive("ctx4", "Test4"))
+    sm4.register_transition(TransitionPrimitive(
+        "publish", "Publish", "ctx4", "draft", "published",
+        requires_human_authorization=True,
+    ))
+    engine4 = ThinkingMapTraversal(sm4)
+    s4 = engine4.build_active_state(RuntimeBinding(active_context_id="ctx4"), current_state="draft")
+    mismatched_receipt = AuthorizationReceipt(
+        transition_id="publish",
+        state_fingerprint="sha256:not-the-real-one",
+        request_id="req-6",
+        issued_at_step=0,
+        expires_at_step=99,
+    )
+    assert s4.transition_to("publish", authorization=mismatched_receipt) is False
+    assert s4.current_state == "draft"
+
+    # legacy authorized=True is untouched by any of the above
+    sm5 = SemanticMap()
+    sm5.register_context(ContextPrimitive("ctx5", "Test5"))
+    sm5.register_transition(TransitionPrimitive(
+        "publish", "Publish", "ctx5", "draft", "published",
+        requires_human_authorization=True,
+    ))
+    engine5 = ThinkingMapTraversal(sm5)
+    s5 = engine5.build_active_state(RuntimeBinding(active_context_id="ctx5"), current_state="draft")
+    o_legacy = engine5.attempt_transition(s5, "publish", authorized=True)
+    assert o_legacy.kind == OutcomeKind.CONTINUE, o_legacy.kind
+
+    # compute_state_fingerprint is deterministic and evidence-order-independent
+    b6 = RuntimeBinding(active_context_id="ctx6", current_evidence=["a", "b"])
+    s6a = ActiveState(semantic_map=SemanticMap(), binding=b6, current_state="x")
+    b6b = RuntimeBinding(active_context_id="ctx6", current_evidence=["b", "a"])
+    s6b = ActiveState(semantic_map=SemanticMap(), binding=b6b, current_state="x")
+    assert compute_state_fingerprint(s6a) == compute_state_fingerprint(s6b)
+
+
 def main():
     print("FPF Thinking Map — Self-verification (horizontal)")
     print("=" * 55)
@@ -1315,6 +1445,7 @@ def main():
         ("EvidenceFresh prop + integration", check_evidence_fresh_prop),
         ("response contract (output discipline)", check_response_contract),
         ("requires_human_authorization transition (no model auto-fire)", check_requires_human_authorization),
+        ("authorization receipt (scoped, non-replayable, TOCTOU-safe)", check_authorization_receipt),
     ]
 
     passed = sum(check(name, fn) for name, fn in checks)

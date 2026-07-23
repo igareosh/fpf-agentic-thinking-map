@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from fpf_thinking_map.authorization import AuthorizationReceipt
 from fpf_thinking_map.primitives import GateDecision
 from fpf_thinking_map.state import ActiveState, SemanticMap, RuntimeBinding
 from fpf_thinking_map.guards import GuardEngine, GuardVerdict
@@ -299,12 +300,26 @@ class ThinkingMapTraversal:
         state: ActiveState,
         transition_id: str,
         authorized: bool = False,
+        authorization: AuthorizationReceipt | None = None,
     ) -> Outcome:
         """Attempt a specific transition. Guards scoped to this move.
 
-        authorized=True is required to fire a requires_human_authorization transition —
-        the model requesting the same transition_id without it gets
-        ESCALATE, not a silent no-op and not a bypass.
+        Firing a requires_human_authorization transition needs one of:
+
+        - `authorization`: an AuthorizationReceipt (see
+          fpf_thinking_map.authorization) scoped to this exact transition_id
+          and the exact state it was issued against. Preferred — a receipt
+          issued while inspecting one state cannot be spent against a
+          different one the traversal has since moved to. Rejected outright
+          (ESCALATE, with the specific reason) if the transition, state,
+          consumption, or expiry doesn't check out; never falls back to
+          `authorized` on a bad receipt.
+        - `authorized=True`: an ambient boolean, kept for callers not yet
+          migrated to receipts. Says a human said yes, not to what state —
+          migrate to `authorization` where replay/staleness matters.
+
+        Either way, the model requesting the same transition_id without one
+        gets ESCALATE, not a silent no-op and not a bypass.
         """
         t = self.semantic_map.transitions.get(transition_id)
         if not t:
@@ -326,6 +341,16 @@ class ThinkingMapTraversal:
                 kind=OutcomeKind.ABSTAIN,
                 reason=f"Transition requires state '{t.from_state}', current is '{state.current_state}'",
             )
+
+        if authorization is not None:
+            ok, reason = state.verify_authorization(transition_id, authorization)
+            if not ok:
+                state.pending_authorizations.add(transition_id)
+                return Outcome(
+                    kind=OutcomeKind.ESCALATE,
+                    reason=f"Authorization receipt rejected for '{transition_id}': {reason}",
+                )
+            authorized = True
 
         if t.requires_human_authorization and not authorized:
             missing_now = state.missing_evidence_for(transition_id)
@@ -380,7 +405,7 @@ class ThinkingMapTraversal:
                 reason=f"Guards deny: {'; '.join(denials)}",
             )
 
-        if state.transition_to(transition_id, authorized=authorized):
+        if state.transition_to(transition_id, authorized=authorized, authorization=authorization):
             logic_ctx = self._eval_logic(state)
             return Outcome(
                 kind=OutcomeKind.CONTINUE,
