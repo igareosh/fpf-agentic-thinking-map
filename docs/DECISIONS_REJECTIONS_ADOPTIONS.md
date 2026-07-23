@@ -18,6 +18,8 @@ Use this index when you need rationale and provenance behind design choices.
 
 - **Traversal Checkpoint and Restore — faithful serialize/restore of `ActiveState`, map fingerprinting (accepted, not yet built):**
   - [DESIGN_TRAVERSAL_CHECKPOINT.md](deep/DESIGN_TRAVERSAL_CHECKPOINT.md)
+- **MoveIntent / move inspection — concrete move identity distinct from transition type (accepted, not yet built):**
+  - [DESIGN_MOVE_INTENT.md](deep/DESIGN_MOVE_INTENT.md)
 
 ## Rejections
 
