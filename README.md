@@ -207,6 +207,21 @@ evidence-triggered stagnation reset already documents).
 
 ---
 
+## Provenance — v1.7.0–1.9.1 in one line
+
+`AuthorizationReceipt` ("Clearance"), `PendingInput`/`AWAIT` ("Holding
+Pattern"), and `MoveIntent` ("Tail Number") are three separate
+mechanisms with one throughline: each gives the map a place to receive
+structure a capable model and a well-built agent harness already produce
+natively — a distinct call with its own arguments, a scoped single-use
+approval token, a "still running" result distinct from "done" — instead
+of flattening that structure into a bare boolean, a bare string, or a
+single overloaded rest state. None of it makes a weak model behave well;
+it stops the map from discarding what a good one already has to offer.
+Full narrative: [`ADOPTED_PROVENANCE.md`](docs/deep/ADOPTED_PROVENANCE.md) · version-by-version: [`CHANGELOG.md`](CHANGELOG.md).
+
+---
+
 ## Measurements
 
 Tested on **5 shipped decision points**:
