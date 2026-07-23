@@ -17,6 +17,20 @@ pip install fpf-thinking-map
 python -m fpf_thinking_map.verify
 ```
 
+## Important links
+
+- [ARCHITECTURE.md](https://github.com/igareosh/fpf-agentic-thinking-map/blob/main/ARCHITECTURE.md)
+- [VERSION_TRACKER.md](https://github.com/igareosh/fpf-agentic-thinking-map/blob/main/docs/VERSION_TRACKER.md)
+- [TRIPLE_TAX_CALCULUS.md](https://github.com/igareosh/fpf-agentic-thinking-map/blob/main/docs/deep/TRIPLE_TAX_CALCULUS.md)
+- [REFLECTIONS.md](https://github.com/igareosh/fpf-agentic-thinking-map/blob/main/docs/deep/REFLECTIONS.md)
+- [CONTRIBUTING.md](https://github.com/igareosh/fpf-agentic-thinking-map/blob/main/CONTRIBUTING.md)
+- [ADVISORIES.md](https://github.com/igareosh/fpf-agentic-thinking-map/blob/main/docs/deep/ADVISORIES.md)
+- [`dev_mcp/`](https://github.com/igareosh/fpf-agentic-thinking-map/tree/main/dev_mcp)
+
+The `dev_mcp` development and compliance harness is genuinely tested against
+the package and updated whenever runtime behavior, compliance checks, or
+integration requirements change.
+
 ## The problem
 
 An agent can explain a workflow rule and still lose track of it during a long
