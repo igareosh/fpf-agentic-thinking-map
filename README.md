@@ -13,13 +13,13 @@ evidence is missing, and when human authorization is required.
 
 For agentic systems that must think freely, but move lawfully.
 
-**v1.8.0** · Python 3.12+ · MIT · zero runtime dependencies
+**v1.9.0** · Python 3.12+ · MIT · zero runtime dependencies
 
 [![PyPI version](https://img.shields.io/pypi/v/fpf-thinking-map?label=PyPI)](https://pypi.org/project/fpf-thinking-map/)
 [![Python versions](https://img.shields.io/pypi/pyversions/fpf-thinking-map?label=Python)](https://pypi.org/project/fpf-thinking-map/)
 [![License](https://img.shields.io/pypi/l/fpf-thinking-map?label=License)](LICENSE)
 [![Zero dependencies](https://img.shields.io/badge/dependencies-0-2ea44f)](pyproject.toml)
-[![Verify](https://img.shields.io/badge/verify-25%2F25%20pass-2ea44f)](fpf_thinking_map/verify.py)
+[![Verify](https://img.shields.io/badge/verify-26%2F26%20pass-2ea44f)](fpf_thinking_map/verify.py)
 [![Live demo](https://img.shields.io/badge/demo-live-7c3aed)](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)
 [![Downloads (honest)](https://img.shields.io/badge/downloads_(honest)-3.7k-1f6feb)](https://pypistats.org/packages/fpf-thinking-map)
 
@@ -29,7 +29,7 @@ For agentic systems that must think freely, but move lawfully.
 
 ```bash
 pip install fpf-thinking-map
-python -m fpf_thinking_map.verify     # 25/25 checks against your install
+python -m fpf_thinking_map.verify     # 26/26 checks against your install
 python -m fpf_thinking_map.examples   # runnable walkthroughs, incl. Ignition Lock
 ```
 
@@ -171,6 +171,39 @@ fires and `IDLE`'s behavior is exactly what it was before.
 
 - [`check_pending_input_await`](fpf_thinking_map/verify.py) — regression, ordering (`CONTINUE`/`BRIDGE` still win over `AWAIT`), and projection coverage
 - [Why runtime affordance projection was rejected alongside this →](docs/deep/REJECTED_RUNTIME_AFFORDANCE_PROJECTION.md)
+
+---
+
+## MoveIntent — a concrete proposed move, distinct from its transition type
+
+`TransitionPrimitive` names a reusable move *type* — "publish." Every
+concrete attempt at firing it ("publish report-v3 to the public site" vs.
+"publish report-v4 to a regulator") used to collapse onto that same bare
+`transition_id`, with nothing distinguishing one proposal from another.
+`fpf_thinking_map.move_intent.MoveIntent` gives one concrete proposal a
+stable `move_id`, optional `parent_move_id` lineage, and a place for its
+own `parameters` to live — opaque to the core, never read by any gate,
+guard, or `can_fire` check.
+
+`ThinkingMapTraversal.inspect_move(state, intent)` evaluates one without
+firing anything — a thin wrapper over the same no-mutation `step()` path
+`slice()` already uses, safe to call as many times as the model wants to
+revise `parameters` before deciding. `attempt_transition(state,
+transition_id, intent=intent)` fires exactly as before, and additionally
+stamps `MoveTrace.move_id`/`parent_move_id` on success. An intent naming a
+different transition than the one that actually fired isn't stamped —
+treated as if none were given, not silently crediting the trace to an
+unrelated move.
+
+Deliberately *not* wired in: `MoveIntent.parameters` does not reset the
+stagnation counter. Two distinct concrete moves sharing a `transition_id`
+and evidence snapshot still count as the same stuck retry — folding
+opaque parameters into that comparison is a separate policy decision this
+feature doesn't make on its own (same gaming-vector tradeoff
+evidence-triggered stagnation reset already documents).
+
+- [`check_move_intent`](fpf_thinking_map/verify.py) — no-mutation inspection, trace stamping, mismatched-intent handling, and the stagnation-counter boundary, asserted rather than silently changed
+- [`ADOPTED_MOVE_INTENT.md`](docs/deep/ADOPTED_MOVE_INTENT.md) — what shipped, why, what's still design-only
 
 ---
 

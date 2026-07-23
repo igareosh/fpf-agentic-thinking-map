@@ -37,6 +37,7 @@ from fpf_thinking_map.primitives import (
 )
 from fpf_thinking_map.authorization import AuthorizationReceipt, compute_state_fingerprint
 from fpf_thinking_map.pending_input import PendingInput, PendingInputStatus
+from fpf_thinking_map.move_intent import MoveIntent
 
 
 @dataclass
@@ -181,6 +182,13 @@ class MoveTrace:
     bridge_target: str | None = None
     blockers: list[str] = field(default_factory=list)
     evidence_delta: list[str] = field(default_factory=list)
+    move_id: str | None = None
+    parent_move_id: str | None = None
+    """Stamped from a MoveIntent when transition_to()/attempt_transition()
+
+    is called with one — see fpf_thinking_map.move_intent. None for a
+    bare transition_id call, exactly as before this field existed.
+    """
 
 
 @dataclass
@@ -456,6 +464,7 @@ class ActiveState:
         transition_id: str,
         authorized: bool = False,
         authorization: AuthorizationReceipt | None = None,
+        intent: MoveIntent | None = None,
     ) -> bool:
         """Attempt a state transition. Returns True if successful.
 
@@ -469,6 +478,12 @@ class ActiveState:
         `authorization`, when given, is independently re-verified here
         (not trusted from the caller) — same reasoning as authorized=:
         a bad receipt must not fire just because some earlier check passed.
+
+        `intent`, when given, only stamps `trace.move_id`/`parent_move_id`
+        on success — it carries no legality weight. A MoveIntent for a
+        transition that isn't this one, or whose parameters wouldn't
+        satisfy a gate, doesn't change whether this call fires; that's
+        deliberate — see fpf_thinking_map.move_intent.
         """
         t = self.semantic_map.transitions.get(transition_id)
         if not t:
@@ -496,9 +511,17 @@ class ActiveState:
             decision = gate.evaluate(self.available_evidence_ids)
             if decision in (GateDecision.ABSTAIN, GateDecision.BLOCK):
                 return False
+        # An intent naming some other transition_id isn't this move's record —
+        # stamping it anyway would corrupt trace with an unrelated move's
+        # identity. Treated as if no intent were given, not an error: intent
+        # carries no legality weight, so a mismatch doesn't block the fire
+        # either, it just isn't credited.
+        matching_intent = intent if intent and intent.transition_id == transition_id else None
         self.trace = MoveTrace(
             previous_state=self.current_state,
             last_transition_id=transition_id,
+            move_id=matching_intent.move_id if matching_intent else None,
+            parent_move_id=matching_intent.parent_move_id if matching_intent else None,
         )
         self.current_state = t.to_state
         if authorization is not None:

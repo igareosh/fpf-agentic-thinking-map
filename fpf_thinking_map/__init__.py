@@ -13,6 +13,7 @@ Modules:
   traversal     — step engine with 11 lawful outcomes
   authorization — receipts scoping a human's yes to one transition + one state
   pending_input — declared external dependencies distinguishing AWAIT from IDLE
+  move_intent   — a concrete proposed move, distinct from its transition type
   examples      — deploy decision scenarios demonstrating the full system
   verify        — self-verification harness
 """
@@ -91,3 +92,6 @@ from fpf_thinking_map.authorization import (
 
 # --- Pending input: declared external dependencies, AWAIT vs IDLE ---
 from fpf_thinking_map.pending_input import PendingInput, PendingInputStatus
+
+# --- Move intent: concrete proposed move, distinct from transition type ---
+from fpf_thinking_map.move_intent import MoveIntent

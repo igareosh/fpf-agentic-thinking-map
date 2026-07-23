@@ -28,6 +28,7 @@ from enum import Enum
 from typing import Any
 
 from fpf_thinking_map.authorization import AuthorizationReceipt
+from fpf_thinking_map.move_intent import MoveIntent
 from fpf_thinking_map.primitives import GateDecision
 from fpf_thinking_map.state import ActiveState, SemanticMap, RuntimeBinding
 from fpf_thinking_map.guards import GuardEngine, GuardVerdict
@@ -333,6 +334,7 @@ class ThinkingMapTraversal:
         transition_id: str,
         authorized: bool = False,
         authorization: AuthorizationReceipt | None = None,
+        intent: MoveIntent | None = None,
     ) -> Outcome:
         """Attempt a specific transition. Guards scoped to this move.
 
@@ -352,6 +354,17 @@ class ThinkingMapTraversal:
 
         Either way, the model requesting the same transition_id without one
         gets ESCALATE, not a silent no-op and not a bypass.
+
+        `intent`: an optional MoveIntent (see fpf_thinking_map.move_intent)
+        naming which concrete proposed move this call fires, distinct from
+        the reusable transition_id. Carries no legality weight — it never
+        participates in any check above, only stamps `trace.move_id`/
+        `parent_move_id` on success. An intent naming a different
+        transition_id than the one actually fired is not stamped — treated
+        as if no intent were given, not silently corrupting the trace with
+        an unrelated move's identity, and not blocking the fire either. Use
+        `inspect_move()` beforehand to evaluate an intent without firing
+        anything.
         """
         t = self.semantic_map.transitions.get(transition_id)
         if not t:
@@ -437,7 +450,7 @@ class ThinkingMapTraversal:
                 reason=f"Guards deny: {'; '.join(denials)}",
             )
 
-        if state.transition_to(transition_id, authorized=authorized, authorization=authorization):
+        if state.transition_to(transition_id, authorized=authorized, authorization=authorization, intent=intent):
             logic_ctx = self._eval_logic(state)
             return Outcome(
                 kind=OutcomeKind.CONTINUE,
@@ -450,6 +463,29 @@ class ThinkingMapTraversal:
             kind=OutcomeKind.ABSTAIN,
             reason="Transition failed",
         )
+
+    def inspect_move(self, state: ActiveState, intent: MoveIntent) -> Outcome:
+        """Evaluate a concrete proposed move without firing anything.
+
+        Thin wrapper over step(state, transition_id=intent.transition_id) —
+        the same no-mutation evaluation attempt_transition() itself starts
+        from, here scoped to a MoveIntent instead of a bare transition_id.
+        Attaches `intent` to the outcome's llm_prompt_state as
+        `move_intent`, the same pattern the BRIDGE outcome already uses
+        for `bridge_options`.
+
+        Never mutates state — move_id/parent_move_id are only stamped
+        into trace when attempt_transition()/transition_to() actually
+        fires. Calling this as many times as the model wants to revise
+        `intent.parameters` before deciding is always safe.
+        """
+        outcome = self.step(state, transition_id=intent.transition_id)
+        outcome.llm_prompt_state["move_intent"] = {
+            "move_id": intent.move_id,
+            "transition_id": intent.transition_id,
+            "parameters": intent.parameters,
+        }
+        return outcome
 
     def attempt_bridge(
         self,

@@ -27,6 +27,7 @@ from fpf_thinking_map.authorization import (
     issue_authorization_receipt,
 )
 from fpf_thinking_map.pending_input import PendingInput, PendingInputStatus
+from fpf_thinking_map.move_intent import MoveIntent
 from fpf_thinking_map.guards import GuardEngine, GuardScope, GuardVerdict
 from fpf_thinking_map.logic import (
     DecisionRule,
@@ -86,6 +87,7 @@ def check_imports():
         ThinkingMapTraversal, Outcome, OutcomeKind,
         AuthorizationReceipt, compute_state_fingerprint, issue_authorization_receipt,
         PendingInput, PendingInputStatus,
+        MoveIntent,
     )
 
 
@@ -1511,6 +1513,133 @@ def check_pending_input_await():
     ], prompt4["pending_inputs"]
 
 
+def check_move_intent():
+    """MoveIntent/inspect_move: a concrete proposed move, distinct from its
+
+    transition type — TransitionPrimitive is the reusable "publish", a
+    MoveIntent is one specific proposal to fire it (which artifact, which
+    audience, requested by whom). inspect_move() evaluates one without
+    firing; attempt_transition()/transition_to() stamp its identity into
+    MoveTrace only when it actually fires and only when it names the
+    transition that actually fired."""
+    sm = SemanticMap()
+    sm.register_context(ContextPrimitive("ctx", "Test"))
+    sm.register_transition(TransitionPrimitive("publish", "Publish", "ctx", "verified", "published"))
+    sm.register_transition(TransitionPrimitive("archive", "Archive", "ctx", "verified", "archived"))
+    engine = ThinkingMapTraversal(sm)
+    s = engine.build_active_state(RuntimeBinding(active_context_id="ctx"), current_state="verified")
+
+    intent = MoveIntent(
+        move_id="move-019", transition_id="publish",
+        parameters={"artifact": "report-v3", "audience": "public"},
+        binding_revision=12,
+    )
+
+    # inspect_move() never mutates state — same current_state, and calling
+    # it repeatedly while the model revises parameters is always safe
+    step_count_before = s.step_count
+    o1 = engine.inspect_move(s, intent)
+    assert o1.kind == OutcomeKind.CONTINUE, o1.kind
+    assert s.current_state == "verified", "inspect_move must not fire anything"
+    assert s.step_count == step_count_before + 1, (
+        "inspect_move is step()-scoped — it increments step_count exactly "
+        "like any other inspection, nothing more"
+    )
+    o2 = engine.inspect_move(s, intent)
+    assert s.current_state == "verified", "a second inspection must still not fire"
+
+    # move_intent surfaces in the slice, compact, exactly as declared
+    assert o2.llm_prompt_state["move_intent"] == {
+        "move_id": "move-019", "transition_id": "publish",
+        "parameters": {"artifact": "report-v3", "audience": "public"},
+    }, o2.llm_prompt_state["move_intent"]
+
+    # firing with intent stamps MoveTrace — the model's identity for this
+    # specific proposal survives into the trace, not just the bare
+    # transition_id every other attempt would also produce
+    o3 = engine.attempt_transition(s, "publish", intent=intent)
+    assert o3.kind == OutcomeKind.CONTINUE, o3.kind
+    assert s.current_state == "published"
+    assert s.trace.move_id == "move-019", s.trace
+    assert s.trace.last_transition_id == "publish"
+
+    # parent_move_id lineage carries through the same way
+    sm2 = SemanticMap()
+    sm2.register_context(ContextPrimitive("ctx2", "Test2"))
+    sm2.register_transition(TransitionPrimitive("publish", "Publish", "ctx2", "verified", "published"))
+    engine2 = ThinkingMapTraversal(sm2)
+    s2 = engine2.build_active_state(RuntimeBinding(active_context_id="ctx2"), current_state="verified")
+    intent_revised = MoveIntent(
+        move_id="move-020", transition_id="publish",
+        parameters={"artifact": "report-v4", "audience": "regulator-y"},
+        parent_move_id="move-019",
+    )
+    engine2.attempt_transition(s2, "publish", intent=intent_revised)
+    assert s2.trace.move_id == "move-020"
+    assert s2.trace.parent_move_id == "move-019"
+
+    # regression: a bare transition_id call, no intent at all, behaves
+    # exactly as it did before MoveIntent existed
+    sm3 = SemanticMap()
+    sm3.register_context(ContextPrimitive("ctx3", "Test3"))
+    sm3.register_transition(TransitionPrimitive("publish", "Publish", "ctx3", "verified", "published"))
+    engine3 = ThinkingMapTraversal(sm3)
+    s3 = engine3.build_active_state(RuntimeBinding(active_context_id="ctx3"), current_state="verified")
+    o4 = engine3.attempt_transition(s3, "publish")
+    assert o4.kind == OutcomeKind.CONTINUE
+    assert s3.trace.move_id is None and s3.trace.parent_move_id is None
+
+    # mismatched intent: naming a transition other than the one that
+    # actually fired is not stamped into trace (would corrupt lineage with
+    # an unrelated move's identity) — and, since intent carries no
+    # legality weight, it does not block the fire either
+    sm4 = SemanticMap()
+    sm4.register_context(ContextPrimitive("ctx4", "Test4"))
+    sm4.register_transition(TransitionPrimitive("archive", "Archive", "ctx4", "verified", "archived"))
+    engine4 = ThinkingMapTraversal(sm4)
+    s4 = engine4.build_active_state(RuntimeBinding(active_context_id="ctx4"), current_state="verified")
+    mismatched = MoveIntent(move_id="move-099", transition_id="publish")
+    o5 = engine4.attempt_transition(s4, "archive", intent=mismatched)
+    assert o5.kind == OutcomeKind.CONTINUE, (
+        "a mismatched intent must not block an otherwise-legal fire"
+    )
+    assert s4.current_state == "archived"
+    assert s4.trace.move_id is None, (
+        f"mismatched intent must not be credited to trace, got {s4.trace.move_id!r}"
+    )
+
+    # direct transition_to() stamps intent the same way attempt_transition()
+    # does — this isn't wrapper-only behavior
+    sm4b = SemanticMap()
+    sm4b.register_context(ContextPrimitive("ctx4b", "Test4b"))
+    sm4b.register_transition(TransitionPrimitive("publish", "Publish", "ctx4b", "verified", "published"))
+    s4b = ThinkingMapTraversal(sm4b).build_active_state(
+        RuntimeBinding(active_context_id="ctx4b"), current_state="verified",
+    )
+    direct_intent = MoveIntent(move_id="move-direct", transition_id="publish")
+    assert s4b.transition_to("publish", intent=direct_intent) is True
+    assert s4b.trace.move_id == "move-direct"
+
+    # boundary, explicitly not fixed by this feature: two distinct
+    # MoveIntents inspected at the same (context, current_state) with the
+    # same evidence snapshot still read as the same stagnant visit —
+    # register_visit() has no knowledge of intent.parameters at all, and
+    # inspect_move() doesn't feed it any. Folding parameters into the
+    # visit-key is a separate decision this feature does not make (see
+    # docs/deep/DESIGN_MOVE_INTENT.md)
+    sm5 = SemanticMap()
+    sm5.register_context(ContextPrimitive("ctx5", "Test5"))
+    sm5.register_transition(TransitionPrimitive("publish", "Publish", "ctx5", "verified", "published"))
+    engine5 = ThinkingMapTraversal(sm5)
+    s5 = engine5.build_active_state(RuntimeBinding(active_context_id="ctx5"), current_state="verified")
+    engine5.inspect_move(s5, MoveIntent(move_id="a", transition_id="publish", parameters={"x": 1}))
+    engine5.inspect_move(s5, MoveIntent(move_id="b", transition_id="publish", parameters={"x": 2}))
+    assert s5.visit_count == 2, (
+        "documented boundary: different MoveIntent.parameters do not reset "
+        f"the stagnation counter today, got visit_count={s5.visit_count}"
+    )
+
+
 def main():
     print("FPF Thinking Map — Self-verification (horizontal)")
     print("=" * 55)
@@ -1541,6 +1670,7 @@ def main():
         ("requires_human_authorization transition (no model auto-fire)", check_requires_human_authorization),
         ("authorization receipt (scoped, non-replayable, TOCTOU-safe)", check_authorization_receipt),
         ("pending input / AWAIT (distinct from IDLE)", check_pending_input_await),
+        ("move intent / inspect_move (concrete move identity)", check_move_intent),
     ]
 
     passed = sum(check(name, fn) for name, fn in checks)

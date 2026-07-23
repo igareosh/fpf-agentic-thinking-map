@@ -13,13 +13,13 @@ Use this index when you need rationale and provenance behind design choices.
   - [ADOPTED_IGNITION_LOCK.md](deep/ADOPTED_IGNITION_LOCK.md)
 - **PendingInput / AWAIT — waiting on external input, distinct from IDLE (adopted, v1.8.0):**
   - [ADOPTED_PENDING_INPUT_AWAIT.md](deep/ADOPTED_PENDING_INPUT_AWAIT.md)
+- **MoveIntent / move inspection — concrete move identity distinct from transition type (adopted, unreleased):**
+  - [ADOPTED_MOVE_INTENT.md](deep/ADOPTED_MOVE_INTENT.md)
 
 ## Accepted, implementation pending
 
 - **Traversal Checkpoint and Restore — faithful serialize/restore of `ActiveState`, map fingerprinting (accepted, not yet built):**
   - [DESIGN_TRAVERSAL_CHECKPOINT.md](deep/DESIGN_TRAVERSAL_CHECKPOINT.md)
-- **MoveIntent / move inspection — concrete move identity distinct from transition type (accepted, not yet built):**
-  - [DESIGN_MOVE_INTENT.md](deep/DESIGN_MOVE_INTENT.md)
 
 ## Rejections
 
