@@ -222,6 +222,28 @@ harness is driving it; a well-built caller supplying this structure
 correctly is a welcome side effect, not the reason it exists.
 Full narrative: [`EXPANDED_PROVENANCE.md`](docs/deep/EXPANDED_PROVENANCE.md) · version-by-version: [`CHANGELOG.md`](CHANGELOG.md).
 
+**Three practical reasons per version, v1.6.0–v1.9.0:**
+
+- **v1.6.0 — Ignition Lock**: blocks destructive moves outright regardless of
+  how legal they otherwise look · tracks concurrent authorization asks
+  correctly instead of losing one · a denial comes with a non-destructive
+  alternative and a recorded reason, not a dead end.
+- **v1.7.0 — Clearance**: closes a replay/TOCTOU hole by binding approval to
+  one transition and the exact state it was checked against · independently
+  re-verified at fire time (identity, fingerprint, expiry, consumption) ·
+  non-breaking — `authorized=True` still works.
+- **v1.8.0 — Holding Pattern**: separates "done" from "blocked on something
+  external," instead of overloading `IDLE` · a candidate action or bridge
+  always wins over `AWAIT`, so a wait never hides an available move · the core
+  never polls or resolves the dependency itself.
+- **v1.9.0 — Tail Number**: fixes a real stagnation-detection blind spot where
+  two different concrete moves read as the same stagnant retry · lets a
+  caller inspect a proposed move before firing with zero mutation risk ·
+  fully additive, zero behavior change for callers who don't use it.
+
+Every released version back to v1.0.0, same format:
+[`docs/VERSION_TRACKER.md`](docs/VERSION_TRACKER.md).
+
 ---
 
 ## Measurements
