@@ -26,6 +26,7 @@ from fpf_thinking_map.authorization import (
     compute_state_fingerprint,
     issue_authorization_receipt,
 )
+from fpf_thinking_map.pending_input import PendingInput, PendingInputStatus
 from fpf_thinking_map.guards import GuardEngine, GuardScope, GuardVerdict
 from fpf_thinking_map.logic import (
     DecisionRule,
@@ -84,6 +85,7 @@ def check_imports():
         CustomProp, DecisionRule,
         ThinkingMapTraversal, Outcome, OutcomeKind,
         AuthorizationReceipt, compute_state_fingerprint, issue_authorization_receipt,
+        PendingInput, PendingInputStatus,
     )
 
 
@@ -1417,6 +1419,98 @@ def check_authorization_receipt():
     assert compute_state_fingerprint(s6a) == compute_state_fingerprint(s6b)
 
 
+def check_pending_input_await():
+    """PendingInput/AWAIT: distinguishes "done" (IDLE) from "waiting on
+
+    something outside the map" (AWAIT) — the same visibility fix ADV-08
+    forced for pending_authorizations, applied to external dependencies
+    instead of human decisions."""
+    sm = SemanticMap()
+    sm.register_context(ContextPrimitive("ctx", "Test"))
+    sm.register_transition(TransitionPrimitive("t_a", "A", "ctx", "start", "mid"))
+    engine = ThinkingMapTraversal(sm)
+
+    # regression: a map that never declares pending_inputs behaves exactly
+    # as before — plain IDLE, never AWAIT, when truly at rest
+    b0 = RuntimeBinding(active_context_id="ctx")
+    s0 = engine.build_active_state(b0, current_state="mid")
+    o0 = engine.step(s0)
+    assert o0.kind == OutcomeKind.IDLE, o0.kind
+    assert o0.pending_input_ids == [] and o0.wake_conditions == []
+
+    # unresolved pending input, nothing else actionable -> AWAIT, not IDLE
+    pi = PendingInput(
+        input_id="dep-analysis", label="Dependency analysis",
+        status=PendingInputStatus.PENDING,
+        expected_evidence_ids=["dependency_report"],
+        wake_conditions=["dependency_report received", "dep-analysis failed"],
+    )
+    b1 = RuntimeBinding(active_context_id="ctx", pending_inputs=[pi])
+    s1 = engine.build_active_state(b1, current_state="mid")
+    o1 = engine.step(s1)
+    assert o1.kind == OutcomeKind.AWAIT, o1.kind
+    assert o1.pending_input_ids == ["dep-analysis"], o1.pending_input_ids
+    assert o1.wake_conditions == ["dependency_report received", "dep-analysis failed"]
+    assert any("dep-analysis" in w for w in o1.warnings), o1.warnings
+
+    # expected/received evidence is never auto-added to current_evidence —
+    # a PendingInput records an expectation, it doesn't manufacture proof
+    assert "dependency_report" not in s1.available_evidence_ids
+    pi.status = PendingInputStatus.RECEIVED
+    assert "dependency_report" not in s1.available_evidence_ids
+    # and once resolved, it drops out of the unresolved view and AWAIT clears
+    o1b = engine.step(s1)
+    assert o1b.kind == OutcomeKind.IDLE, o1b.kind
+
+    # candidate action elsewhere still wins over AWAIT — pending input must
+    # not hide an available move
+    sm2 = SemanticMap()
+    sm2.register_context(ContextPrimitive("ctx2", "Test2"))
+    engine2 = ThinkingMapTraversal(sm2)
+    b2 = RuntimeBinding(
+        active_context_id="ctx2", candidate_actions=["do_thing"],
+        pending_inputs=[PendingInput(input_id="p2", status=PendingInputStatus.EXPECTED)],
+    )
+    s2 = engine2.build_active_state(b2, current_state="mid")
+    o2 = engine2.step(s2)
+    assert o2.kind == OutcomeKind.CONTINUE, o2.kind
+
+    # bridge elsewhere still wins over AWAIT too
+    sm3 = SemanticMap()
+    sm3.register_context(ContextPrimitive(
+        context_id="ctx3", label="Test3",
+        bridges_to=[ContextBridge(target_context_id="ctx3b")],
+    ))
+    sm3.register_context(ContextPrimitive(context_id="ctx3b", label="Test3b"))
+    sm3.register_transition(TransitionPrimitive("t_b", "B entry", "ctx3b", "ready", "active"))
+    engine3 = ThinkingMapTraversal(sm3)
+    b3 = RuntimeBinding(
+        active_context_id="ctx3",
+        pending_inputs=[PendingInput(input_id="p3", status=PendingInputStatus.EXPECTED)],
+    )
+    s3 = engine3.build_active_state(b3, current_state="mid")
+    o3 = engine3.step(s3)
+    assert o3.kind == OutcomeKind.BRIDGE, o3.kind
+
+    # to_llm_prompt_state() surfaces only unresolved entries, in the compact
+    # shape the spec calls for — not source_ref, not resolved history
+    prompt = s1.to_llm_prompt_state()
+    assert prompt["pending_inputs"] == [], "already-resolved input must not appear"
+
+    b4 = RuntimeBinding(active_context_id="ctx", pending_inputs=[pi, PendingInput(
+        input_id="dep-2", label="Second dep", status=PendingInputStatus.EXPECTED,
+        wake_conditions=["dep-2 received"],
+    )])
+    s4 = engine.build_active_state(b4, current_state="mid")
+    prompt4 = s4.to_llm_prompt_state()
+    assert prompt4["pending_inputs"] == [
+        {
+            "id": "dep-2", "label": "Second dep", "status": "expected",
+            "expected_evidence": [], "wake_conditions": ["dep-2 received"],
+        },
+    ], prompt4["pending_inputs"]
+
+
 def main():
     print("FPF Thinking Map — Self-verification (horizontal)")
     print("=" * 55)
@@ -1446,6 +1540,7 @@ def main():
         ("response contract (output discipline)", check_response_contract),
         ("requires_human_authorization transition (no model auto-fire)", check_requires_human_authorization),
         ("authorization receipt (scoped, non-replayable, TOCTOU-safe)", check_authorization_receipt),
+        ("pending input / AWAIT (distinct from IDLE)", check_pending_input_await),
     ]
 
     passed = sum(check(name, fn) for name, fn in checks)

@@ -11,9 +11,13 @@ Use this index when you need rationale and provenance behind design choices.
   - [FPF audit response](deep/FPF_AUDIT_RESPONSE.md)
 - **Ignition Lock / Abort to Orbit — legal vs. fireable, and declared alternatives (adopted, v1.6.0):**
   - [ADOPTED_IGNITION_LOCK.md](deep/ADOPTED_IGNITION_LOCK.md)
+- **PendingInput / AWAIT — waiting on external input, distinct from IDLE (adopted, v1.8.0):**
+  - [ADOPTED_PENDING_INPUT_AWAIT.md](deep/ADOPTED_PENDING_INPUT_AWAIT.md)
 
 ## Rejections
 
+- **Runtime Affordance Projection / ADOPT-1 (rejected):**
+  - [REJECTED_RUNTIME_AFFORDANCE_PROJECTION.md](deep/REJECTED_RUNTIME_AFFORDANCE_PROJECTION.md)
 - **C.32 Candidate-Synthesis Logic (rejected):**
   - [REJECTED_C32_CANDIDATE_SYNTHESIS.md](deep/REJECTED_C32_CANDIDATE_SYNTHESIS.md)
 - **NQD/OEE/Cultural Evolution family (rejected):**

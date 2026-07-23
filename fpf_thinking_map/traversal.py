@@ -1,11 +1,13 @@
 """Traversal engine — the LLM's guided reasoning loop.
 
 step() evaluates one move: checks context, logic, guards, evidence, transitions.
-Returns one of 10 outcomes:
+Returns one of 11 outcomes:
 
   CONTINUE         — transitions available, guards pass, proceed
   COLLECT_EVIDENCE — evidence gaps block the move, here's what's missing
-  IDLE             — at rest, nothing actionable (not stuck — done)
+  IDLE             — at rest, nothing actionable, nothing pending (done)
+  AWAIT            — nothing actionable now, but a declared external input
+                      (see fpf_thinking_map.pending_input) is still unresolved
   BRIDGE           — dead-ended in context, bridge to another context available
   ASK              — stuck, need external input
   ABSTAIN          — guards deny with no evidence path, or logic contradiction
@@ -44,6 +46,7 @@ class OutcomeKind(Enum):
     CHANGE_FRAME = "change_frame"
     IDLE = "idle"
     BRIDGE = "bridge"
+    AWAIT = "await"
 
 
 @dataclass
@@ -56,6 +59,8 @@ class Outcome:
     missing_evidence: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     alternatives: list[str] = field(default_factory=list)
+    pending_input_ids: list[str] = field(default_factory=list)
+    wake_conditions: list[str] = field(default_factory=list)
     llm_prompt_state: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -73,6 +78,10 @@ class Outcome:
             d["warnings"] = self.warnings
         if self.alternatives:
             d["alternatives"] = self.alternatives
+        if self.pending_input_ids:
+            d["pending_input_ids"] = self.pending_input_ids
+        if self.wake_conditions:
+            d["wake_conditions"] = self.wake_conditions
         return d
 
 
@@ -166,11 +175,21 @@ class ThinkingMapTraversal:
         WARN doesn't block either. Enforcing "nothing else moves until this
         is resolved" is a real policy some harnesses may want, but it's an
         app-level decision, not one this domain-agnostic engine should force.
+
+        Same treatment for state.unresolved_pending_inputs — a still-open
+        external dependency is surfaced on every step, not just the one
+        where AWAIT actually fires, since a candidate action or bridge
+        elsewhere must not quietly bury it (see AWAIT's evaluation order).
         """
         outcome = self._step_inner(state, transition_id, logic_tags, include_full_state)
         for pending_id in sorted(state.pending_authorizations):
             outcome.warnings.append(
                 f"transition '{pending_id}' is still awaiting human authorization, unresolved"
+            )
+        for pi in sorted(state.unresolved_pending_inputs, key=lambda p: p.input_id):
+            outcome.warnings.append(
+                f"pending input '{pi.input_id}' ({pi.status.value}) unresolved: "
+                f"{pi.label or pi.input_id}"
             )
         return outcome
 
@@ -281,9 +300,22 @@ class ThinkingMapTraversal:
                     llm_prompt_state=prompt,
                 )
 
+            unresolved = state.unresolved_pending_inputs
+            if unresolved:
+                return Outcome(
+                    kind=OutcomeKind.AWAIT,
+                    reason="No move is currently actionable; declared external input is pending",
+                    warnings=warnings,
+                    pending_input_ids=sorted(pi.input_id for pi in unresolved),
+                    wake_conditions=list(dict.fromkeys(
+                        wc for pi in unresolved for wc in pi.wake_conditions
+                    )),
+                    llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id, include_full_state=include_full_state),
+                )
+
             return Outcome(
                 kind=OutcomeKind.IDLE,
-                reason="At rest — no transitions, no actions, no bridges",
+                reason="At rest — no transitions, no actions, no bridges, no pending input",
                 warnings=warnings,
                 llm_prompt_state=self._build_prompt(state, logic_ctx, transition_id, include_full_state=include_full_state),
             )

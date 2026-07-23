@@ -36,6 +36,7 @@ from fpf_thinking_map.primitives import (
     Freshness,
 )
 from fpf_thinking_map.authorization import AuthorizationReceipt, compute_state_fingerprint
+from fpf_thinking_map.pending_input import PendingInput, PendingInputStatus
 
 
 @dataclass
@@ -58,6 +59,12 @@ class RuntimeBinding:
     constraints: list[str] = field(default_factory=list)
     candidate_actions: list[str] = field(default_factory=list)
     environment: dict[str, Any] = field(default_factory=dict)
+    pending_inputs: list[PendingInput] = field(default_factory=list)
+    """Declared external dependencies traversal is waiting on — see
+
+    fpf_thinking_map.pending_input. Empty by default: maps that never
+    declare one behave exactly as before, no AWAIT ever fires.
+    """
 
 
 @dataclass
@@ -281,6 +288,16 @@ class ActiveState:
     @property
     def available_evidence_ids(self) -> set[str]:
         return set(self.binding.current_evidence)
+
+    @property
+    def unresolved_pending_inputs(self) -> list[PendingInput]:
+        """PendingInputs still EXPECTED or PENDING — what AWAIT is checking for.
+
+        RECEIVED/FAILED/CANCELLED entries stay in binding.pending_inputs as
+        a record (an adapter-owned decision, not the core's to prune) but
+        drop out of this view, since they no longer block anything.
+        """
+        return [pi for pi in self.binding.pending_inputs if pi.unresolved]
 
     def effective_freshness(self, evidence_id: str) -> Freshness:
         """Compute freshness factoring in TTL decay over traversal steps.
@@ -782,4 +799,14 @@ class ActiveState:
                 "blockers": self.trace.blockers,
             } if self.trace.previous_state else None,
             "pending_authorizations": sorted(self.pending_authorizations),
+            "pending_inputs": [
+                {
+                    "id": pi.input_id,
+                    "label": pi.label,
+                    "status": pi.status.value,
+                    "expected_evidence": pi.expected_evidence_ids,
+                    "wake_conditions": pi.wake_conditions,
+                }
+                for pi in sorted(self.unresolved_pending_inputs, key=lambda p: p.input_id)
+            ],
         }

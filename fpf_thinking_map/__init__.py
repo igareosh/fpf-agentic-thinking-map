@@ -10,8 +10,9 @@ Modules:
   state         — runtime binding, active state, TTL tracking, per-move slices
   guards        — 9 deterministic guards (hard constraints, not LLM judgments)
   logic         — 6 propositional operators + freshness-aware decision rules
-  traversal     — step engine with 10 lawful outcomes
+  traversal     — step engine with 11 lawful outcomes
   authorization — receipts scoping a human's yes to one transition + one state
+  pending_input — declared external dependencies distinguishing AWAIT from IDLE
   examples      — deploy decision scenarios demonstrating the full system
   verify        — self-verification harness
 """
@@ -87,3 +88,6 @@ from fpf_thinking_map.authorization import (
     compute_state_fingerprint,
     issue_authorization_receipt,
 )
+
+# --- Pending input: declared external dependencies, AWAIT vs IDLE ---
+from fpf_thinking_map.pending_input import PendingInput, PendingInputStatus

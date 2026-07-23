@@ -13,13 +13,13 @@ evidence is missing, and when human authorization is required.
 
 For agentic systems that must think freely, but move lawfully.
 
-**v1.7.0** · Python 3.12+ · MIT · zero runtime dependencies
+**v1.8.0** · Python 3.12+ · MIT · zero runtime dependencies
 
 [![PyPI version](https://img.shields.io/pypi/v/fpf-thinking-map?label=PyPI)](https://pypi.org/project/fpf-thinking-map/)
 [![Python versions](https://img.shields.io/pypi/pyversions/fpf-thinking-map?label=Python)](https://pypi.org/project/fpf-thinking-map/)
 [![License](https://img.shields.io/pypi/l/fpf-thinking-map?label=License)](LICENSE)
 [![Zero dependencies](https://img.shields.io/badge/dependencies-0-2ea44f)](pyproject.toml)
-[![Verify](https://img.shields.io/badge/verify-24%2F24%20pass-2ea44f)](fpf_thinking_map/verify.py)
+[![Verify](https://img.shields.io/badge/verify-25%2F25%20pass-2ea44f)](fpf_thinking_map/verify.py)
 [![Live demo](https://img.shields.io/badge/demo-live-7c3aed)](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)
 [![Downloads (honest)](https://img.shields.io/badge/downloads_(honest)-3.7k-1f6feb)](https://pypistats.org/packages/fpf-thinking-map)
 
@@ -29,7 +29,7 @@ For agentic systems that must think freely, but move lawfully.
 
 ```bash
 pip install fpf-thinking-map
-python -m fpf_thinking_map.verify     # 24/24 checks against your install
+python -m fpf_thinking_map.verify     # 25/25 checks against your install
 python -m fpf_thinking_map.examples   # runnable walkthroughs, incl. Ignition Lock
 ```
 
@@ -145,6 +145,32 @@ inspect-one-state / fire-into-another gap that a bare boolean can't see.
 - [`ADVISORIES.md`](docs/deep/ADVISORIES.md) — `ADV-08` (no persistence surface), `ADV-10` (ungated-by-default lint), `ADV-11` (unsound `safe_alternatives` lint)
 - [`run_scenario_destructive_hitl` / `run_scenario_denied_reroute`](fpf_thinking_map/examples.py) — runnable walkthroughs
 - [`dev_mcp`](dev_mcp/README.md) — test your own map's use of this against the live engine
+
+---
+
+## AWAIT — waiting on something outside the map, distinct from being done
+
+`IDLE` used to mean two different things: "done, nothing left to do" and
+"nothing to do *right now*, but something external is still owed" — the
+same conflation `pending_authorizations` already fixed for human decisions
+(see `ADV-08`), applied here to external dependencies instead.
+
+`fpf_thinking_map.pending_input.PendingInput` declares one such dependency —
+a worker result, a human reply, anything the map itself doesn't produce —
+with declared `wake_conditions` describing what would resolve it. When
+nothing else is actionable and an unresolved `PendingInput` exists,
+`step()` returns `AWAIT` (carrying `pending_input_ids` and
+`wake_conditions`) instead of `IDLE`. A candidate action or a context
+bridge elsewhere still wins over `AWAIT` — waiting never hides an
+available move. The map never polls, schedules, or resolves the
+dependency; the host owns that lifecycle and sets `PendingInput.status`
+itself.
+
+Maps that never declare `pending_inputs` see no change — `AWAIT` never
+fires and `IDLE`'s behavior is exactly what it was before.
+
+- [`check_pending_input_await`](fpf_thinking_map/verify.py) — regression, ordering (`CONTINUE`/`BRIDGE` still win over `AWAIT`), and projection coverage
+- [Why runtime affordance projection was rejected alongside this →](docs/deep/REJECTED_RUNTIME_AFFORDANCE_PROJECTION.md)
 
 ---
 
