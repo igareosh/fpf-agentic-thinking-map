@@ -35,8 +35,9 @@ class AuthorizationReceipt:
     not reusable once the state has moved (state_fingerprint is checked),
     not reusable twice (request_id is checked against
     ActiveState.consumed_authorizations), and not valid forever
-    (expires_at_step bounds how many step()s may pass before it goes stale
-    even if the fingerprint would otherwise still match).
+    (expires_at_step bounds ActiveState._authorization_clock — ticks on
+    every step() call and every successful fire, not just step() — before
+    it goes stale even if the fingerprint would otherwise still match).
     """
     transition_id: str
     state_fingerprint: str
@@ -71,14 +72,21 @@ def issue_authorization_receipt(
     """Stamp a receipt against the state as it exists right now.
 
     Call this at the moment a human actually approves — not earlier, not
-    from a cached inspection. ttl_steps bounds how many step()s may pass
-    before the receipt goes EXPIRED even if the fingerprint would otherwise
-    still match (e.g. the traversal loops back through the same state).
+    from a cached inspection. ttl_steps bounds how many ticks of
+    ActiveState._authorization_clock may pass before the receipt goes
+    EXPIRED even if the fingerprint would otherwise still match (e.g. the
+    traversal loops back through the same state). Deliberately stamped
+    against _authorization_clock, not step_count — the clock ticks on
+    every step() call *and* every successful transition_to() fire, so a
+    round trip achieved purely through attempt_transition() calls (no
+    step() in between) still expires an old receipt instead of letting it
+    quietly validate again. See _authorization_clock's own docstring for
+    the adversarial case that forced this split.
     """
     return AuthorizationReceipt(
         transition_id=transition_id,
         state_fingerprint=compute_state_fingerprint(state),
         request_id=request_id,
-        issued_at_step=state.step_count,
-        expires_at_step=state.step_count + ttl_steps,
+        issued_at_step=state._authorization_clock,
+        expires_at_step=state._authorization_clock + ttl_steps,
     )

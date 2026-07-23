@@ -13,7 +13,7 @@ evidence is missing, and when human authorization is required.
 
 For agentic systems that must think freely, but move lawfully.
 
-**v1.9.0** · Python 3.12+ · MIT · zero runtime dependencies
+**v1.9.1** · Python 3.12+ · MIT · zero runtime dependencies
 
 [![PyPI version](https://img.shields.io/pypi/v/fpf-thinking-map?label=PyPI)](https://pypi.org/project/fpf-thinking-map/)
 [![Python versions](https://img.shields.io/pypi/pyversions/fpf-thinking-map?label=Python)](https://pypi.org/project/fpf-thinking-map/)

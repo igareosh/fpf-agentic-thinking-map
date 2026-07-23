@@ -1420,6 +1420,41 @@ def check_authorization_receipt():
     s6b = ActiveState(semantic_map=SemanticMap(), binding=b6b, current_state="x")
     assert compute_state_fingerprint(s6a) == compute_state_fingerprint(s6b)
 
+    # round-trip TOCTOU: found via adversarial testing (2026-07-23), not
+    # design review. Two receipts issued back-to-back against the SAME
+    # pre-fire state; one fires (consuming itself), an unrelated transition
+    # brings the traversal back to a state with an IDENTICAL fingerprint
+    # (same context, current_state, evidence) purely through
+    # attempt_transition() calls -- zero step() calls anywhere in between.
+    # A stale, never-consumed second receipt issued against the original
+    # state must not be spendable just because the fingerprint coincidentally
+    # matches again -- this is exactly why expiry is bound to
+    # _authorization_clock (ticks on every fire too) and not step_count
+    # (ticks only on step()).
+    sm7 = SemanticMap()
+    sm7.register_context(ContextPrimitive("ctx7", "Test7"))
+    sm7.register_transition(TransitionPrimitive(
+        "publish", "Publish", "ctx7", "draft", "published",
+        requires_human_authorization=True,
+    ))
+    sm7.register_transition(TransitionPrimitive(
+        "unpublish", "Unpublish", "ctx7", "published", "draft",
+    ))
+    engine7 = ThinkingMapTraversal(sm7)
+    s7 = engine7.build_active_state(RuntimeBinding(active_context_id="ctx7"), current_state="draft")
+    r1 = issue_authorization_receipt(s7, "publish", request_id="req-round-a")
+    r2 = issue_authorization_receipt(s7, "publish", request_id="req-round-b")
+    assert engine7.attempt_transition(s7, "publish", authorization=r1).kind == OutcomeKind.CONTINUE
+    assert engine7.attempt_transition(s7, "unpublish").kind == OutcomeKind.CONTINUE
+    assert s7.step_count == 0, "this scenario must never call step() -- that's the whole point"
+    o_round_trip = engine7.attempt_transition(s7, "publish", authorization=r2)
+    assert o_round_trip.kind == OutcomeKind.ESCALATE, (
+        f"a stale receipt must not reawaken after a fingerprint-identical "
+        f"round trip achieved purely through fires, got {o_round_trip.kind}"
+    )
+    assert "expired" in o_round_trip.reason, o_round_trip.reason
+    assert s7.current_state == "draft"
+
 
 def check_pending_input_await():
     """PendingInput/AWAIT: distinguishes "done" (IDLE) from "waiting on

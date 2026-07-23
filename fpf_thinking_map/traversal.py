@@ -202,6 +202,9 @@ class ThinkingMapTraversal:
         include_full_state: bool = True,
     ) -> Outcome:
         state.step_count += 1
+        # keeps AuthorizationReceipt expiry ticking on inspection too, not
+        # just on a fire — see ActiveState._authorization_clock's docstring
+        state._authorization_clock += 1
 
         if not state.active_context:
             return Outcome(

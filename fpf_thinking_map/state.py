@@ -241,6 +241,26 @@ class ActiveState:
     _evidence_added_at: dict[str, int] = field(default_factory=dict, init=False, repr=False)
     _state_visits: dict[str, int] = field(default_factory=dict, init=False, repr=False)
     _state_visit_evidence: dict[str, frozenset[str]] = field(default_factory=dict, init=False, repr=False)
+    _authorization_clock: int = field(default=0, init=False, repr=False)
+    """Ticks on every step() call AND every successful transition_to() fire —
+
+    AuthorizationReceipt.issued_at_step/expires_at_step are stamped and
+    checked against this, not step_count. step_count only advances via
+    step() and specifically drives evidence TTL decay (see step()'s own
+    docstring); it does not advance when a transition actually fires via
+    transition_to()/attempt_transition() without an intervening step()
+    call. Binding receipt expiry to step_count left a real gap: issue a
+    receipt against fingerprint F, fire once (consuming it), fire an
+    unrelated transition back to fingerprint F with zero step() calls in
+    between, and a second, different receipt issued earlier against F
+    would still validate — the fingerprint matches again and step_count
+    never moved to expire it. Found via adversarial testing against
+    attempt_transition()-only workflows (2026-07-23) — see
+    check_authorization_receipt's round-trip case. Deliberately not fixed
+    by making transition_to() bump step_count itself: that would also
+    accelerate evidence TTL decay on every fire, a much bigger and
+    unrelated semantic change to what step_count means.
+    """
 
     def __post_init__(self) -> None:
         for eid in self.binding.current_evidence:
@@ -435,7 +455,9 @@ class ActiveState:
         say something more actionable than "not authorized":
           - wrong transition: receipt was issued for a different move
           - already consumed: same request_id spent once already — replay
-          - expired: more step()s have passed than the receipt allows
+          - expired: the authorization clock has advanced past what the
+            receipt allows — see _authorization_clock's own docstring for
+            why this is a dedicated counter, not step_count
           - stale state: current_state/context/evidence moved since the
             human looked — the exact TOCTOU this exists to catch
         """
@@ -446,10 +468,10 @@ class ActiveState:
             )
         if receipt.request_id in self.consumed_authorizations:
             return False, f"receipt '{receipt.request_id}' already consumed"
-        if self.step_count > receipt.expires_at_step:
+        if self._authorization_clock > receipt.expires_at_step:
             return False, (
                 f"receipt expired at step {receipt.expires_at_step}, "
-                f"current step is {self.step_count}"
+                f"current step is {self._authorization_clock}"
             )
         current_fingerprint = compute_state_fingerprint(self)
         if receipt.state_fingerprint != current_fingerprint:
@@ -524,6 +546,12 @@ class ActiveState:
             parent_move_id=matching_intent.parent_move_id if matching_intent else None,
         )
         self.current_state = t.to_state
+        # every actual fire is a real change in the world, whether or not a
+        # step() call happened first — a receipt issued against the state
+        # before this fire must not survive it indefinitely just because
+        # nobody called step() in between. See _authorization_clock's
+        # docstring for the gap this closes.
+        self._authorization_clock += 1
         if authorization is not None:
             self.consumed_authorizations.add(authorization.request_id)
         # this specific ask got resolved (approved and fired) — remove it.
