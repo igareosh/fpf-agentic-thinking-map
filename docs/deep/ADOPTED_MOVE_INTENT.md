@@ -101,6 +101,18 @@ mismatched-object case. Checked directly with `state.transition_to()`,
 not just through the engine wrapper — same defense-in-depth split every
 other intent-shaped check in this engine already uses.
 
+Not fully silent, either: `attempt_transition()` appends a `warnings`
+entry naming both transition_ids when this happens on an otherwise
+successful `CONTINUE`. `transition_to()` itself carries no `warnings`
+concept (it returns a bare `bool`, same as every other legality check in
+that method) — the wrapper is where this gets surfaced, the same split
+`register_visit()`'s "still pending" warnings already use between
+`transition_to()`/`step()`. A caller passing the wrong `MoveIntent` object
+is a real bug in whatever's calling this; silently absorbing it would
+hide that bug the same way issue #6 (`step()` returning identical
+`CONTINUE` for a mistyped `transition_id`, still open upstream) already
+hides a different, related mismatch. This one doesn't get left that way.
+
 ## What did not ship as part of this
 
 **Folding `parameters` into the stagnation visit-key.** The gap that

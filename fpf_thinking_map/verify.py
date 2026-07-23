@@ -1562,6 +1562,7 @@ def check_move_intent():
     assert s.current_state == "published"
     assert s.trace.move_id == "move-019", s.trace
     assert s.trace.last_transition_id == "publish"
+    assert o3.warnings == [], "a matching intent must not spuriously warn"
 
     # parent_move_id lineage carries through the same way
     sm2 = SemanticMap()
@@ -1607,6 +1608,10 @@ def check_move_intent():
     assert s4.trace.move_id is None, (
         f"mismatched intent must not be credited to trace, got {s4.trace.move_id!r}"
     )
+    # not fully silent, though — a caller passing the wrong MoveIntent
+    # object is a real bug worth surfacing, same "advise, don't hide"
+    # treatment as every other advisory-only signal in this engine
+    assert any("move-099" in w and "archive" in w for w in o5.warnings), o5.warnings
 
     # direct transition_to() stamps intent the same way attempt_transition()
     # does — this isn't wrapper-only behavior

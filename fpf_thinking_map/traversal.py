@@ -362,9 +362,15 @@ class ThinkingMapTraversal:
         `parent_move_id` on success. An intent naming a different
         transition_id than the one actually fired is not stamped — treated
         as if no intent were given, not silently corrupting the trace with
-        an unrelated move's identity, and not blocking the fire either. Use
-        `inspect_move()` beforehand to evaluate an intent without firing
-        anything.
+        an unrelated move's identity, and not blocking the fire either. That
+        mismatch is not fully silent, though: a `CONTINUE` fired under a
+        mismatched intent carries a warning naming both transition_ids, the
+        same "surface it, don't hide it" treatment every other advisory-only
+        signal in this engine gets (ADV-01's staleness WARN, the
+        still-pending-authorization reminder) — silently swallowing a caller
+        passing the wrong MoveIntent object would hide a real bug in
+        whatever's calling this. Use `inspect_move()` beforehand to evaluate
+        an intent without firing anything.
         """
         t = self.semantic_map.transitions.get(transition_id)
         if not t:
@@ -452,10 +458,17 @@ class ThinkingMapTraversal:
 
         if state.transition_to(transition_id, authorized=authorized, authorization=authorization, intent=intent):
             logic_ctx = self._eval_logic(state)
+            fire_warnings = []
+            if intent is not None and intent.transition_id != transition_id:
+                fire_warnings.append(
+                    f"MoveIntent '{intent.move_id}' names transition '{intent.transition_id}', "
+                    f"not '{transition_id}' — not credited to trace.move_id"
+                )
             return Outcome(
                 kind=OutcomeKind.CONTINUE,
                 reason=f"Transitioned to '{t.to_state}'",
                 next_state=t.to_state,
+                warnings=fire_warnings,
                 llm_prompt_state=self._build_prompt(state, logic_ctx),
             )
 
