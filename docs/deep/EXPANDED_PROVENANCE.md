@@ -28,51 +28,43 @@ being able to say, after the fact, exactly what was approved, exactly
 what was proposed, and exactly when, instead of a good-faith account
 that happens to usually be right.
 
-## Why now — this tracks what capable models already do, not the other way around
+## Why now — this is a correctness property of the runtime, not a trend follow
 
-None of this release asks a model to do something new. Each mechanism
-gives the map a place to receive structure a sufficiently capable model
-and agent harness already produce natively — the gap being closed is in
-the map, not in the model.
+The reason for each mechanism is internal to the logic and traversal
+layer, not external to it. Before this release, the runtime itself could
+not represent three distinctions that its own state actually contains:
+which exact state an approval was checked against, which concrete move
+fired versus which type of move it was, and whether the traversal is
+finished versus merely blocked on something outside it. Those are gaps
+in what the runtime can *say about itself* — a soundness question, the
+same category as a wrong gate decision or a guard that doesn't enforce.
+Closing them makes the traversal layer more trustworthy and reliable on
+its own terms, independent of which model or which surrounding tooling
+is driving it.
 
-- **Tail Number.** Every modern tool-calling API — the ones behind
-  Claude, and every serious agent harness built on top of one — already
-  gives each tool invocation its own call ID and its own distinct
-  arguments, separate from the tool's name. A model reasoning well
-  already tells "publish this artifact to this audience" apart from
-  "publish that one to a different one" when it makes the call; the map
-  used to throw that distinction away the instant it arrived, keeping
-  only the bare `transition_id`. `MoveIntent` is the map catching up to
-  structure the model side already had.
-- **Clearance.** Scoped, single-use authorization — a token good for one
-  specific action under one specific condition, not an ambient "yes" —
-  is exactly the shape human-in-the-loop gates take in every serious
-  agent framework already: an approval object issued by something
-  outside the model's own reasoning loop, checked against, not asserted
-  by, the model. A capable agent doesn't need to be told what a receipt
-  is; it already expects to be handed one and to present it, not
-  fabricate one. `authorized=True` asked the model (or whatever calls on
-  its behalf) to just say so instead.
-- **Holding Pattern.** Tool results that come back "still running, check
-  again" instead of "done" are already an ordinary shape in async/
-  long-running tool-use — background jobs, queued approvals, anything
-  that doesn't resolve inside one turn. A model built for that world
-  already knows the difference between "nothing left to do" and "not
-  done yet, waiting on something." `IDLE` collapsing both into one value
-  was the map failing to represent a distinction the calling side was
-  already prepared to make.
+- **Clearance** closes a replay/TOCTOU hole in the runtime's own state
+  representation: `authorized=True` recorded that *a* human said yes, not
+  *to what*. That's a logic defect — an ambiguity the traversal itself
+  couldn't resolve — before it's anything about any particular caller.
+- **Tail Number** closes an identity gap: the runtime could name a
+  transition *type* but not the concrete move firing it, so two
+  materially different moves were indistinguishable in the trace and in
+  stagnation detection. That's a loss of information the runtime itself
+  was responsible for, not a model behavior question.
+- **Holding Pattern** closes a state-space gap: `IDLE` had to mean both
+  "finished" and "blocked on something outside the map," which is two
+  different facts compressed into one value. A runtime that can't
+  distinguish those two isn't fully describing its own state.
 
-The honest boundary, same one every mechanism in this library draws:
-none of this makes a weak model behave well. A model that ignores the
-receipt it was handed, invents a `move_id` inconsistently across turns,
-or never checks `AWAIT` before assuming it's stuck gets exactly the same
-outcome it would have gotten before this release — these are affordances
-a capable model and a well-built harness can use correctly, not
-enforcement that makes an incapable one do so. What changes is that the
-map no longer discards the structure a good agent already has to offer
-it. That's the sense in which this release is about compliance with
-where LLM tool-use and agentic design already are, not a bet on where
-they're going.
+None of this depends on what any particular LLM or harness happens to
+do with the extra structure. A model that ignores a receipt, invents a
+`move_id` inconsistently, or never reads `AWAIT` gets exactly the outcome
+it would have gotten before this release — the fix is in what the
+runtime can express, not a bet on model behavior. That a well-built
+caller *can* now supply and consume this structure correctly is a
+welcome side effect, not the reason it exists: the reason is that the
+logic layer is more precise and more honest about its own state than it
+was a day earlier, for any LLM reading it.
 
 ## What shipped
 

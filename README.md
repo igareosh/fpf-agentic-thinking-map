@@ -211,13 +211,15 @@ evidence-triggered stagnation reset already documents).
 
 `AuthorizationReceipt` ("Clearance"), `PendingInput`/`AWAIT` ("Holding
 Pattern"), and `MoveIntent` ("Tail Number") are three separate
-mechanisms with one throughline: each gives the map a place to receive
-structure a capable model and a well-built agent harness already produce
-natively — a distinct call with its own arguments, a scoped single-use
-approval token, a "still running" result distinct from "done" — instead
-of flattening that structure into a bare boolean, a bare string, or a
-single overloaded rest state. None of it makes a weak model behave well;
-it stops the map from discarding what a good one already has to offer.
+mechanisms with one throughline: each closes a gap in what the runtime
+could say about its own state — which exact state an approval was
+checked against, which concrete move fired versus its reusable type,
+whether the traversal is finished versus merely blocked on something
+external — instead of flattening that into a bare boolean, a bare
+string, or a single overloaded rest state. That's a correctness property
+of the logic and traversal layer itself, independent of which model or
+harness is driving it; a well-built caller supplying this structure
+correctly is a welcome side effect, not the reason it exists.
 Full narrative: [`EXPANDED_PROVENANCE.md`](docs/deep/EXPANDED_PROVENANCE.md) · version-by-version: [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
