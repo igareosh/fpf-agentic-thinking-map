@@ -68,30 +68,15 @@ The division of responsibility is deliberate:
 The map constrains movement, not meaning. It does not replace the model,
 application logic, retrieval, tools, or a task scheduler.
 
-## Runtime shape
+## Live runtime visual
 
-```mermaid
-flowchart LR
-    A["Agent / application"] --> B["RuntimeBinding"]
-    B --> C["ActiveState"]
-    C --> D["Gates + guards"]
-    D --> E["Traversal"]
-    E --> F["Outcome + slice + trace"]
-    F --> A
-```
+[![Three test-backed traces of the traversal runtime](docs/assets/three-runs-preview.png)](https://igareosh.github.io/fpf-agentic-thinking-map/demos/three-runs.html)
 
-The normal loop is small:
+**[Open the interactive three-run trace](https://igareosh.github.io/fpf-agentic-thinking-map/demos/three-runs.html)**
 
-1. Build or restore the active state.
-2. Ask the runtime what is possible.
-3. Let the agent or host choose a move.
-4. Inspect or attempt it.
-5. Persist the resulting state and trace.
-
-The runtime can distinguish action, missing evidence, a context bridge, an
-external wait, a human escalation, and a genuine rest state. See
-[ARCHITECTURE.md](ARCHITECTURE.md) for the exact reachable outcomes and
-evaluation order.
+The visual follows evidence recovery, `PendingInput`/`AWAIT`, `MoveIntent`,
+state-bound authorization, and successful traced movement in the current
+runtime.
 
 ## Minimal example
 

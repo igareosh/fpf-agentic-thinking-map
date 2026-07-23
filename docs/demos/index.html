@@ -52,24 +52,23 @@
 </style>
 <main>
   <p class="eyebrow">fpf-agentic-thinking-map</p>
-  <h1>What the step() engine actually does</h1>
+  <h1>What the traversal runtime actually does</h1>
   <p class="lede">
-    Two visualizations of the real decision engine documented in
-    <a href="../../ARCHITECTURE.md" style="color:#57c7bd">ARCHITECTURE.md</a> —
-    built for people who don't read Python but want to see what a
-    thinking-map run actually weighs, rejects, and chooses, second by second.
+    Two views of the runtime documented in
+    <a href="../../ARCHITECTURE.md" style="color:#57c7bd">ARCHITECTURE.md</a>:
+    the current v1.9.1 control surfaces and the original dense step() cascade.
   </p>
 
   <a class="card" href="three-runs.html">
-    <span class="tag">Explained</span>
-    <h2>step() — Live Trace (three runs, stacked)</h2>
-    <p>Three real test passes, one per row, each with a plain-language readout of what happened and why: a fast abort, a three-cycle evidence loop, and a clean run to deploy.</p>
+    <span class="tag">v1.9.1 · Current</span>
+    <h2>Traversal runtime - three live traces</h2>
+    <p>Test-backed paths through evidence recovery, PendingInput/AWAIT, and a concrete MoveIntent protected by a state-bound AuthorizationReceipt.</p>
   </a>
 
   <a class="card" href="single-trace.html">
-    <span class="tag">Visual</span>
-    <h2>step() — Single Trace</h2>
-    <p>The same three runs, laid end to end on one continuous timeline with tinted run bands — a denser, more purely visual read of the same engine.</p>
+    <span class="tag">Core cascade</span>
+    <h2>step() - Single Trace</h2>
+    <p>The original evidence and bridge runs laid end to end on one continuous timeline with tinted run bands.</p>
   </a>
 
   <footer>MIT License — see <a href="../../LICENSE">/LICENSE</a>. Copyright (c) 2026 igareosh.com &lt;igareosh@igareosh.com&gt; (@igareosh on GitHub and Telegram), built with Claude Code (Anthropic).</footer>

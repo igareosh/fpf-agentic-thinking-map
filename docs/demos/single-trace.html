@@ -1,9 +1,7 @@
 <!--
-  step() engine — single continuous trace, generated for fpf-agentic-thinking-map.
-  Same three runs as three-runs.html (fail / loop / succeed), laid end to
-  end on one shared timeline with tinted run bands, instead of stacked
-  rows with prose. A denser, more purely visual read of the same engine
-  flow documented in ../../ARCHITECTURE.md.
+  Original step() core-cascade trace for fpf-agentic-thinking-map.
+  Three deploy runs (fail / loop / succeed) laid end to end on one
+  shared timeline. The current v1.9.1 surfaces live in three-runs.html.
 
   Copyright (c) 2026 igareosh.com <igareosh@igareosh.com> (@igareosh on GitHub and Telegram), built with Claude Code
   (Anthropic claude-sonnet-5). MIT License — see ../../LICENSE.
@@ -232,9 +230,9 @@
 <div class="panel">
   <header>
     <div class="title-block">
-      <p class="eyebrow">fpf-agentic-thinking-map · engine trace, from ARCHITECTURE.md</p>
+      <p class="eyebrow">fpf-agentic-thinking-map · original core cascade</p>
       <h1>step() — Single Trace</h1>
-      <p>Three separate calls into the real deploy scenario, back to back — the way three actual test runs went. Run 1 aborts on a context mismatch. Run 2 loops through evidence collection three times without ever clearing. Run 3 clears every guard and ends in a deploy.</p>
+      <p>The original dense traversal view: one context mismatch, one evidence loop, and one successful bridge. For PendingInput/AWAIT, MoveIntent, and AuthorizationReceipt, open the current three-run trace.</p>
     </div>
     <div class="readout">
       <div class="clock" id="clock">00.0<span>s</span></div>
@@ -286,8 +284,8 @@
   // Real step() control flow (ARCHITECTURE.md): INC -> active context? ->
   // transition matches? -> evaluate logic rules -> consistent? -> run 9
   // guards -> guards allow? -> evidence gaps? -> transitions available?
-  // Three independent runs of the same deploy scenario, each starting from
-  // a fresh bind() — the way three real test passes actually differed.
+  // Three independent runs of the original deploy scenario, each starting
+  // from a fresh bind(). The v1.9.1 trace lives in three-runs.html.
   var steps = [
     // ================= RUN 1 — fails fast on a context mismatch =================
     { kind:"start", t:0,   y:45, tool:"bind()", cat:"stage", desc:"run 1 — fresh RuntimeBinding, no evidence yet" },
