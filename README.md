@@ -12,6 +12,14 @@ authorization boundaries, and waiting conditions outside the model's prose
 context. The model can inspect the map and choose; the runtime decides whether
 the move is valid.
 
+[![PyPI](https://img.shields.io/pypi/v/fpf-thinking-map?style=flat-square&label=PyPI&color=3775A9)](https://pypi.org/project/fpf-thinking-map/)
+[![Downloads (honest)](https://img.shields.io/badge/downloads%20%28honest%29-3.8k-1f6feb?style=flat-square)](https://pypistats.org/packages/fpf-thinking-map)
+[![Python](https://img.shields.io/pypi/pyversions/fpf-thinking-map?style=flat-square&label=Python&color=f0b429)](pyproject.toml)
+[![License](https://img.shields.io/pypi/l/fpf-thinking-map?style=flat-square&label=license&color=57c7bd)](LICENSE)
+[![Zero dependencies](https://img.shields.io/badge/dependencies-0-ff9f43?style=flat-square)](pyproject.toml)
+[![Verification](https://img.shields.io/badge/verify-26%2F26-59d18c?style=flat-square)](fpf_thinking_map/verify.py)
+[![Live demo](https://img.shields.io/badge/live-demo-dd8cff?style=flat-square)](https://igareosh.github.io/fpf-agentic-thinking-map/demos/three-runs.html)
+
 ```bash
 pip install fpf-thinking-map
 python -m fpf_thinking_map.verify
