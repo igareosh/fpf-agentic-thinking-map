@@ -1,6 +1,6 @@
 """Deploy decision scenarios — the thinking map in action.
 
-Demonstrates 7 scenarios:
+Demonstrates 10 scenarios:
 
   1. Missing evidence    — gate blocks, evidence collected, retry succeeds
   2. Role conflict       — analyst ⊥ approver, guard denies
@@ -10,8 +10,18 @@ Demonstrates 7 scenarios:
   5. Abort to Orbit      — human declines the delete; the declared safe
                            twin (archive) was visible the whole time and
                            is still an ordinary transition to fire
-  6. Logic glue          — all 6 operators at each step, freshness-aware rules
-  7. Truth table         — 6 operators on two evidence atoms, 4 rows
+  6. Clearance           — an AuthorizationReceipt scoped to one inspected
+                           state fires cleanly; a stale one, replayed after
+                           the state moved on, is refused with the reason
+  7. Holding Pattern     — nothing else actionable and a PendingInput is
+                           still unresolved: AWAIT, not IDLE. Resolving it
+                           flips the next step back to IDLE
+  8. Tail Number         — inspect_move() evaluates a concrete MoveIntent
+                           without firing anything; a mismatched intent
+                           doesn't block the fire but doesn't get credited
+                           to the trace either
+  9. Logic glue          — all 6 operators at each step, freshness-aware rules
+  10. Truth table        — 6 operators on two evidence atoms, 4 rows
 
 Run all:   python -m fpf_thinking_map.examples
 Run one:   from fpf_thinking_map.examples import run_scenario_missing_evidence
@@ -20,6 +30,7 @@ Build map: from fpf_thinking_map.examples import build_deploy_decision_map
 
 import json
 
+from fpf_thinking_map.authorization import issue_authorization_receipt
 from fpf_thinking_map.logic import (
     CustomProp,
     DecisionRule,
@@ -35,6 +46,8 @@ from fpf_thinking_map.logic import (
     RuleKind,
     TransitionAvailable,
 )
+from fpf_thinking_map.move_intent import MoveIntent
+from fpf_thinking_map.pending_input import PendingInput, PendingInputStatus
 from fpf_thinking_map.primitives import (
     AgencyLevel,
     CommitmentPrimitive,
@@ -530,6 +543,155 @@ def run_scenario_denied_reroute():
           f"'previously denied: {would_be!r}'")
 
 
+def build_publish_map() -> SemanticMap:
+    """A minimal map for one requires_human_authorization move: publish.
+
+    Same shape as build_destructive_action_map — legal by every FPF
+    measure, still gated — reused here to demonstrate AuthorizationReceipt
+    instead of the bare authorized=True boolean.
+    """
+    sm = SemanticMap()
+    sm.register_context(ContextPrimitive(context_id="release", label="Release"))
+    sm.register_transition(TransitionPrimitive(
+        transition_id="publish",
+        label="Publish report",
+        context_id="release",
+        from_state="verified",
+        to_state="published",
+        requires_human_authorization=True,
+    ))
+    return sm
+
+
+def run_scenario_authorization_receipt():
+    """Scenario: Clearance — an approval scoped to one inspected state.
+
+    authorized=True proves *a* human said yes, not that they said yes to
+    *this* state. An AuthorizationReceipt names the transition and hashes
+    the exact state it was issued against — spend it somewhere else and
+    it's refused, with the specific reason, not a silent bypass.
+    """
+    print("\n" + "=" * 60)
+    print("SCENARIO: Clearance — AuthorizationReceipt scoped to one state")
+    print("=" * 60)
+
+    sm = build_publish_map()
+    engine = ThinkingMapTraversal(sm)
+    binding = RuntimeBinding(active_context_id="release", current_evidence=["review_signoff"])
+    state = engine.build_active_state(binding, current_state="verified")
+
+    print("\n--- A human inspects this exact state and approves it ---")
+    receipt = issue_authorization_receipt(state, "publish", request_id="req-001")
+    print(f"receipt: transition={receipt.transition_id!r}, "
+          f"fingerprint={receipt.state_fingerprint[:18]}..., "
+          f"expires_at_step={receipt.expires_at_step}")
+
+    print("\n--- Spent against the exact state it was issued for — fires clean ---")
+    outcome = engine.attempt_transition(state, "publish", authorization=receipt)
+    print(f"outcome: {outcome.kind.value}  final_state: {state.current_state}")
+
+    print("\n--- A second receipt, issued against a state that has since moved on ---")
+    sm2 = build_publish_map()
+    engine2 = ThinkingMapTraversal(sm2)
+    state2 = engine2.build_active_state(
+        RuntimeBinding(active_context_id="release", current_evidence=["review_signoff"]),
+        current_state="verified",
+    )
+    stale_receipt = issue_authorization_receipt(state2, "publish", request_id="req-002")
+    state2.add_evidence("late_breaking_correction")  # the state moved after the human looked
+    print("--- (evidence changed after the human looked, before the receipt was spent) ---")
+    rejected = engine2.attempt_transition(state2, "publish", authorization=stale_receipt)
+    print(f"outcome: {rejected.kind.value}")
+    print(f"reason: {rejected.reason}")
+
+
+def run_scenario_pending_input_await():
+    """Scenario: Holding Pattern — waiting on something outside the map.
+
+    IDLE used to mean two different things: "done" and "nothing to do
+    yet, something external is still owed." A PendingInput makes the
+    second case a distinct outcome — AWAIT — instead of a rest state that
+    looks identical to being finished.
+    """
+    print("\n" + "=" * 60)
+    print("SCENARIO: Holding Pattern — AWAIT distinct from IDLE")
+    print("=" * 60)
+
+    sm = SemanticMap()
+    sm.register_context(ContextPrimitive(context_id="release", label="Release"))
+    engine = ThinkingMapTraversal(sm)
+
+    pending = PendingInput(
+        input_id="qa-signoff",
+        label="QA sign-off on the release candidate",
+        status=PendingInputStatus.PENDING,
+        wake_conditions=["qa_signoff received", "qa-signoff failed"],
+    )
+    binding = RuntimeBinding(active_context_id="release", pending_inputs=[pending])
+    state = engine.build_active_state(binding, current_state="candidate")
+
+    print("\n--- Nothing else to do, but QA sign-off is still outstanding ---")
+    outcome = engine.step(state)
+    print(f"outcome: {outcome.kind.value}")
+    print(f"pending_input_ids: {outcome.pending_input_ids}")
+    print(f"wake_conditions: {outcome.wake_conditions}")
+
+    print("\n--- QA comes back later — the host resolves the PendingInput itself ---")
+    print("--- (the engine never polls for this; something outside it sets status) ---")
+    pending.status = PendingInputStatus.RECEIVED
+
+    print("\n--- Same map, same state, nothing else changed — now truly at rest ---")
+    outcome2 = engine.step(state)
+    print(f"outcome: {outcome2.kind.value}  (IDLE now that nothing is left outstanding)")
+
+
+def run_scenario_move_intent():
+    """Scenario: Tail Number — a concrete proposed move, not just its type.
+
+    TransitionPrimitive names a reusable move type ("publish"). Every
+    concrete attempt used to collapse onto that same bare id. A MoveIntent
+    names this specific proposal — inspect it without firing, then fire
+    it, and the trace remembers which one it was.
+    """
+    print("\n" + "=" * 60)
+    print("SCENARIO: Tail Number — MoveIntent distinct from transition type")
+    print("=" * 60)
+
+    sm = build_publish_map()
+    # this scenario doesn't exercise the HITL gate — drop it so a bare
+    # attempt_transition() below demonstrates MoveIntent on its own
+    sm.transitions["publish"].requires_human_authorization = False
+    engine = ThinkingMapTraversal(sm)
+    binding = RuntimeBinding(active_context_id="release", current_evidence=["review_signoff"])
+    state = engine.build_active_state(binding, current_state="verified")
+
+    intent = MoveIntent(
+        move_id="move-019",
+        transition_id="publish",
+        parameters={"artifact": "report-v3", "audience": "public"},
+    )
+
+    print("\n--- Inspect the concrete proposal without firing anything ---")
+    inspected = engine.inspect_move(state, intent)
+    print(f"outcome: {inspected.kind.value}  current_state (unchanged): {state.current_state}")
+    print(f"move_intent in the slice: {inspected.llm_prompt_state['move_intent']}")
+
+    print("\n--- Fire it — the trace remembers which concrete move this was ---")
+    fired = engine.attempt_transition(state, "publish", intent=intent)
+    print(f"outcome: {fired.kind.value}  trace.move_id: {state.trace.move_id!r}")
+
+    print("\n--- A second, different concrete move — same transition type ---")
+    intent_2 = MoveIntent(
+        move_id="move-020", transition_id="publish",
+        parameters={"artifact": "report-v4", "audience": "regulator-y"},
+        parent_move_id="move-019",
+    )
+    print(f"move-019 published {intent.parameters['artifact']!r} to "
+          f"{intent.parameters['audience']!r}; move-020 would publish "
+          f"{intent_2.parameters['artifact']!r} to {intent_2.parameters['audience']!r} — "
+          f"both are just 'publish' without a MoveIntent naming the difference")
+
+
 def build_deploy_rules() -> LogicLayer:
     """Deploy-decision rules demonstrating all 6 operators + freshness-aware checks.
 
@@ -732,5 +894,8 @@ if __name__ == "__main__":
     run_scenario_full_traversal()
     run_scenario_destructive_hitl()
     run_scenario_denied_reroute()
+    run_scenario_authorization_receipt()
+    run_scenario_pending_input_await()
+    run_scenario_move_intent()
     run_logic_scenario()
     run_truth_table_demo()

@@ -117,7 +117,7 @@ meaning and does not replace model intelligence.
 - **Explicit state** — contexts, roles, and the active state are first-class objects, not prose the model has to re-derive each turn.
 - **Evidence gates** — transitions declare `required_evidence`; the engine checks freshness before it lets a move fire.
 - **Lawful transitions, enforced in code** — most agent setups handle this with a system prompt or a rules file: tokens sitting in context, waiting to be deprioritized or reinterpreted as the conversation grows. Here, legality of the next move is computed by `GatePrimitive` / `TransitionPrimitive` outside the token stream, so it can't be silently reinterpreted the way prose instructions can.
-- **Inspectable outcomes** — every step resolves to one of five outcome kinds, not free text.
+- **Inspectable outcomes** — every step resolves to one of a fixed set of outcome kinds, not free text (11 declared, 8 currently reachable — see `ARCHITECTURE.md`'s "What's declared vs. what's reachable").
 
 ---
 
@@ -278,6 +278,9 @@ It is for:
 - lower runtime noise
 - inspectable behavior
 - Ignition Lock — HITL gating on destructive/irreversible transitions, with declared non-destructive alternatives so a denial routes somewhere instead of dead-ending
+- Clearance — approval scoped to one transition and the exact inspected state it was given for, not an ambient boolean any caller can assert
+- Holding Pattern — distinguishing "waiting on a declared external input" (`AWAIT`) from "done, nothing left to do" (`IDLE`)
+- Tail Number — a concrete proposed move with its own identity and parameters, distinct from the reusable transition type that fires it
 
 It is not:
 
@@ -285,6 +288,7 @@ It is not:
 - a universal reasoning engine
 - a replacement for application logic
 - an in-engine memory/retrieval system (no embeddings/vector store inside this engine)
+- a tool runner, scheduler, or worker/task supervisor (`PendingInput`/`MoveIntent` carry identity and status the host sets — the engine never polls, executes, or resolves anything itself)
 
 Compatibility: works with model families that can read structured JSON and
 follow constraints. No model-specific prompt protocol is required by the

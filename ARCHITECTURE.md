@@ -6,32 +6,49 @@ Visual scheme of the thinking map — what each part does and how they fit toget
 
 ```mermaid
 graph LR
-    P[primitives.py<br/>12 primitives + 5 floors]
+    P[primitives.py<br/>10 primitives + 5 floors]
+    A[authorization.py<br/>receipt scoped to one transition + state]
+    PI[pending_input.py<br/>declared external dependency]
+    MI[move_intent.py<br/>concrete move identity]
     S[state.py<br/>binding + active state + slice]
     G[guards.py<br/>9 hard constraints]
     L[logic.py<br/>6 operators + rules]
-    T[traversal.py<br/>step engine + 10 declared outcomes]
-    E[examples.py<br/>5 scenarios]
-    V[verify.py<br/>22 checks]
+    T[traversal.py<br/>step engine + 11 declared outcomes]
+    E[examples.py<br/>8 scenarios]
+    V[verify.py<br/>26 checks]
 
     P --> S
     P --> G
     P --> L
+    A --> S
+    PI --> S
+    MI --> S
     S --> G
     S --> L
     S --> T
+    A --> T
+    MI --> T
     G --> T
     L --> T
     T --> E
     S --> E
     P --> E
+    A --> E
+    PI --> E
+    MI --> E
     T --> V
     S --> V
     G --> V
     L --> V
+    A --> V
+    PI --> V
+    MI --> V
     E --> V
 
     style P fill:#2d5016,color:#fff
+    style A fill:#5c3a1a,color:#fff
+    style PI fill:#3a5c3a,color:#fff
+    style MI fill:#5c1a4a,color:#fff
     style S fill:#1a3a5c,color:#fff
     style G fill:#5c1a1a,color:#fff
     style L fill:#4a3728,color:#fff
@@ -42,7 +59,7 @@ graph LR
 
 ## How a step works
 
-`step()` is the normal runtime path. It can return 6 of the 10 declared outcomes. `ASK`, `PUBLISH`, and `REVISE_PLAN` exist in `OutcomeKind`, but nothing returns them yet. `ESCALATE` comes from two places: `attempt_bridge()` (below) and `attempt_transition()`'s Ignition Lock check (next section) — `step()` itself never returns it, since it only scans what's possible, it doesn't attempt a specific move.
+`step()` is the normal runtime path. It can return 7 of the 11 declared outcomes. `ASK`, `PUBLISH`, and `REVISE_PLAN` exist in `OutcomeKind`, but nothing returns them yet. `ESCALATE` comes from two places: `attempt_bridge()` (below) and `attempt_transition()`'s Ignition Lock check (next section) — `step()` itself never returns it, since it only scans what's possible, it doesn't attempt a specific move.
 
 ```mermaid
 flowchart TD
@@ -64,7 +81,8 @@ flowchart TD
     TRANS -->|yes| CONTINUE[CONTINUE<br/>+ slice + contract]
     TRANS -->|no + actions| CONTINUE2[CONTINUE]
     TRANS -->|no + bridges| BRIDGE[BRIDGE<br/>+ target contexts, advisory only]
-    TRANS -->|nothing| IDLE[IDLE<br/>at rest]
+    TRANS -->|no + unresolved<br/>PendingInput| AWAIT[AWAIT<br/>+ pending_input_ids, wake_conditions]
+    TRANS -->|nothing left| IDLE[IDLE<br/>at rest]
 
     style CF fill:#8b6914,color:#fff
     style ABSTAIN fill:#8b1a1a,color:#fff
@@ -73,8 +91,11 @@ flowchart TD
     style CONTINUE fill:#2d5016,color:#fff
     style CONTINUE2 fill:#2d5016,color:#fff
     style BRIDGE fill:#1a3a5c,color:#fff
+    style AWAIT fill:#3a5c3a,color:#fff
     style IDLE fill:#3a3a3a,color:#fff
 ```
+
+The order matters: a candidate action or an available bridge always wins over `AWAIT` — an unresolved `PendingInput` elsewhere must never hide a move the model could make right now instead of waiting. Only when nothing else is left does an unresolved `PendingInput` turn `IDLE` into `AWAIT` instead.
 
 `step()` does not cross a bridge by itself. It only reports that a bridge is available (`BRIDGE`). Actually crossing it is a separate call:
 
@@ -129,32 +150,40 @@ The actual code path this diagram is standing in for:
 flowchart TD
     AT([attempt_transition<br/>called]) --> FOUND{transition_id<br/>found + valid<br/>context/state?}
     FOUND -->|no| AB1[ABSTAIN]
-    FOUND -->|yes| AUTH{requires_human_<br/>authorization<br/>and not authorized?}
+    FOUND -->|yes| RCPT{authorization=<br/>receipt given?}
+    RCPT -->|yes, invalid| ESC0[ESCALATE<br/>specific reason: wrong transition,<br/>expired, consumed, or state moved]
+    RCPT -->|yes, valid| AUTHOK[authorized = True]
+    RCPT -->|no receipt| AUTH{requires_human_<br/>authorization<br/>and not authorized?}
     AUTH -->|yes| MARK[pending_authorizations.add id<br/>reason names missing evidence<br/>+ prior denial, if any]
     MARK --> ESC[ESCALATE<br/>+ alternatives from<br/>safe_alternatives]
     AUTH -->|no, or authorized=True| EV{evidence<br/>gaps?}
+    AUTHOK --> EV
     EV -->|gaps| CE[COLLECT_EVIDENCE]
     EV -->|complete| GATE{gate<br/>decision?}
     GATE -->|BLOCK/ABSTAIN| AB2[ABSTAIN /<br/>COLLECT_EVIDENCE]
     GATE -->|PASS/DEGRADE| GUARD{guards<br/>allow?}
     GUARD -->|deny| AB3[ABSTAIN]
-    GUARD -->|allow| FIRE[transition_to<br/>pending_authorizations.discard id<br/>if this was the pending one]
-    FIRE --> CONT[CONTINUE]
+    GUARD -->|allow| FIRE[transition_to<br/>pending_authorizations.discard id<br/>consume receipt if used<br/>stamp trace.move_id if intent matches]
+    FIRE --> CONT[CONTINUE<br/>warns if intent was given but mismatched]
 
     style AB1 fill:#8b1a1a,color:#fff
     style AB2 fill:#8b1a1a,color:#fff
     style AB3 fill:#8b1a1a,color:#fff
     style ESC fill:#8b6914,color:#fff
+    style ESC0 fill:#8b6914,color:#fff
     style CE fill:#4a3728,color:#fff
     style CONT fill:#2d5016,color:#fff
 ```
 
-Two things this diagram is deliberately explicit about, because both were found by testing, not planned up front:
+Three things this diagram is deliberately explicit about, because all three were found by testing, not planned up front:
 
 - `authorized=True` only clears the `AUTH` branch. It does not touch evidence or gate checks below it — passing it cannot make a `BLOCK`ed gate fire.
 - `pending_authorizations` is a set, not a single value: escalating a second, different transition while a first one is still unresolved adds to it, it doesn't replace it. Only the specific `transition_id` that actually fires gets removed.
+- `authorization` (an `AuthorizationReceipt`) is checked before the ambient boolean and is authoritative: a receipt that doesn't match — wrong transition, expired, already consumed, or the state fingerprint moved since it was issued — escalates immediately with the specific reason, never silently falling back to `authorized=`. See `docs/deep/IGNITION_LOCK_WIND_TUNNEL.md`'s 2026-07-23 addendum for why `expires_at_step` is checked against a dedicated `_authorization_clock`, not `step_count`.
 
 `ESCALATE`'s `alternatives` field is populated straight from that transition's `safe_alternatives` — Abort to Orbit — regardless of whether any of them are themselves fireable right now. The engine names them; it does not check them for you, and it does not choose one.
+
+An optional `intent` (a `MoveIntent`) rides alongside all of this with zero legality weight — it never appears in any branch above. On a successful fire it only stamps `trace.move_id`/`parent_move_id`, and only if `intent.transition_id` matches the transition that actually fired; a mismatch is surfaced as a `warnings` entry on the `CONTINUE` outcome, not silently dropped.
 
 ## Logic layer — how the 6 operators compose
 
@@ -443,17 +472,18 @@ The two facts worth carrying forward from this diagram: the model saw `archive_r
 
 ## What's declared vs. what's reachable
 
-`traversal.py` declares 10 `OutcomeKind` values, but not all of them are active in runtime today. Checked against actual code paths, 7 are reachable and 3 are currently unused:
+`traversal.py` declares 11 `OutcomeKind` values, but not all of them are active in runtime today. Checked against actual code paths, 8 are reachable and 3 are currently unused:
 
 | Outcome | Reachable from | Status |
 |---|---|---|
-| `CONTINUE` | `step()`, `attempt_transition()`, `attempt_bridge()` | live |
+| `CONTINUE` | `step()`, `attempt_transition()`, `attempt_bridge()`, `inspect_move()` | live |
 | `ABSTAIN` | `step()`, `attempt_transition()`, `attempt_bridge()` | live |
 | `COLLECT_EVIDENCE` | `step()`, `attempt_transition()` | live |
 | `CHANGE_FRAME` | `step()` | live |
 | `IDLE` | `step()` | live |
 | `BRIDGE` | `step()` | live (advisory only) |
-| `ESCALATE` | `attempt_bridge()`, `attempt_transition()` (Ignition Lock) | live |
+| `AWAIT` | `step()` (an unresolved `PendingInput`, nothing else actionable) | live |
+| `ESCALATE` | `attempt_bridge()`, `attempt_transition()` (Ignition Lock or a rejected `AuthorizationReceipt`) | live |
 | `ASK` | — | declared, unreachable |
 | `PUBLISH` | — | declared, unreachable |
 | `REVISE_PLAN` | — | declared, unreachable |
@@ -462,4 +492,4 @@ This is not a bug. The underlying primitives already exist, but the traversal la
 
 ---
 
-**igareosh.com / @igareosh** — v1.5.0
+**igareosh.com / @igareosh** — v1.9.1
