@@ -1,7 +1,7 @@
 [project]
 name = "fpf-thinking-map"
-version = "1.9.1"
-description = "Small MIT-licensed runtime for bounded LLM traversal, inspired by FPF and focused on practical agent behavior."
+version = "1.9.2"
+description = "Deterministic Python runtime for lawful agent traversal with explicit state, evidence, authorization, waiting, and move identity."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
@@ -16,6 +16,7 @@ keywords = [
     "propositional-logic", "evidence-decay", "ttl",
     "guards", "gates", "semantic-map", "fpf",
     "human-in-the-loop", "ignition-lock", "hitl", "safety",
+    "authorization", "await", "move-intent", "workflow",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -35,10 +36,14 @@ Homepage = "https://github.com/igareosh/fpf-agentic-thinking-map"
 Repository = "https://github.com/igareosh/fpf-agentic-thinking-map"
 Documentation = "https://github.com/igareosh/fpf-agentic-thinking-map#readme"
 Issues = "https://github.com/igareosh/fpf-agentic-thinking-map/issues"
+Architecture = "https://github.com/igareosh/fpf-agentic-thinking-map/blob/main/ARCHITECTURE.md"
+Changelog = "https://github.com/igareosh/fpf-agentic-thinking-map/blob/main/CHANGELOG.md"
+Contributing = "https://github.com/igareosh/fpf-agentic-thinking-map/blob/main/CONTRIBUTING.md"
+Advisories = "https://github.com/igareosh/fpf-agentic-thinking-map/blob/main/docs/deep/ADVISORIES.md"
 Website = "https://igareosh.com"
 GitHub = "https://github.com/igareosh"
 Telegram = "https://t.me/igareosh"
-Demo = "https://igareosh.github.io/fpf-agentic-thinking-map/demos/"
+Demo = "https://igareosh.github.io/fpf-agentic-thinking-map/demos/three-runs.html"
 
 [build-system]
 requires = ["setuptools>=68.0"]

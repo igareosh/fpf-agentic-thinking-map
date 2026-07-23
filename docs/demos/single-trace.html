@@ -1,7 +1,7 @@
 <!--
   Original step() core-cascade trace for fpf-agentic-thinking-map.
   Three deploy runs (fail / loop / succeed) laid end to end on one
-  shared timeline. The current v1.9.1 surfaces live in three-runs.html.
+  shared timeline. The current v1.9.2 surfaces live in three-runs.html.
 
   Copyright (c) 2026 igareosh.com <igareosh@igareosh.com> (@igareosh on GitHub and Telegram), built with Claude Code
   (Anthropic claude-sonnet-5). MIT License — see ../../LICENSE.
@@ -285,7 +285,7 @@
   // transition matches? -> evaluate logic rules -> consistent? -> run 9
   // guards -> guards allow? -> evidence gaps? -> transitions available?
   // Three independent runs of the original deploy scenario, each starting
-  // from a fresh bind(). The v1.9.1 trace lives in three-runs.html.
+  // from a fresh bind(). The v1.9.2 trace lives in three-runs.html.
   var steps = [
     // ================= RUN 1 — fails fast on a context mismatch =================
     { kind:"start", t:0,   y:45, tool:"bind()", cat:"stage", desc:"run 1 — fresh RuntimeBinding, no evidence yet" },

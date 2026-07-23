@@ -6,7 +6,7 @@ Current visual index for the thinking-map runtime and its public demos.
 
 - [Repo architecture doc](../ARCHITECTURE.md)
 - [Live demos](./demos/)
-- [v1.9.1 — Three live traces](./demos/three-runs.html)
+- [v1.9.2 — Three live traces](./demos/three-runs.html)
 - [Core step() cascade — Single Trace](./demos/single-trace.html)
 
 ## Module chain

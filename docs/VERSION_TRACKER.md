@@ -1,4 +1,4 @@
-# Version tracker — v1.0.0 through v1.9.1
+# Version tracker — v1.0.0 through v1.9.2
 
 Every released version, three practical/reader-facing benefits each — including
 doc-only and metadata-only releases, marked as such. This is a supplement to
@@ -11,6 +11,15 @@ There is no v0.x or v1.1.x — v1.0.0 is the first tagged release, and
 versioning jumps v1.0.1 → v1.2.0.
 
 ---
+
+## v1.9.2 — 2026-07-23 — PyPI presentation alignment (docs-only)
+
+1. Publishes the current reader-facing README to PyPI instead of leaving the
+   package page frozen at the earlier v1.9.1 narrative.
+2. Makes every README image and repository link portable between GitHub and
+   PyPI, including the current test-backed runtime visual.
+3. Changes no runtime semantics — package verification remains 26/26 against
+   the same v1.9.1 behavior.
 
 ## v1.9.1 — 2026-07-23 — Provenance (fix)
 

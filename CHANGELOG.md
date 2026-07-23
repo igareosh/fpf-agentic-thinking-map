@@ -15,6 +15,21 @@ list: [`docs/deep/EXPANDED_PROVENANCE.md`](docs/deep/EXPANDED_PROVENANCE.md).
   finalized, not yet implemented. See
   [`docs/deep/DESIGN_TRAVERSAL_CHECKPOINT.md`](docs/deep/DESIGN_TRAVERSAL_CHECKPOINT.md).
 
+## [1.9.2] - 2026-07-23
+
+### Changed
+
+- Rebuilt the PyPI long description from the current public README, including
+  the polished library narrative, seven status badges, important project
+  links, and the test-backed runtime visual.
+- Converted README assets and repository references to absolute URLs so the
+  same document works correctly on both GitHub and PyPI.
+- Refreshed package summary, keywords, and project links around
+  `AuthorizationReceipt`, `PendingInput`/`AWAIT`, and `MoveIntent`.
+
+This is a documentation and package-metadata release. Runtime behavior is
+unchanged from v1.9.1; all 26 deterministic checks still pass.
+
 ## [1.9.1] - 2026-07-23
 
 ### Fixed
