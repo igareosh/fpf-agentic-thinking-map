@@ -2,7 +2,7 @@ name: Publish versioned documentation
 
 on:
   release:
-    types: [published, edited]
+    types: [published]
 
 permissions:
   contents: read
