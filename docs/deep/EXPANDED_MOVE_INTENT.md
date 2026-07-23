@@ -1,8 +1,6 @@
 # Expansion — MoveIntent and Move Inspection (2026-07-23)
 
-**Status**: Expansion, unreleased (built on local `main`, not yet pushed or
-pinned — see `governance/SPEC-ETHAN-FPF-THINKING-MAP-MOVE-INTENT.md` in
-the brain repo for the ratification record and current release state).
+**Status**: Expansion, v1.9.0
 **Decision by**: igareosh (prichindel.com)
 **Source**: an external draft submitted for review, arguing
 `TransitionPrimitive` identifies a reusable move *type* ("publish") while

@@ -19,7 +19,7 @@ list: [`docs/deep/EXPANDED_PROVENANCE.md`](docs/deep/EXPANDED_PROVENANCE.md).
 
 ### Fixed
 
-- **`AuthorizationReceipt` expiry** ("the tower's clock"): `expires_at_step`
+- **`AuthorizationReceipt` expiry**: `expires_at_step`
   was checked against `ActiveState.step_count`, which only advances on
   `step()` — never on `attempt_transition()`/`transition_to()` firing. A
   caller whose workflow only calls `attempt_transition()` got no
