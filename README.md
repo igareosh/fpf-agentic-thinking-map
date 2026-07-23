@@ -5,10 +5,10 @@
 # FPF Agentic Thinking Map
 
 FPF Agentic Thinking Map is a free, public, MIT-licensed Python runtime for
-multi-step agent traversal.
+agent traversal.
 
-It keeps the pieces that should stay explicit in code: state, evidence
-freshness, lawful transitions, authorization, and waiting conditions. The
+It keeps the parts that must stay explicit in code: state, evidence freshness,
+lawful transitions, authorization, waiting, and concrete move identity. The
 model can still reason freely, but the runtime decides what move is actually
 allowed.
 
@@ -84,155 +84,111 @@ own contexts, roles, evidence, gates, and transitions.
 
 ---
 
-## What Problem It Solves
+## Why It Exists
 
-In long multi-step agent runs, models can lose track of what was already
-checked, what is still valid, and what move is lawful next. Prose instructions
-compete with task content, earlier decisions, tool output, and context
-compression.
+Long agent runs drift when the model has to keep reconstructing where it is,
+what it may do next, and what still depends on outside input.
 
 This package moves traversal bookkeeping into ordinary code:
 
 - current context and state
 - evidence presence and TTL freshness
 - gates, guards, and lawful transitions
-- cross-context bridges
 - human authorization
 - external dependencies and wake conditions
 - concrete move identity and trace lineage
 
-This is not another reasoning prompt. It is a compact control surface around
-reasoning.
-
----
-
-## Runtime Flow
-
-```text
-Application / Agent
-        │
-        ▼
-   RuntimeBinding
-        │
-        ▼
-    ActiveState
-        │
-        ├── evidence freshness
-        ├── gate checks
-        ├── transition legality
-        └── authorization
-        │
-        ▼
-      Outcome
-CONTINUE | COLLECT_EVIDENCE | BRIDGE | IDLE | ESCALATE
-```
-
-`step()` returns a compact JSON slice: where the agent is, what can fire,
-what is blocked, what evidence is missing or stale, and which outcome applies.
-The map constrains traversal legality. It does not overwrite user meaning and
-does not replace model intelligence.
-
----
-
-## Core Capabilities
-
-- **Explicit state** - contexts, roles, and the active state are first-class
-  objects, not prose the model has to re-derive each turn.
-- **Evidence gates** - transitions declare `required_evidence`; the engine
-  checks freshness before it lets a move fire.
-- **Lawful transitions, enforced in code** - the legality of the next move is
-  computed outside the token stream, so it cannot be silently reinterpreted
-  the way prose instructions can.
-- **Inspectable outcomes** - every step resolves to one of a fixed set of
-  outcome kinds, not free text.
-
----
-
-## Ignition Lock And Abort To Orbit
-
-`requires_human_authorization` lets a transition be fully legal by every
-FPF-computed measure and still refuse to fire without caller approval.
-`safe_alternatives` plus `ActiveState.deny_pending_authorization(...)` mean a
-denial can reroute to a declared non-destructive twin instead of dead-ending.
-
-`AuthorizationReceipt` scopes approval to one transition and the exact state
-it was issued against. `attempt_transition(..., authorization=receipt)`
-rejects it if the transition, state, expiry, or prior consumption do not
-match.
-
-- [`ADOPTED_IGNITION_LOCK.md`](docs/deep/ADOPTED_IGNITION_LOCK.md) - what
-  shipped, why, and how it was tested
-- [`ADVISORIES.md`](docs/deep/ADVISORIES.md) - integrator advisories and known
-  sharp edges
-- [`run_scenario_destructive_hitl` / `run_scenario_denied_reroute`](fpf_thinking_map/examples.py)
-  - runnable walkthroughs
-- [`dev_mcp`](dev_mcp/README.md) - test your own map against the live engine
+That lets the model spend capacity on the task instead of on remembering the
+workflow shape.
 
 ---
 
 ## AWAIT
 
-`PendingInput` declares an external dependency - a worker result, a human
-reply, anything the map itself does not produce - with `wake_conditions`
-describing what would resolve it. When nothing else is actionable and an
-unresolved `PendingInput` exists, `step()` returns `AWAIT` instead of `IDLE`.
+`PendingInput` is the runtime's explicit "not done yet, but not lost" state.
+It names an external dependency, such as a worker result or a human reply, and
+describes the `wake_conditions` that would resolve it.
 
-A candidate action or a context bridge still wins over waiting. The map never
-polls, schedules, or resolves the dependency; the host owns that lifecycle and
-updates `PendingInput.status` itself.
+When nothing else is actionable and an unresolved `PendingInput` exists,
+`step()` returns `AWAIT` instead of `IDLE`.
+
+Important boundary:
+
+- a candidate action still wins over waiting
+- a context bridge still wins over waiting
+- the runtime never polls, schedules, or resolves the dependency
+- the host owns `PendingInput.status`
+
+This keeps "waiting" separate from "finished."
 
 ---
 
 ## MoveIntent
 
-`TransitionPrimitive` names a reusable move type. `MoveIntent` gives one
-concrete proposal a stable `move_id`, optional lineage, and a place for its
-own parameters to live.
+`TransitionPrimitive` names a reusable move type. `MoveIntent` names one
+concrete proposal.
 
-`ThinkingMapTraversal.inspect_move(state, intent)` evaluates one proposal
-without firing anything. `attempt_transition(state, transition_id, intent=...)`
-fires exactly as before and stamps trace lineage on success.
+That separation matters because one transition can be proposed many times with
+different parameters or lineage. `MoveIntent` gives each proposal:
+
+- a stable `move_id`
+- optional `parent_move_id`
+- opaque `parameters`
+
+`ThinkingMapTraversal.inspect_move(state, intent)` checks a proposal without
+firing it. `attempt_transition(state, transition_id, intent=...)` fires the
+move and stamps trace lineage on success.
+
+This keeps "what kind of move is this?" distinct from "which specific move
+just happened?"
 
 ---
 
 ## Provenance
 
 `AuthorizationReceipt`, `PendingInput`/`AWAIT`, and `MoveIntent` are separate
-mechanisms with one throughline: each closes a gap in what the runtime can say
-about its own state, instead of flattening that into a bare boolean, a bare
-string, or a single overloaded rest state.
+mechanisms with one shared purpose: they close gaps in what the runtime can
+say about its own state.
+
+Each one replaces a vague or overloaded shape with something inspectable:
+
+- approval scoped to one transition and one inspected state
+- waiting scoped to a declared external dependency
+- movement scoped to one concrete proposal instead of a reusable transition
+
+That is the line that keeps the runtime small, explicit, and honest.
 
 Full narrative: [`EXPANDED_PROVENANCE.md`](docs/deep/EXPANDED_PROVENANCE.md)
 · version-by-version: [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
-## Measurements
+## What It Gives You
 
-Tested on **5 shipped decision points**:
+- Explicit state instead of prose memory.
+- Evidence-aware transitions with freshness checks.
+- Lawful next-move selection in code, not in narration.
+- Human authorization for selected transitions.
+- External waiting states that stay distinct from "done."
+- Concrete move identity and trace lineage.
 
-- compiled `state.slice()` averaged **481.4** tokens per decision
-- raw FPF exact-section prompt averaged **138977.2** tokens per decision
-- that is **288.7x smaller** per decision
+## What It Is Not
 
-This measures traversal-context size for these five decision points - compiled
-runtime state versus injecting the equivalent raw FPF source sections - not
-general model intelligence or total application cost. Full methodology:
-[`TRIPLE_TAX_CALCULUS.md`](docs/deep/TRIPLE_TAX_CALCULUS.md).
+- A universal reasoning engine.
+- A semantic ingestion system for all of FPF.
+- An embeddings or vector database.
+- A tool runner, queue, scheduler, or worker supervisor.
+- A substitute for application-specific policy.
 
 ---
 
-## Architecture And Repository Components
+## Read Next
 
-- [Visual architecture](ARCHITECTURE.md) - core engine
-- [dev_mcp visual architecture](dev_mcp/ARCHITECTURE.md) - MCP tool layer
-- `fpf_thinking_map/` - published runtime library, what PyPI ships
-- `dev_mcp/` - development and compliance-testing harness
-- `docs/` - architecture, experiments, decisions, and adversarial studies
-- [Release history](https://github.com/igareosh/fpf-agentic-thinking-map/releases)
+- [Architecture](ARCHITECTURE.md)
+- [Release history](docs/VERSION_TRACKER.md)
 - [Design decisions, rejections, and adoptions](docs/DECISIONS_REJECTIONS_ADOPTIONS.md)
-- [Related projects we've reviewed](docs/RELATED_PROJECTS.md)
-- [Live demo](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)
+- [Integrator advisories](docs/deep/ADVISORIES.md)
+- [Deep test harness](dev_mcp/README.md)
 
 ---
 
@@ -247,37 +203,10 @@ package's observable agent behavior.
 
 ---
 
-## Scope And Non-Goals
+## Documentation, Attribution, And Licence
 
-It is for:
-
-- bounded, stepwise agent traversal
-- clearer failure signals
-- lower runtime noise
-- inspectable behavior
-- human authorization where needed
-- clean separation between waiting, resting, and acting
-
-It is not:
-
-- full semantic ingestion of FPF
-- a universal reasoning engine
-- a replacement for application logic
-- an in-engine memory or retrieval system
-- a tool runner, scheduler, or worker/task supervisor
-
-Compatibility: it works with model families that can read structured JSON and
-follow constraints. No model-specific prompt protocol is required by the
-engine itself.
-
----
-
-## Documentation, Provenance, Attribution, And Licence
-
-- [Decisions, rejections, adoptions index](docs/DECISIONS_REJECTIONS_ADOPTIONS.md)
-- [Integrator advisories](docs/deep/ADVISORIES.md)
-- [SHA256SUMS](SHA256SUMS)
 - [NOTICE](NOTICE)
+- [SHA256SUMS](SHA256SUMS)
 
 **Maintained by:** igareosh.com · **Contact:** igareosh@igareosh.com ·
 **GitHub / Telegram:** @igareosh
