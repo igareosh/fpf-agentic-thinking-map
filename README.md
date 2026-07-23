@@ -203,7 +203,7 @@ feature doesn't make on its own (same gaming-vector tradeoff
 evidence-triggered stagnation reset already documents).
 
 - [`check_move_intent`](fpf_thinking_map/verify.py) — no-mutation inspection, trace stamping, mismatched-intent handling, and the stagnation-counter boundary, asserted rather than silently changed
-- [`ADOPTED_MOVE_INTENT.md`](docs/deep/ADOPTED_MOVE_INTENT.md) — what shipped, why, what's still design-only
+- [`EXPANDED_MOVE_INTENT.md`](docs/deep/EXPANDED_MOVE_INTENT.md) — what shipped, why, what's still design-only
 
 ---
 
@@ -218,7 +218,7 @@ approval token, a "still running" result distinct from "done" — instead
 of flattening that structure into a bare boolean, a bare string, or a
 single overloaded rest state. None of it makes a weak model behave well;
 it stops the map from discarding what a good one already has to offer.
-Full narrative: [`ADOPTED_PROVENANCE.md`](docs/deep/ADOPTED_PROVENANCE.md) · version-by-version: [`CHANGELOG.md`](CHANGELOG.md).
+Full narrative: [`EXPANDED_PROVENANCE.md`](docs/deep/EXPANDED_PROVENANCE.md) · version-by-version: [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 

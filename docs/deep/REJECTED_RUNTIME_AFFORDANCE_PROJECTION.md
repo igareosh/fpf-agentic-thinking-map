@@ -5,8 +5,8 @@
 **Decision by**: igareosh (prichindel.com)
 **Source**: an external draft submitted for review, proposing runtime
 orientation additions to this package. Its pending-external-input /
-`AWAIT` proposal was adopted — see
-[`ADOPTED_PENDING_INPUT_AWAIT.md`](ADOPTED_PENDING_INPUT_AWAIT.md). Its
+`AWAIT` proposal expanded the package — see
+[`EXPANDED_PENDING_INPUT_AWAIT.md`](EXPANDED_PENDING_INPUT_AWAIT.md). Its
 tool/capability-availability proposal, covered here, was not.
 
 ## What was proposed
@@ -69,14 +69,14 @@ and [`REJECTED_F17_UNIFIED_TERM_SHEET.md`](REJECTED_F17_UNIFIED_TERM_SHEET.md):
 structure proposed for orientation's sake, not because a missing relation
 changes what the agent does on a single move.
 
-## What was adopted instead
+## What expanded the package instead
 
 The same external draft's pending-external-input proposal — a declared
 dependency plus an `AWAIT` outcome distinct from `IDLE` — does change
 per-move behavior: it adds a real outcome the model acts differently on
 (wait vs. stop). That part passes the same design rule this section fails,
 and was kept. See
-[`ADOPTED_PENDING_INPUT_AWAIT.md`](ADOPTED_PENDING_INPUT_AWAIT.md).
+[`EXPANDED_PENDING_INPUT_AWAIT.md`](EXPANDED_PENDING_INPUT_AWAIT.md).
 
 ## What would change this
 

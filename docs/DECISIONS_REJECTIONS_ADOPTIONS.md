@@ -11,10 +11,13 @@ Use this index when you need rationale and provenance behind design choices.
   - [FPF audit response](deep/FPF_AUDIT_RESPONSE.md)
 - **Ignition Lock / Abort to Orbit — legal vs. fireable, and declared alternatives (adopted, v1.6.0):**
   - [ADOPTED_IGNITION_LOCK.md](deep/ADOPTED_IGNITION_LOCK.md)
-- **Provenance — AuthorizationReceipt ("Clearance"), PendingInput/AWAIT ("Holding Pattern"), MoveIntent ("Tail Number"), and the authorization-clock fix, told as one arc (adopted, v1.7.0–1.9.1):**
-  - [ADOPTED_PROVENANCE.md](deep/ADOPTED_PROVENANCE.md) — narrative; [CHANGELOG.md](../CHANGELOG.md) — version-by-version
-  - [ADOPTED_PENDING_INPUT_AWAIT.md](deep/ADOPTED_PENDING_INPUT_AWAIT.md) — PendingInput/AWAIT detail, v1.8.0
-  - [ADOPTED_MOVE_INTENT.md](deep/ADOPTED_MOVE_INTENT.md) — MoveIntent detail, v1.9.0
+
+## Expansions
+
+- **Provenance — AuthorizationReceipt ("Clearance"), PendingInput/AWAIT ("Holding Pattern"), MoveIntent ("Tail Number"), and the authorization-clock fix, told as one arc (expansion, v1.7.0–1.9.1):**
+  - [EXPANDED_PROVENANCE.md](deep/EXPANDED_PROVENANCE.md) — narrative; [CHANGELOG.md](../CHANGELOG.md) — version-by-version
+  - [EXPANDED_PENDING_INPUT_AWAIT.md](deep/EXPANDED_PENDING_INPUT_AWAIT.md) — PendingInput/AWAIT detail, v1.8.0
+  - [EXPANDED_MOVE_INTENT.md](deep/EXPANDED_MOVE_INTENT.md) — MoveIntent detail, v1.9.0
   - AuthorizationReceipt (v1.7.0) detail lives as the 2026-07-23 addendum in [IGNITION_LOCK_WIND_TUNNEL.md](deep/IGNITION_LOCK_WIND_TUNNEL.md) — it closes a gap that document named, so it's recorded there rather than a separate file
 
 ## Accepted, implementation pending

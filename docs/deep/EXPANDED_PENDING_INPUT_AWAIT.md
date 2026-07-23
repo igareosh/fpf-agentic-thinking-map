@@ -1,10 +1,10 @@
-# Adopted — PendingInput / AWAIT (2026-07-23)
+# Expansion — PendingInput / AWAIT (2026-07-23)
 
-**Status**: Adopted, v1.8.0
+**Status**: Expansion, v1.8.0
 **Decision by**: igareosh (prichindel.com)
 **Source**: split from an external draft submitted for review, proposing
 runtime orientation additions to this package. The pending-external-input
-/ `AWAIT` portion is adopted here. Its tool/capability-availability
+/ `AWAIT` portion expands the package here. Its tool/capability-availability
 portion is rejected — see
 [`REJECTED_RUNTIME_AFFORDANCE_PROJECTION.md`](REJECTED_RUNTIME_AFFORDANCE_PROJECTION.md).
 
@@ -30,8 +30,8 @@ This isn't a novel category for the package, either — `ADV-08` (closed,
 nowhere to live" until `pending_authorizations` gave it one.
 `PendingInput`/`AWAIT` is that same design applied a second time, to a
 genuinely different kind of waiting (an external producer, not a human
-decision) — extending an already-adopted pattern, not introducing a new
-one.
+decision) — expanding an already-established pattern, not introducing a
+new one.
 
 ## What shipped
 

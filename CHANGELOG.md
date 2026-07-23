@@ -4,7 +4,7 @@ All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Narrative version of this arc, if you want the story instead of the
-list: [`docs/deep/ADOPTED_PROVENANCE.md`](docs/deep/ADOPTED_PROVENANCE.md).
+list: [`docs/deep/EXPANDED_PROVENANCE.md`](docs/deep/EXPANDED_PROVENANCE.md).
 
 ## [Unreleased]
 
@@ -57,7 +57,7 @@ list: [`docs/deep/ADOPTED_PROVENANCE.md`](docs/deep/ADOPTED_PROVENANCE.md).
   stagnation visit-key. Asserted directly in `check_move_intent`, not
   left as an accident of omission.
 
-See [`docs/deep/ADOPTED_MOVE_INTENT.md`](docs/deep/ADOPTED_MOVE_INTENT.md).
+See [`docs/deep/EXPANDED_MOVE_INTENT.md`](docs/deep/EXPANDED_MOVE_INTENT.md).
 
 ## [1.8.0] - 2026-07-23
 
@@ -76,7 +76,7 @@ See [`docs/deep/ADOPTED_MOVE_INTENT.md`](docs/deep/ADOPTED_MOVE_INTENT.md).
   `pending_authorizations`, applied a second time to a different kind of
   waiting (an external producer, not a human decision).
 
-See [`docs/deep/ADOPTED_PENDING_INPUT_AWAIT.md`](docs/deep/ADOPTED_PENDING_INPUT_AWAIT.md).
+See [`docs/deep/EXPANDED_PENDING_INPUT_AWAIT.md`](docs/deep/EXPANDED_PENDING_INPUT_AWAIT.md).
 
 ### Rejected (reviewed alongside this release, not shipped)
 

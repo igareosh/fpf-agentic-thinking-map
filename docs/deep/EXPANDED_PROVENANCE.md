@@ -1,4 +1,4 @@
-# Adopted — Provenance (v1.7.0–1.9.1, 2026-07-23)
+# Expansion — Provenance (v1.7.0–1.9.1, 2026-07-23)
 
 This document is the humble version of the release notes, same job
 `ADOPTED_IGNITION_LOCK.md` does for v1.6.0: what shipped, why, how it was
@@ -163,5 +163,5 @@ doesn't — the same job every mechanism in this library has had since
 `safe_alternatives` and `pending_authorizations` first drew that line.
 
 See [`CHANGELOG.md`](../../CHANGELOG.md) for the version-by-version
-account, and each mechanism's own `ADOPTED_*.md` for the full detail this
-document deliberately leaves out.
+account, and each mechanism's own `EXPANDED_*.md` for the full detail
+this document deliberately leaves out.

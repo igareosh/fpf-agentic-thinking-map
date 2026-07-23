@@ -41,7 +41,7 @@ not a hypothetical one.
 This is also not a new kind of scope for the package — it finishes a job
 `ADOPTED_IGNITION_LOCK.md` started. `pending_authorizations` /
 `denied_authorizations` (and this week's `consumed_authorizations`, see
-`ADOPTED_PENDING_INPUT_AWAIT.md`'s sibling work) were pulled out to real
+`EXPANDED_PENDING_INPUT_AWAIT.md`'s sibling work) were pulled out to real
 constructor fields for exactly this reason — "a harness restoring from
 persistence can pass it straight back in," in their own docstrings. The
 three private counters are what got left behind. This closes that.

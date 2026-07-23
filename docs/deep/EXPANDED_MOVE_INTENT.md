@@ -1,6 +1,6 @@
-# Adopted — MoveIntent and Move Inspection (2026-07-23)
+# Expansion — MoveIntent and Move Inspection (2026-07-23)
 
-**Status**: Adopted, unreleased (built on local `main`, not yet pushed or
+**Status**: Expansion, unreleased (built on local `main`, not yet pushed or
 pinned — see `governance/SPEC-ETHAN-FPF-THINKING-MAP-MOVE-INTENT.md` in
 the brain repo for the ratification record and current release state).
 **Decision by**: igareosh (prichindel.com)
