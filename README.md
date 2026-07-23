@@ -233,7 +233,7 @@ methodology: [TRIPLE_TAX_CALCULUS.md](docs/deep/TRIPLE_TAX_CALCULUS.md).
 | `dev_mcp/` | Development and compliance-testing harness, not shipped, own test suite ([38/38 pass](dev_mcp/test_server.py)), own [11 integrator advisories](docs/deep/ADVISORIES.md) — kept distinct on purpose rather than folded into core numbers above |
 | `docs/` | Architecture, experiments, decisions, and adversarial studies |
 
-- [Release history →](https://github.com/igareosh/fpf-agentic-thinking-map/releases)
+- [Release history →](https://github.com/igareosh/fpf-agentic-thinking-map/releases) · [CHANGELOG.md](CHANGELOG.md) — version-by-version detail
 - [Deep decisions/rejections/adoptions →](docs/DECISIONS_REJECTIONS_ADOPTIONS.md)
 - [Related projects we've reviewed →](docs/RELATED_PROJECTS.md) (not used by us, not a partnership — just noted so we don't forget)
 - [Live demo →](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)
