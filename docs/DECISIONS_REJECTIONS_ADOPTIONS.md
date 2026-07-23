@@ -14,8 +14,15 @@ Use this index when you need rationale and provenance behind design choices.
 - **PendingInput / AWAIT — waiting on external input, distinct from IDLE (adopted, v1.8.0):**
   - [ADOPTED_PENDING_INPUT_AWAIT.md](deep/ADOPTED_PENDING_INPUT_AWAIT.md)
 
+## Accepted, implementation pending
+
+- **Traversal Checkpoint and Restore — faithful serialize/restore of `ActiveState`, map fingerprinting (accepted, not yet built):**
+  - [DESIGN_TRAVERSAL_CHECKPOINT.md](deep/DESIGN_TRAVERSAL_CHECKPOINT.md)
+
 ## Rejections
 
+- **Mandatory Orientation Projection in Every View (rejected):**
+  - [REJECTED_ORIENTATION_VIEW_PROJECTION.md](deep/REJECTED_ORIENTATION_VIEW_PROJECTION.md)
 - **Runtime Affordance Projection (rejected):**
   - [REJECTED_RUNTIME_AFFORDANCE_PROJECTION.md](deep/REJECTED_RUNTIME_AFFORDANCE_PROJECTION.md)
 - **C.32 Candidate-Synthesis Logic (rejected):**
