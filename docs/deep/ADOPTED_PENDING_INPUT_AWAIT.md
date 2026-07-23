@@ -2,11 +2,36 @@
 
 **Status**: Adopted, v1.8.0
 **Decision by**: igareosh (prichindel.com)
-**Source**: split from an external draft, "FPF Runtime Orientation Alignment
-Specification" (GPT-authored, submitted for review) — sections 6 and 7
-(`ADOPT-2`, `ADOPT-3`) adopted here; section 5 (`ADOPT-1`, runtime
-affordance projection) rejected, see
+**Source**: split from an external draft submitted for review, proposing
+runtime orientation additions to this package. The pending-external-input
+/ `AWAIT` portion is adopted here. Its tool/capability-availability
+portion is rejected — see
 [`REJECTED_RUNTIME_AFFORDANCE_PROJECTION.md`](REJECTED_RUNTIME_AFFORDANCE_PROJECTION.md).
+
+## Why it is in scope
+
+`CONTRIBUTING.md`'s **Review focus** names exactly this kind of change as
+welcome:
+
+> Bug fixes where the runtime produces a wrong outcome [...] New guards or
+> logic rules that change what the agent does on a single move.
+
+`IDLE` producing a wrong outcome is precisely what this closes. It
+conflated two different things: "done, nothing left to do" and "nothing
+to do *right now*, but something outside the map is still owed." Those
+call for different agent behavior — stop, versus come back later — and
+`OutcomeKind.AWAIT` is a new outcome that changes exactly what the agent
+does on that single move: wait with named wake conditions, instead of
+reading "at rest" and treating a live dependency as closed.
+
+This isn't a novel category for the package, either — `ADV-08` (closed,
+2026-07-20) forced the same fix once already, on a different axis:
+`requires_human_authorization` created "a pending-decision state that had
+nowhere to live" until `pending_authorizations` gave it one.
+`PendingInput`/`AWAIT` is that same design applied a second time, to a
+genuinely different kind of waiting (an external producer, not a human
+decision) — extending an already-adopted pattern, not introducing a new
+one.
 
 ## What shipped
 
@@ -30,18 +55,6 @@ affordance projection) rejected, see
   warning, and for the same reason: a still-open dependency elsewhere must
   not be silently buried just because the current move went fine.
 
-## Why
-
-`ADV-08` (closed, 2026-07-20) named the underlying problem once already,
-for a different axis: `requires_human_authorization` created "a
-pending-decision state that had nowhere to live" until
-`pending_authorizations` gave it one. `IDLE` had the same gap for external
-dependencies — it collapsed "done" and "waiting on something outside the
-map" into a single value, and those call for different agent behavior:
-stop, versus come back later. `PendingInput`/`AWAIT` is that same fix,
-applied a second time, to a genuinely different kind of waiting (an
-external producer, not a human decision).
-
 ## Where the boundary sits
 
 The core:
@@ -57,7 +70,11 @@ facts, does not decide policy or run the workflow" line every other
 feature in this package draws (`safe_alternatives`, `bridge_options`,
 `ADV-*` advisories). A host loop calling `PendingInput.status = ...` after
 its own worker/human-reply/webhook resolves is exactly the intended use;
-the map does not know or care what triggered that assignment.
+the map does not know or care what triggered that assignment. Keeping the
+core this narrow is also why the rejected half of the same proposal
+(tool/capability availability) doesn't belong here — see
+`REJECTED_RUNTIME_AFFORDANCE_PROJECTION.md` for why that one doesn't clear
+the same bar.
 
 ## Evaluation order
 

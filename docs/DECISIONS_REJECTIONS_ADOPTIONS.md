@@ -16,7 +16,7 @@ Use this index when you need rationale and provenance behind design choices.
 
 ## Rejections
 
-- **Runtime Affordance Projection / ADOPT-1 (rejected):**
+- **Runtime Affordance Projection (rejected):**
   - [REJECTED_RUNTIME_AFFORDANCE_PROJECTION.md](deep/REJECTED_RUNTIME_AFFORDANCE_PROJECTION.md)
 - **C.32 Candidate-Synthesis Logic (rejected):**
   - [REJECTED_C32_CANDIDATE_SYNTHESIS.md](deep/REJECTED_C32_CANDIDATE_SYNTHESIS.md)
