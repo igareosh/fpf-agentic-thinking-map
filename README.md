@@ -1,35 +1,85 @@
 <p align="center">
-  <img src="docs/assets/fpf-agentic-thinking-map-header.png" alt="FPF Agentic Thinking Map — Agent freedom. Explicit movement rules." width="100%" />
+  <img src="docs/assets/fpf-agentic-thinking-map-header.png" alt="FPF Agentic Thinking Map - Agent freedom. Explicit movement rules." width="100%" />
 </p>
 
 # FPF Agentic Thinking Map
 
-FPF Agentic Thinking Map is a free, public, MIT-licensed Python runtime for
-agent traversal.
+A small, deterministic Python runtime for agents that may reason freely but
+must move through a workflow lawfully.
 
-It keeps the parts that must stay explicit in code: state, evidence freshness,
-lawful transitions, authorization, waiting, and concrete move identity. The
-model can still reason freely, but the runtime decides what move is actually
-allowed.
-
-**v1.9.1** · Python 3.12+ · zero runtime dependencies
-
-[![PyPI version](https://img.shields.io/pypi/v/fpf-thinking-map?label=PyPI)](https://pypi.org/project/fpf-thinking-map/)
-[![Python versions](https://img.shields.io/pypi/pyversions/fpf-thinking-map?label=Python)](https://pypi.org/project/fpf-thinking-map/)
-[![License](https://img.shields.io/pypi/l/fpf-thinking-map?label=License)](LICENSE)
-[![Zero dependencies](https://img.shields.io/badge/dependencies-0-2ea44f)](pyproject.toml)
-[![Verify](https://img.shields.io/badge/verify-26%2F26%20pass-2ea44f)](fpf_thinking_map/verify.py)
-[![Live demo](https://img.shields.io/badge/demo-live-7c3aed)](https://igareosh.github.io/fpf-agentic-thinking-map/demos/)
-
----
-
-## Install And Try
+It keeps operational state, evidence freshness, transition legality,
+authorization boundaries, and waiting conditions outside the model's prose
+context. The model can inspect the map and choose; the runtime decides whether
+the move is valid.
 
 ```bash
 pip install fpf-thinking-map
 python -m fpf_thinking_map.verify
-python -m fpf_thinking_map.examples
 ```
+
+## The problem
+
+An agent can explain a workflow rule and still lose track of it during a long
+run. Prose instructions compete with task content, earlier decisions, tool
+output, and context compression.
+
+FPF Agentic Thinking Map moves the parts that should not depend on narration
+into ordinary code:
+
+- current context and state;
+- evidence presence and TTL freshness;
+- gates, guards, and lawful transitions;
+- cross-context bridges;
+- human authorization;
+- external dependencies and wake conditions;
+- concrete move identity and trace lineage.
+
+This is not another reasoning prompt. It is a compact control surface around
+reasoning.
+
+## The contract
+
+The division of responsibility is deliberate:
+
+| Agent or application | Thinking map runtime |
+| --- | --- |
+| Interprets the task | Holds explicit traversal state |
+| Generates and compares options | Computes which moves are legal |
+| Collects evidence | Checks presence and freshness |
+| Proposes a concrete move | Inspects or attempts that move |
+| Explains the result | Returns a bounded outcome and trace |
+| Requests human input | Enforces the authorization boundary |
+| Executes tools and jobs | Never executes, polls, or schedules them |
+
+The map constrains movement, not meaning. It does not replace the model,
+application logic, retrieval, tools, or a task scheduler.
+
+## Runtime shape
+
+```mermaid
+flowchart LR
+    A["Agent / application"] --> B["RuntimeBinding"]
+    B --> C["ActiveState"]
+    C --> D["Gates + guards"]
+    D --> E["Traversal"]
+    E --> F["Outcome + slice + trace"]
+    F --> A
+```
+
+The normal loop is small:
+
+1. Build or restore the active state.
+2. Ask the runtime what is possible.
+3. Let the agent or host choose a move.
+4. Inspect or attempt it.
+5. Persist the resulting state and trace.
+
+The runtime can distinguish action, missing evidence, a context bridge, an
+external wait, a human escalation, and a genuine rest state. See
+[ARCHITECTURE.md](ARCHITECTURE.md) for the exact reachable outcomes and
+evaluation order.
+
+## Minimal example
 
 ```python
 from fpf_thinking_map import (
@@ -43,18 +93,24 @@ from fpf_thinking_map import (
     ThinkingMapTraversal,
 )
 
-sm = SemanticMap()
-sm.register_context(ContextPrimitive("deploy", "Deploy"))
-sm.register_role(RolePrimitive("owner", "Owner", "deploy"))
-sm.register_gate(
+semantic_map = SemanticMap()
+semantic_map.register_context(ContextPrimitive("deploy", "Deploy"))
+semantic_map.register_role(RolePrimitive("owner", "Owner", "deploy"))
+semantic_map.register_gate(
     GatePrimitive(
         "release_gate",
         "Release gate",
         "deploy",
-        checks=[GateCheck("tests", "Tests are green", required_evidence=["test_results"])],
+        checks=[
+            GateCheck(
+                "tests",
+                "Tests are green",
+                required_evidence=["test_results"],
+            )
+        ],
     )
 )
-sm.register_transition(
+semantic_map.register_transition(
     TransitionPrimitive(
         "ship",
         "Ship release",
@@ -65,8 +121,8 @@ sm.register_transition(
     )
 )
 
-engine = ThinkingMapTraversal(sm)
-state = engine.build_active_state(
+traversal = ThinkingMapTraversal(semantic_map)
+state = traversal.build_active_state(
     RuntimeBinding(
         task="release",
         actor_role_ids=["owner"],
@@ -76,144 +132,192 @@ state = engine.build_active_state(
     current_state="candidate",
 )
 
-print(engine.step(state).kind)
+inspection = traversal.step(state)
+result = traversal.attempt_transition(state, "ship")
+
+print(inspection.kind)
+print(result.kind)
+print(state.current_state)
 ```
 
-The runtime is domain-agnostic. Replace the deployment vocabulary with your
-own contexts, roles, evidence, gates, and transitions.
+The map is domain-agnostic. Replace the deployment vocabulary with your own
+contexts, roles, evidence, gates, and transitions.
 
----
+Run the packaged scenarios:
 
-## Why It Exists
+```bash
+python -m fpf_thinking_map.examples
+```
 
-Long agent runs drift when the model has to keep reconstructing where it is,
-what it may do next, and what still depends on outside input.
+## What is enforced
 
-This package moves traversal bookkeeping into ordinary code:
+### Explicit state
 
-- current context and state
-- evidence presence and TTL freshness
-- gates, guards, and lawful transitions
-- human authorization
-- external dependencies and wake conditions
-- concrete move identity and trace lineage
+The active position is a first-class object, not a conclusion the model must
+repeatedly reconstruct from chat history.
 
-That lets the model spend capacity on the task instead of on remembering the
-workflow shape.
+### Evidence with age
 
----
+Transitions can require evidence. Evidence can decay by semantic floor and
+TTL, allowing the runtime to distinguish present evidence from usable
+evidence.
 
-## AWAIT
+### Gates, guards, and logic
 
-`PendingInput` is the runtime's explicit "not done yet, but not lost" state.
-It names an external dependency, such as a worker result or a human reply, and
-describes the `wake_conditions` that would resolve it.
+Gates test declared conditions. Guards enforce hard constraints. A small
+propositional layer composes facts without asking the model to reinterpret the
+rules on every step.
 
-When nothing else is actionable and an unresolved `PendingInput` exists,
-`step()` returns `AWAIT` instead of `IDLE`.
+### Validated bridges
 
-Important boundary:
+Cross-context movement is explicit. High-risk substitution without a
+sufficient bridge contract is refused or escalated rather than silently
+treated as equivalent.
 
-- a candidate action still wins over waiting
-- a context bridge still wins over waiting
-- the runtime never polls, schedules, or resolves the dependency
-- the host owns `PendingInput.status`
+### Human authorization
 
-This keeps "waiting" separate from "finished."
+`requires_human_authorization` separates "structurally legal" from "authorized
+to execute."
 
----
+For stronger integrations, `AuthorizationReceipt` binds approval to:
 
-## MoveIntent
+- one transition;
+- the exact inspected state fingerprint;
+- an expiry boundary;
+- single consumption.
 
-`TransitionPrimitive` names a reusable move type. `MoveIntent` names one
-concrete proposal.
+A denied move may expose declared `safe_alternatives`, so escalation does not
+have to become a dead end.
 
-That separation matters because one transition can be proposed many times with
-different parameters or lineage. `MoveIntent` gives each proposal:
+### External waiting
 
-- a stable `move_id`
-- optional `parent_move_id`
-- opaque `parameters`
+`PendingInput` and `AWAIT` distinguish "the workflow is finished" from "the
+workflow is alive but waiting for something outside the map." The host owns
+polling and resolution.
 
-`ThinkingMapTraversal.inspect_move(state, intent)` checks a proposal without
-firing it. `attempt_transition(state, transition_id, intent=...)` fires the
-move and stamps trace lineage on success.
+### Concrete move identity
 
-This keeps "what kind of move is this?" distinct from "which specific move
-just happened?"
+`MoveIntent` distinguishes a reusable transition type from one particular
+proposed move. `inspect_move()` evaluates it without mutation; a successful
+transition can stamp move lineage into the trace.
 
----
+## Why the versions matter
 
-## Provenance
+The project has grown by closing specific ambiguities in traversal state, not
+by expanding into a general agent framework.
 
-`AuthorizationReceipt`, `PendingInput`/`AWAIT`, and `MoveIntent` are separate
-mechanisms with one shared purpose: they close gaps in what the runtime can
-say about its own state.
+| Release line | Capability added |
+| --- | --- |
+| v1.0 | Runnable semantic primitives, deterministic guards, lawful traversal |
+| v1.2 | Evidence TTL, response contracts, `IDLE` and `BRIDGE` |
+| v1.3 | Enforced bridge crossing and lean state slices |
+| v1.4 | Stagnation detection, integrator advisories, verified documentation |
+| v1.5 | Stable public package boundary |
+| v1.6 | Human authorization and safe denial routes |
+| v1.7 | State-bound, expiring authorization receipts |
+| v1.8 | External dependency tracking and `AWAIT` |
+| v1.9 | Concrete move identity, inspection, lineage, authorization-clock fix |
 
-Each one replaces a vague or overloaded shape with something inspectable:
+The complete reader-facing history is in
+[docs/VERSION_TRACKER.md](docs/VERSION_TRACKER.md). Technical changes are in
+[CHANGELOG.md](CHANGELOG.md), and full release bodies remain in
+[GitHub Releases](https://github.com/igareosh/fpf-agentic-thinking-map/releases).
 
-- approval scoped to one transition and one inspected state
-- waiting scoped to a declared external dependency
-- movement scoped to one concrete proposal instead of a reusable transition
+This separation is intentional: the README describes the stable product; the
+tracker records how that product became stronger.
 
-That is the line that keeps the runtime small, explicit, and honest.
+## Evidence, verification, and limits
 
-Full narrative: [`EXPANDED_PROVENANCE.md`](docs/deep/EXPANDED_PROVENANCE.md)
-· version-by-version: [`CHANGELOG.md`](CHANGELOG.md).
+The repository includes three different kinds of support. They should not be
+confused:
 
----
+- Deterministic verification checks runtime invariants directly.
+- Scenario and adversarial tests exercise integration behavior and known
+  failure shapes.
+- Model experiments show behavior under stated conditions; they are evidence,
+  not universal guarantees.
 
-## What It Gives You
+```bash
+python -m fpf_thinking_map.verify
+python -m fpf_thinking_map.examples
+```
 
-- Explicit state instead of prose memory.
-- Evidence-aware transitions with freshness checks.
-- Lawful next-move selection in code, not in narration.
-- Human authorization for selected transitions.
-- External waiting states that stay distinct from "done."
-- Concrete move identity and trace lineage.
+The compiled state slice was also measured against injecting the corresponding
+raw FPF sections at five shipped decision points. The measured slice was much
+smaller, but this is a traversal-context result, not a claim about general
+intelligence or total application cost. Method and limitations:
+[TRIPLE_TAX_CALCULUS.md](docs/deep/TRIPLE_TAX_CALCULUS.md).
 
-## What It Is Not
+For the authorization experiments, threat boundaries, failures found, and
+claims deliberately not made, see
+[IGNITION_LOCK_WIND_TUNNEL.md](docs/deep/IGNITION_LOCK_WIND_TUNNEL.md).
 
-- A universal reasoning engine.
-- A semantic ingestion system for all of FPF.
-- An embeddings or vector database.
-- A tool runner, queue, scheduler, or worker supervisor.
-- A substitute for application-specific policy.
+## Scope
 
----
+Use this library when you need:
 
-## Read Next
+- bounded multi-step traversal;
+- explicit next-move legality;
+- evidence-aware workflow state;
+- inspectable reasons for blocking or escalation;
+- human authorization for selected transitions;
+- a clean distinction between waiting, resting, and acting;
+- compact state projections for an LLM or agent host.
 
-- [Architecture](ARCHITECTURE.md)
-- [Release history](docs/VERSION_TRACKER.md)
-- [Design decisions, rejections, and adoptions](docs/DECISIONS_REJECTIONS_ADOPTIONS.md)
-- [Integrator advisories](docs/deep/ADVISORIES.md)
-- [Deep test harness](dev_mcp/README.md)
+Do not use it as:
 
----
+- a universal reasoning engine;
+- a semantic ingestion system for all of FPF;
+- an embeddings or vector database;
+- a tool runner, queue, scheduler, or worker supervisor;
+- a substitute for application-specific policy;
+- a certification that an entire agent system is safe.
 
-## Relationship To FPF
+Correct map authoring and correct host integration remain part of the trust
+boundary. Known sharp edges and deliberate non-goals are recorded in
+[ADVISORIES.md](docs/deep/ADVISORIES.md).
+
+## Repository guide
+
+| Path | Purpose |
+| --- | --- |
+| [`fpf_thinking_map/`](fpf_thinking_map/) | Zero-dependency runtime published to PyPI |
+| [`dev_mcp/`](dev_mcp/) | Separate development and compliance-testing harness |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Verified control flow and module architecture |
+| [docs/VERSION_TRACKER.md](docs/VERSION_TRACKER.md) | Every release, with three practical consequences |
+| [docs/DECISIONS_REJECTIONS_ADOPTIONS.md](docs/DECISIONS_REJECTIONS_ADOPTIONS.md) | Design provenance and rejected scope |
+| [docs/deep/ADVISORIES.md](docs/deep/ADVISORIES.md) | Integration boundaries and known sharp edges |
+| [SHA256SUMS](SHA256SUMS) | Repository-wide source fingerprints |
+
+## Design rules
+
+1. Keep the model free to generate and compare.
+2. Keep movement legality explicit and deterministic.
+3. Add structure only when it changes observable behavior.
+4. Keep each decision payload small.
+5. Keep host responsibilities outside the core.
+6. Record rejected ideas as carefully as adopted ones.
+7. Prefer a narrow mechanism with inspectable limits over a broad claim.
+
+## Relationship to FPF
 
 This project is inspired by [ailev/FPF](https://github.com/ailev/FPF) by
-Anatoly Levenchuk.
+Anatoly Levenchuk. It is an independent, MIT-licensed implementation with its
+own runtime scope.
 
-It is an independent implementation with its own runtime scope. FPF provides
-the broad conceptual frame; this package compiles the part that improves this
-package's observable agent behavior.
+FPF provides the broad conceptual frame. This package compiles a selected part
+of that frame into a practical traversal runtime. It may omit or reject
+patterns that do not improve this package's observable agent behavior.
 
----
+See [NOTICE](NOTICE) and [SOURCES.md](docs/deep/SOURCES.md) for attribution and
+scope boundaries.
 
-## Documentation, Attribution, And Licence
+## License and contact
 
-- [NOTICE](NOTICE)
-- [SHA256SUMS](SHA256SUMS)
+MIT License. See [LICENSE](LICENSE).
 
-**Maintained by:** igareosh.com · **Contact:** igareosh@igareosh.com ·
-**GitHub / Telegram:** @igareosh
+Maintained by [igareosh.com](https://igareosh.com) ·
+[@igareosh](https://github.com/igareosh) ·
+[igareosh@igareosh.com](mailto:igareosh@igareosh.com)
 
-**Contributors:** igareosh · OpenAI Codex (README refinement)
-
-This is a small community implementation: free to use, open to inspect, and
-meant to be a practical point of discussion rather than a total framework.
-
-**License:** MIT. See [LICENSE](LICENSE).
+**Agent freedom. Explicit movement rules.**
